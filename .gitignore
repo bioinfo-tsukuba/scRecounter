@@ -1,0 +1,12 @@
+._*
+*~
+.env
+.gcp/
+tmp/
+logs/
+work/
+archive/
+.nextflow/
+.nextflow*
+screenlog.*
+*.pyc
