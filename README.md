@@ -4,7 +4,6 @@ scRecouter
 Nextflow pipeline to re-process all public single-cell data
 
 
-
 # Installation
 
 ## Conda & mamba install
@@ -71,8 +70,55 @@ Nextflow will automatically create the environments as long as `mamba` is instal
 
 ```bash
 nextflow run main.nf \
-  -profile conda,slurm \
-  -work-dir /scratch/$(id -gn)/$(whoami)/nextflow-work/scRecounter \
+  -profile apptainer,slurm \
   --accessions
 ```
 
+# Dev
+
+## Run
+
+```bash
+nextflow run main.nf \
+  -profile conda \
+  --samples tmp/fetchngs_1mil/samples.csv
+```
+
+## Convert Docker container to Apptainer
+
+Pull the docker image (e.g., `ubuntu:latest`) and convert it to an Apptainer container:
+
+```bash
+apptainer pull ubuntu_latest.sif docker://ubuntu:latest
+```
+
+## Resources
+
+### Software
+
+* [sra-tools](https://github.com/ncbi/sra-tools)
+  * download data from the SRA
+* [gget](https://github.com/pachterlab/gget)
+  * efficient querying of genomic databases
+* [ffq](https://github.com/pachterlab/ffq)
+  * Fetch metadata information from the SRA and other databases
+  * Can be used to get SRA study accessions from paper DOIs
+* [gencube](https://github.com/snu-cdrc/gencube)
+  * Efficient retrieval, download, and unification of genomic data from leading biodiversity databases
+* [nf-core/fetchngs](https://nf-co.re/fetchngs/1.12.0/)
+  * Nextflow pipeline for downloading NGS data
+
+## Workflow
+
+* Input
+  * csv of SRA experiment accessions
+* Download
+  * adapted from [nf-core/fetchngs](https://nf-co.re/fetchngs/1.12.0/)
+    * https://github.com/nf-core/fetchngs/blob/master/workflows/sra/main.nf
+* Read QC 
+  * seqkit stats
+* Characterize datasets
+  * See https://github.com/ArcInstitute/scRecount/blob/chris/chris_scripts/dsub_solution/process_srr.sh
+* Map to reference
+  * STARsolo
+  * See https://github.com/ArcInstitute/scRecount/blob/chris/chris_scripts/dsub_solution/process_srr.sh

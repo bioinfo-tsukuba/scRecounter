@@ -1,9 +1,12 @@
 // Subworkflows
-include { DOWNLOAD_WF } from './workflows/download.nf'
+//include { DOWNLOAD_WF } from './workflows/download.nf'
+include { INPUT_WF } from './workflows/input.nf'
 
 // Main workflow
 workflow {
+    INPUT_WF()
 
+    
 }
 
 // On complete
