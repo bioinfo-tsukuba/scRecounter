@@ -70,7 +70,7 @@ Nextflow will automatically create the environments as long as `mamba` is instal
 
 ```bash
 nextflow run main.nf \
-  -profile apptainer,slurm \
+  -profile conda,slurm \
   --accessions
 ```
 
@@ -80,7 +80,7 @@ nextflow run main.nf \
 
 ```bash
 nextflow run main.nf \
-  -profile conda \
+  -profile conda,vm \
   --samples tmp/fetchngs_1mil/samples.csv
 ```
 

@@ -18,7 +18,9 @@ workflow INPUT_WF{
 
     // merge reads by sample
     MERGE_READS(ch_samples)
-    MERGE_READS.out.view()
+    
+    emit:
+    fastq = MERGE_READS.out
 }
 
 process MERGE_READS {

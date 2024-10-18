@@ -1,12 +1,15 @@
 // Subworkflows
 //include { DOWNLOAD_WF } from './workflows/download.nf'
 include { INPUT_WF } from './workflows/input.nf'
+include { READ_QC_WF } from './workflows/read_qc.nf'
 
 // Main workflow
 workflow {
     // load input
     INPUT_WF()
-    // 
+
+    // READ_QC
+    READ_QC_WF(INPUT_WF.out.fastq)
     
 }
 
