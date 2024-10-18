@@ -10,12 +10,27 @@ workflow INPUT_WF{
             if (miss_columns) {
                 error "Missing columns in the input CSV file: ${miss_columns}"
             }
-            return [row.sample, row.fastq_1, row.fastq_2]
+            return [row.sample, file(row.fastq_1), file(row.fastq_2)]
         }.groupTuple()
         .map { sample, fastq_1, fastq_2 ->
-            return [sample, fastq_1.collect(), fastq_2.collect()]
+            return [sample, fastq_1.flatten(), fastq_2.flatten()]
         }
 
-    emit:
-    samples = ch_samples
+    // merge reads by sample
+    MERGE_READS(ch_samples)
+    MERGE_READS.out.view()
+}
+
+process MERGE_READS {
+    input:
+    tuple val(sample), path(fastq_1), path(fastq_2)
+
+    output:
+    tuple val(sample), path("${sample}_R1.fq.gz"), path("${sample}_R2.fq.gz")
+
+    script:
+    """
+    cat ${fastq_1} > ${sample}_R1.fq.gz
+    cat ${fastq_2} > ${sample}_R2.fq.gz
+    """
 }

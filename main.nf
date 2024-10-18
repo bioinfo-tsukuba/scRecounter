@@ -4,8 +4,9 @@ include { INPUT_WF } from './workflows/input.nf'
 
 // Main workflow
 workflow {
+    // load input
     INPUT_WF()
-
+    // 
     
 }
 
