@@ -1,10 +1,9 @@
-workflow CHARACTERIZE_WF{
+workflow STAR_WF{
     take:
     ch_fastq
 
     main:
-    // for each barcode, run STAR & determine the number of reads aligned
-    //  align two reads against three possible chemistry configurations, v3, multiome GEX, and v2/5'.  
+    // for each sample (accession), run STAR on subset of reads with various parameters to determine which params produce the most valid barcodes
     
     // load barcodes file
     ch_barcodes = Channel
@@ -24,33 +23,91 @@ workflow CHARACTERIZE_WF{
             ]
         }
 
-    // subsample reads
+    // Subsample reads
     SUBSAMPLE_READS(ch_fastq)
 
-    // get read lengths
+    // Get read lengths
     SEQKIT_STATS(SUBSAMPLE_READS.out)
 
-    // pairwise combine samples with barcodes and strand
+    // Pairwise combine samples with barcodes and strand
     ch_fastq_barcodes = SUBSAMPLE_READS.out
         .combine(Channel.of("Forward", "Reverse"))
         .combine(ch_barcodes)
         
-    // run STAR on subsampled reads, for all pairwise parameter combinations
+    // Run STAR on subsampled reads, for all pairwise parameter combinations
     STAR_GET_VALID_BARCODES(ch_fastq_barcodes)
 
     // Set STAR parameters
     ch_valid_barcodes = STAR_GET_VALID_BARCODES.out
         .groupTuple()
         .join(SEQKIT_STATS.out, by: 0)
+    STAR_SET_PARAMS(
+        ch_valid_barcodes, 
+        Channel.fromPath(params.barcodes, checkIfExists: true)
+    )
 
-    SET_STAR_PARAMS(ch_valid_barcodes)
+    // Run STAR with best parameters
+    STAR_FULL(ch_fastq.join(STAR_SET_PARAMS.out, by: 0))
 }
 
-process SET_STAR_PARAMS {
+process STAR_FULL {
+    conda "envs/star.yml"
+    label "process_high"
+
+    input:
+    tuple val(sample), path(fastq_1), path(fastq_2), path(star_params)
+
+    output:
+    tuple val(sample), path("resultsSolo.out/Gene/raw/*"),                         emit: gene_raw
+    tuple val(sample), path("resultsSolo.out/Gene/filtered/*"),                    emit: gene_filt
+    tuple val(sample), path("resultsSolo.out/GeneFull/raw/*"),                     emit: gene_full_raw
+    tuple val(sample), path("resultsSolo.out/GeneFull/filtered/*"),                emit: gene_full_filt
+    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/raw/*"),             emit: gene_ex50_raw
+    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/filtered/*"),        emit: gene_ex50_filt
+    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/raw/*"),      emit: gene_ex_int_raw
+    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/filtered/*"), emit: gene_ex_int_filt
+    tuple val(sample), path("resultsSolo.out/Velocyto/raw/*"),                     emit: velocyto_raw
+    tuple val(sample), path("resultsSolo.out/Velocyto/filtered/*"),                emit: velocyto_filt
+
+    script:
+    """
+    # load parameters
+    json2env.py \\
+      --params BARCODE_FILE CELL_BARCODE_LENGTH UMI_LENGTH STRAND \\
+      -- $star_params > params.env
+    source params.env
+
+    # run STAR
+    STAR \\
+      --readFilesIn $fastq_2 $fastq_1 \\
+      --runThreadN ${task.cpus} \\
+      --genomeDir ${params.star_index} \\
+      --soloCBwhitelist \$BARCODE_FILE \\
+      --soloUMIlen \$UMI_LENGTH \\
+      --soloStrand \$STRAND \\
+      --soloCBlen \$CELL_BARCODE_LENGTH \\
+      --soloType CB_UMI_Simple \\
+      --clipAdapterType CellRanger4 \\
+      --outFilterScoreMin 30 \\
+      --soloCBmatchWLtype 1MM_multi_Nbase_pseudocounts \\
+      --soloCellFilter EmptyDrops_CR \\
+      --soloUMIfiltering MultiGeneUMI_CR \\
+      --soloUMIdedup 1MM_CR \\
+      --soloFeatures Gene GeneFull GeneFull_ExonOverIntron GeneFull_Ex50pAS Velocyto \\
+      --soloMultiMappers EM Uniform \\
+      --outSAMtype None \\
+      --soloBarcodeReadLength 0 \\
+      --outFileNamePrefix results
+    """
+}
+//TODO: remove `--soloBarcodeReadLength 0`?
+
+process STAR_SET_PARAMS {
     conda "envs/star.yml"
 
     input:
     tuple val(sample), path(summary_csv), path(stats_tsv)
+    each path(barcodes)
 
     output:
     tuple val(sample), path("star_params.json")
@@ -60,6 +117,7 @@ process SET_STAR_PARAMS {
     set_star_params.py \\
       --sample $sample \\
       --stats $stats_tsv \\
+      --barcodes $barcodes \\
       $summary_csv > star_params.json
     """
 

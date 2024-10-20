@@ -31,27 +31,48 @@ parser.add_argument('--sample', type=str, default="sample",
                     help='Sample name')
 parser.add_argument('--stats', type=str, default=None,
                     help='Path to the seqkit stats file')
-
+parser.add_argument('--barcodes', type=str, default=None,
+                    help='Path to the barcode file')
 
 # functions
-def read_summary(input_files, sample: str):
+def read_summary(input_files: list, sample: str) -> pd.DataFrame:
+    """
+    Read STAR summary tables and return as pandas dataframe.
+    Args:
+        input_files: List of paths to STAR summary tables
+        sample: Sample name
+    Returns:
+        pandas dataframe
+    """
     data = []
     for infile in input_files:
         # read in as pandas dataframe
         DF = pd.read_csv(infile, header=None)
         # set columns
         DF.columns = ['name', 'value']
+        # replace spaces with underscores
+        DF['name'] = DF['name'].str.replace(" ", "_")
         # filter `name` to just specific values
-        to_keep = {"Fraction of Unique Reads in Cells", "STRAND", "BARCODE_NAME", "CELL_BARCODE_LENGTH", "UMI_LENGTH"}
+        to_keep = {"Fraction_of_Unique_Reads_in_Cells", "STRAND", "BARCODE_NAME", "CELL_BARCODE_LENGTH", "UMI_LENGTH"}
         DF = DF[DF['name'].isin(to_keep)]
         # add sample
         DF['sample'] = sample
         # pivot wider
         DF = DF.pivot(index='sample', columns='name', values='value').reset_index()
+        DF = DF.rename(columns={"Fraction_of_Unique_Reads_in_Cells": "FRAC_UNIQUE_READS"})
+        # convert FRAC_UNIQUE_READS to float
+        DF["FRAC_UNIQUE_READS"] = DF["FRAC_UNIQUE_READS"].astype(float)
         data.append(DF)
     return pd.concat(data)
 
-def read_stats(stats_file):
+def read_stats(stats_file: str) -> pd.DataFrame:
+    """
+    Read seqkit stats table and return as pandas dataframe.
+    Args:
+        stats_file: Path to seqkit stats file
+    Returns:
+        pandas dataframe
+    """
     if stats_file is None:
         return None
     # read in as pandas dataframe
@@ -68,6 +89,21 @@ def read_stats(stats_file):
     DF = DF.pivot(index='sample', columns='read', values='read_length').reset_index()
     return DF
 
+def read_barcodes(barcode_file: str) -> pd.DataFrame:
+    """
+    Read barcode file and return as pandas dataframe.
+    Args:
+        barcode_file: Path to barcode file
+    Returns:
+        pandas dataframe
+    """
+    if barcode_file is None:
+        return None
+    # read in as pandas dataframe
+    DF = pd.read_csv(barcode_file, sep=',')
+    DF = DF[["name", "file_path"]].rename(columns={"file_path": "BARCODE_FILE"})
+    return DF
+
 def main(args):
     # set pandas display optionqs
     pd.set_option('display.max_columns', 30)
@@ -77,17 +113,24 @@ def main(args):
     data = read_summary(args.star_summary_csv, args.sample)
     
     # filter to the max `Fraction of Unique Reads in Cells`
-    max_frac = data['Fraction of Unique Reads in Cells'].max()
-    data = data[data['Fraction of Unique Reads in Cells'] == max_frac]
+    max_frac = data['FRAC_UNIQUE_READS'].max()
+    data = data[data['FRAC_UNIQUE_READS'] == max_frac]
     
     # read stats file
     stats = read_stats(args.stats)
-
-    # if read stats is not None, merge on "sample"
+    ## if read stats is not None, merge on "sample"
     if stats is not None:
         data = pd.merge(data, stats, on="sample", how="left")
 
-    # if multiple rows, take the first
+    # read barcode file
+    barcodes = read_barcodes(args.barcodes)
+    ## if barcodes is not None, merge on "BARCODE_NAME"="name"
+    if barcodes is not None:
+        data = pd.merge(
+            data, barcodes, left_on="BARCODE_NAME", right_on="name", how="left"
+        ).drop(columns="name")
+
+    # if multiple rows, take the first; then print as json
     print(data.iloc[0].to_json())
 
 ## script main
