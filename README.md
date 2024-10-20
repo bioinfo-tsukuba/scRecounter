@@ -67,21 +67,19 @@ Nextflow will automatically create the environments as long as `mamba` is instal
 
 # Usage
 
-
 ```bash
 nextflow run main.nf \
   -profile conda,slurm \
-  --accessions
+  --samples
 ```
+
 
 # Dev
 
 ## Run
 
 ```bash
-nextflow run main.nf \
-  -profile conda,vm \
-  --samples tmp/fetchngs_1mil/samples.csv
+nextflow run main.nf -profile conda,vm
 ```
 
 ## Convert Docker container to Apptainer

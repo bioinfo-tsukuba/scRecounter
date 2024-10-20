@@ -18,21 +18,29 @@ workflow INPUT_WF{
 
     // merge reads by sample
     MERGE_READS(ch_samples)
-    
+
     emit:
     fastq = MERGE_READS.out
 }
 
+
 process MERGE_READS {
+    conda "envs/read_qc.yml"
+    
     input:
-    tuple val(sample), path(fastq_1), path(fastq_2)
+    tuple val(sample), path("*_read1.fq"), path("*_read2.fq")
 
     output:
-    tuple val(sample), path("${sample}_R1.fq.gz"), path("${sample}_R2.fq.gz")
+    tuple val(sample), path("${sample}_R1.fq"), path("${sample}_R2.fq")
 
     script:
     """
-    cat ${fastq_1} > ${sample}_R1.fq.gz
-    cat ${fastq_2} > ${sample}_R2.fq.gz
+    seqkit seq *_read1.fq > ${sample}_R1.fq
+    seqkit seq *_read2.fq > ${sample}_R2.fq
+    """
+
+    stub:
+    """
+    touch ${sample}_R1.fq ${sample}_R2.fq
     """
 }
