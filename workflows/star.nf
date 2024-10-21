@@ -52,7 +52,15 @@ workflow STAR_WF{
 }
 
 // STAR alignment with all reads and selected parameters
+def saveAsSTAR(filename) {
+    if (filename.endsWith(".mtx") || filename.endsWith(".tsv")){
+        return filename
+    } 
+    return null
+}
+
 process STAR_FULL {
+    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(filename) }
     conda "envs/star.yml"
     label "process_high"
 
