@@ -1,7 +1,7 @@
 scRecouter
 ==========
 
-Nextflow pipeline to re-process all public single-cell data
+Nextflow pipeline to re-process all public single-cell RNA-seq data.
 
 
 # Installation
@@ -66,6 +66,36 @@ Nextflow will automatically create the environments as long as `mamba` is instal
 
 
 # Usage
+
+## Input
+
+### Samples table
+
+Lists the samples and their associated read (fastq) files.
+
+Example:
+
+
+| sample                     | fastq_1                                                                                                       | fastq_2                                                                                                       |
+|-----------------------------|----------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| SRX10188997_SRR13806043     | path/to/reads/SRX10188997_SRR13806043_1.fastq.gz               | path/to/reads/SRX10188997_SRR13806043_2.fastq.gz               |
+| SRX10188963_SRR13806077     | path/to/reads/SRX10188963_SRR13806077_1.fastq.gz               | path/to/reads/SRX10188963_SRR13806077_2.fastq.gz               |
+
+
+### Barcode table
+
+Lists all of the possible barcodes that will be used to determine the cell barcode and UMI for the samples.
+
+Example:
+
+| name               | cell_barcode_length | umi_length | file_path                                                                      |
+|--------------------|---------------------|------------|--------------------------------------------------------------------------------|
+| 737K-arc-v1        | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-arc-v1.txt             |
+| 737K-august-2016   | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-august-2016.txt        |
+| 3M-february-2018   | 16                  | 10         | /large_storage/goodarzilab/public/scRecount/genomes/3M-february-2018.txt        |
+
+
+## Nextflow run
 
 ```bash
 nextflow run main.nf \
