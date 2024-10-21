@@ -1,3 +1,4 @@
+// Input workflow for processing paired-end reads
 workflow INPUT_WF{
     main:
     // load csv and extract accessions
@@ -23,7 +24,7 @@ workflow INPUT_WF{
     fastq = MERGE_READS.out
 }
 
-
+// Merge reads by sample; account for any differences in compression; check sequence formatting
 process MERGE_READS {
     conda "envs/read_qc.yml"
     

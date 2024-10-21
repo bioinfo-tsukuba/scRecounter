@@ -1,3 +1,4 @@
+// Workflow to run STAR alignment on scRNA-seq data
 workflow STAR_WF{
     take:
     ch_fastq
@@ -50,6 +51,7 @@ workflow STAR_WF{
     STAR_FULL(ch_fastq.join(STAR_SET_PARAMS.out, by: 0))
 }
 
+// STAR alignment with all reads and selected parameters
 process STAR_FULL {
     conda "envs/star.yml"
     label "process_high"
@@ -102,6 +104,7 @@ process STAR_FULL {
 }
 //TODO: remove `--soloBarcodeReadLength 0`?
 
+// Set STAR parameters based on valid barcodes
 process STAR_SET_PARAMS {
     conda "envs/star.yml"
 
@@ -127,6 +130,7 @@ process STAR_SET_PARAMS {
     """
 }
 
+// Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_GET_VALID_BARCODES {
     conda "envs/star.yml"
     label "process_medium"
@@ -177,6 +181,7 @@ process STAR_GET_VALID_BARCODES {
     """
 }
 
+// Get read lengths via `seqkit stats`
 process SEQKIT_STATS {
     conda "envs/read_qc.yml"
     label "process_low"
@@ -198,6 +203,7 @@ process SEQKIT_STATS {
     """
 }
 
+// Subsample reads
 process SUBSAMPLE_READS {
     conda "envs/read_qc.yml"
     label "process_low"

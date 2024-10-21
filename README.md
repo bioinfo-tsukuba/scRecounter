@@ -3,6 +3,21 @@ scRecouter
 
 Nextflow pipeline to re-process all public single-cell RNA-seq data.
 
+# Workflow
+
+* User provides:
+  * a table of input samples and associated fastq files
+  * a table of barcodes to use for cell barcode and UMI identification
+* Pipeline:
+  * Read file formatting and QC
+    * includes assessing read length
+  * Cell barcode, UMI, and strand identification
+    * via STARsolo with a subset of reads
+      * assess fraction of valid barcodes
+  * The STAR parameter setting with the highest fraction of valid barcodes is used for the full STAR run
+    * What to do if there is a tie?
+  * STAR run with selected parameters
+    * All final count tables are "published" to the output directory
 
 # Installation
 
