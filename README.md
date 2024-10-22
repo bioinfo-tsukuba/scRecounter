@@ -115,7 +115,7 @@ Example:
 ```bash
 nextflow run main.nf \
   -profile conda,slurm \
-  --samples
+  --samples /path/to/samples.csv
 ```
 
 
@@ -124,7 +124,7 @@ nextflow run main.nf \
 ## Run
 
 ```bash
-nextflow run main.nf -profile conda,vm
+nextflow run main.nf -profile conda,vm,dev_acc
 ```
 
 ## Convert Docker container to Apptainer

@@ -1,9 +1,9 @@
 // Input workflow for processing paired-end reads
-workflow INPUT_WF{
+workflow READS_WF{
     main:
     // load csv and extract accessions
-    ch_samples = Channel
-        .fromPath(params.samples, checkIfExists: true)
+    ch_reads = Channel
+        .fromPath(params.reads, checkIfExists: true)
         .splitCsv(header: true, sep: ",")
         .map { row ->
             def req_columns = ["sample", "fastq_1", "fastq_2"]
@@ -18,7 +18,7 @@ workflow INPUT_WF{
         }
 
     // merge reads by sample
-    MERGE_READS(ch_samples)
+    MERGE_READS(ch_reads)
 
     emit:
     fastq = MERGE_READS.out

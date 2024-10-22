@@ -1,19 +1,24 @@
 // Subworkflows
-//include { DOWNLOAD_WF } from './workflows/download.nf'
-include { INPUT_WF } from './workflows/input.nf'
+include { DOWNLOAD_WF } from './workflows/download.nf'
+include { READS_WF } from './workflows/reads.nf'
 include { READ_QC_WF } from './workflows/read_qc.nf'
 include { STAR_WF } from './workflows/star.nf'
 
 // Main workflow
 workflow {
-    // load input
-    INPUT_WF()
+    if (params.accessions){
+        // DOWNLOAD
+        DOWNLOAD_WF()
+    } else {
+        // Load reads 
+        READS_WF()
+    }
 
     // READ_QC
-    READ_QC_WF(INPUT_WF.out.fastq)
+    //READ_QC_WF(READS_WF.out.fastq)
 
     // STAR
-    STAR_WF(INPUT_WF.out.fastq)
+    //STAR_WF(READS_WF.out.fastq)
 }
 
 // On complete

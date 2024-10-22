@@ -60,7 +60,7 @@ def saveAsSTAR(filename) {
 }
 
 process STAR_FULL {
-    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(filename) }
+    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(filename) }
     conda "envs/star.yml"
     label "process_high"
 
