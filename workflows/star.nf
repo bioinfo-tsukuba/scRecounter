@@ -147,7 +147,7 @@ process STAR_SET_PARAMS {
 process STAR_GET_VALID_BARCODES {
     conda "envs/star.yml"
     label "process_medium"
-    //scratch true
+    scratch true
 
     input:
     tuple val(sample), path(fastq_1), path(fastq_2), val(strand), val(barcode_name), val(cell_barcode_length), val(umi_length), path(barcodes)

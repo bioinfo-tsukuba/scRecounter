@@ -38,7 +38,7 @@ workflow DOWNLOAD_WF {
 
 process FASTERQ_DUMP {
     conda "envs/download.yml"
-    label "process_low"
+    label "process_low_long"
     scratch true
 
     input:
@@ -75,7 +75,7 @@ process FASTERQ_DUMP {
 
 process PREFETCH {
     conda "envs/download.yml"
-    label "process_low"
+    label "process_low_long"
     scratch true
 
     input:
@@ -96,39 +96,6 @@ process PREFETCH {
     """
     mkdir -p prefetch_out/${accession}
     touch prefetch_out/${accession}/${accession}.sra
-    """
-}
-
-process VDB_DUMP_MERGE {
-    publishDir file(params.outdir) / "download", mode: "copy", overwrite: true
-    conda "envs/download.yml"
-    label "process_low"
-
-    input:
-    path info
-
-    output:
-    path "info.csv"
-
-    script:
-    """
-    vdb-dump_merge.py $info > info.csv
-    """
-}
-
-process VDB_DUMP_INFO {
-    conda "envs/download.yml"
-    label "process_low"
-
-    input:
-    tuple val(sample), val(accession)
-
-    output:
-    tuple val(sample), val(accession), path("${sample}_${accession}_info.txt")
-
-    script:
-    """
-    vdb-dump --info ${accession} > ${accession}_info.txt
     """
 }
 

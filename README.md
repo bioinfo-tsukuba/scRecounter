@@ -111,10 +111,10 @@ Lists the samples and their associated read (fastq) files.
 Example:
 
 
-| sample                     | fastq_1    | fastq_2   |
-|----------------------------|------------|-----------|
-| SRX10188997_SRR13806043    | path/to/reads/SRX10188997_SRR13806043_1.fastq.gz  | path/to/reads/SRX10188997_SRR13806043_2.fastq.gz  |
-| SRX10188963_SRR13806077    | path/to/reads/SRX10188963_SRR13806077_1.fastq.gz  | path/to/reads/SRX10188963_SRR13806077_2.fastq.gz  |
+| sample                   | fastq_1                                           | fastq_2                                           |
+|--------------------------|---------------------------------------------------|---------------------------------------------------|
+| SRX10188997_SRR13806043  | path/to/reads/SRX10188997_SRR13806043_1.fastq.gz  | path/to/reads/SRX10188997_SRR13806043_2.fastq.gz  |
+| SRX10188963_SRR13806077  | path/to/reads/SRX10188963_SRR13806077_1.fastq.gz  | path/to/reads/SRX10188963_SRR13806077_2.fastq.gz  |
 
 
 ### Barcode table
@@ -135,7 +135,7 @@ Example:
 ```bash
 nextflow run main.nf \
   -profile conda,slurm \
-  --samples /path/to/samples.csv
+  --accessions data/accessions_n2.csv
 ```
 
 
