@@ -3,8 +3,15 @@ workflow DOWNLOAD_WF {
     // Load accessions from file
     ch_accessions = Channel
         .fromPath(params.accessions, checkIfExists: true)
-        .splitCsv(header: false, sep: ",")
-        .map { row -> row[0] }
+        .splitCsv(header: true, sep: ",")
+        .map { row ->
+            def req_columns = ["sample", "accession"]
+            def miss_columns = req_columns.findAll { !row.containsKey(it) }
+            if (miss_columns) {
+                error "Missing columns in the input CSV file: ${miss_columns}"
+            }
+            return [row.sample, row.accession]
+        }
 
     // Get vdb-dump info
     //VDB_DUMP_INFO(ch_accessions)
@@ -16,9 +23,39 @@ workflow DOWNLOAD_WF {
     // fasterq-dump
     FASTERQ_DUMP(PREFETCH.out)
 
+    // join R1 and R2 channels, which will filter out empties
+    ch_fastq = FASTERQ_DUMP.out.R1.join(FASTERQ_DUMP.out.R2, by: [0, 1])
+        .groupTuple()
+        .map { sample, accession, fastq_1, fastq_2 ->
+            return [sample, fastq_1.flatten(), fastq_2.flatten()]
+        }
+
     // Merge by sample
+    MERGE_READS(ch_fastq)
 
+    emit:
+    fastq = MERGE_READS.out
+}
 
+process MERGE_READS {
+    conda "envs/read_qc.yml"
+    
+    input:
+    tuple val(sample), path("*_read1.fq"), path("*_read2.fq")
+
+    output:
+    tuple val(sample), path("${sample}_R1.fq"), path("${sample}_R2.fq")
+
+    script:
+    """
+    seqkit seq *_read1.fq > ${sample}_R1.fq
+    seqkit seq *_read2.fq > ${sample}_R2.fq
+    """
+
+    stub:
+    """
+    touch ${sample}_R1.fq ${sample}_R2.fq
+    """
 }
 
 process FASTERQ_DUMP {
@@ -27,28 +64,26 @@ process FASTERQ_DUMP {
     //scratch true
 
     input:
-    tuple val(accession), path(sra_file)
+    tuple val(sample), val(accession), path(sra_file)
 
     output:
-    tuple val(accession), path("reads/${accession}_1.fastq"), emit: "R1"
-    tuple val(accession), path("reads/${accession}_2.fastq"), emit: "R2", optional: true
+    tuple val(sample), val(accession), path("reads/${accession}_1.fastq"), emit: "R1"
+    tuple val(sample), val(accession), path("reads/${accession}_2.fastq"), emit: "R2", optional: true
 
     script:
     """
-    # Run fasterq-dump
-    fasterq-dump \\
+    f-dump.py \\
       --threads ${task.cpus} \\
-      --bufsize 5MB \\
+      --bufsize 10MB \\
       --curcache 50MB \\
       --mem 5GB \\
       --temp TMP_FILES \\
+      --maxSpotId ${params.max_spots} \\
       --outdir reads \\
-      --split-files \\
-      --force \\
       ${sra_file}
     
-    # Remove the temporary files and sra file
-    #rm -rf TMP_FILES ${sra_file}
+    # remove the sra file and temp files
+    rm -rf TMP_FILES ${sra_file}
     """
 
     stub:
@@ -63,10 +98,10 @@ process PREFETCH {
     label "process_low"
 
     input:
-    val accession
+    tuple val(sample), val(accession)
 
     output:
-    tuple val(accession), path("prefetch_out/${accession}/${accession}.sra")
+    tuple val(sample), val(accession), path("prefetch_out/${accession}/${accession}.sra")
 
     script:
     """

@@ -7,18 +7,18 @@ include { STAR_WF } from './workflows/star.nf'
 // Main workflow
 workflow {
     if (params.accessions){
-        // DOWNLOAD
-        DOWNLOAD_WF()
+        // Download reads
+        ch_fastq = DOWNLOAD_WF()
     } else {
-        // Load reads 
-        READS_WF()
+        // Load existing reads
+        ch_fastq = READS_WF()
     }
 
     // READ_QC
-    //READ_QC_WF(READS_WF.out.fastq)
+    READ_QC_WF(ch_fastq)
 
     // STAR
-    //STAR_WF(READS_WF.out.fastq)
+    STAR_WF(ch_fastq)
 }
 
 // On complete
