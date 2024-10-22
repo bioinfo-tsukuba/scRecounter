@@ -45,6 +45,7 @@ workflow DOWNLOAD_WF {
 
 process MERGE_READS {
     conda "envs/read_qc.yml"
+    scratch true
     
     input:
     tuple val(sample), path("*_read1.fq"), path("*_read2.fq")
@@ -72,7 +73,7 @@ process MERGE_READS {
 process FASTERQ_DUMP {
     conda "envs/download.yml"
     label "process_low"
-    //scratch true
+    scratch true
 
     input:
     tuple val(sample), val(accession), path(sra_file)
@@ -93,10 +94,7 @@ process FASTERQ_DUMP {
       --outdir reads \\
       ${sra_file}
 
-    # remove temp files
-    rm -rf TMP_FILES
-
-    # remove the sra file
+    # remove the input sra file
     if [[ "${params.keep_temp}"  != "true" ]]; then
         rm -f \$(readlink ${sra_file})
     fi
@@ -112,6 +110,7 @@ process FASTERQ_DUMP {
 process PREFETCH {
     conda "envs/download.yml"
     label "process_low"
+    scratch true
 
     input:
     tuple val(sample), val(accession)

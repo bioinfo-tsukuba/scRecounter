@@ -63,21 +63,22 @@ process STAR_FULL {
     publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(filename) }
     conda "envs/star.yml"
     label "process_high"
+    scratch true
 
     input:
     tuple val(sample), path(fastq_1), path(fastq_2), path(star_params)
 
     output:
     tuple val(sample), path("resultsSolo.out/Gene/raw/*"),                         emit: gene_raw
-    tuple val(sample), path("resultsSolo.out/Gene/filtered/*"),                    emit: gene_filt
+    tuple val(sample), path("resultsSolo.out/Gene/filtered/*"),                    emit: gene_filt, optional: true
     tuple val(sample), path("resultsSolo.out/GeneFull/raw/*"),                     emit: gene_full_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull/filtered/*"),                emit: gene_full_filt
+    tuple val(sample), path("resultsSolo.out/GeneFull/filtered/*"),                emit: gene_full_filt, optional: true
     tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/raw/*"),             emit: gene_ex50_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/filtered/*"),        emit: gene_ex50_filt
+    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/filtered/*"),        emit: gene_ex50_filt, optional: true
     tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/raw/*"),      emit: gene_ex_int_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/filtered/*"), emit: gene_ex_int_filt
+    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/filtered/*"), emit: gene_ex_int_filt, optional: true
     tuple val(sample), path("resultsSolo.out/Velocyto/raw/*"),                     emit: velocyto_raw
-    tuple val(sample), path("resultsSolo.out/Velocyto/filtered/*"),                emit: velocyto_filt
+    tuple val(sample), path("resultsSolo.out/Velocyto/filtered/*"),                emit: velocyto_filt, optional: true
 
     script:
     """
