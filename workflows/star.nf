@@ -66,7 +66,7 @@ process STAR_FULL {
     scratch true
 
     input:
-    tuple val(sample), path(fastq_1), path(fastq_2), path(star_params)
+    tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), path(star_params)
 
     output:
     tuple val(sample), path("resultsSolo.out/Gene/raw/*"),                         emit: gene_raw
@@ -89,8 +89,12 @@ process STAR_FULL {
     source params.env
 
     # run STAR
+    R1=\$(printf "%s," input*_R1.fastq)
+    R1=\${R1%,} 
+    R2=\$(printf "%s," input*_R2.fastq)
+    R2=\${R2%,}
     STAR \\
-      --readFilesIn $fastq_2 $fastq_1 \\
+      --readFilesIn \$R2 \$R1 \\
       --runThreadN ${task.cpus} \\
       --genomeDir ${params.star_index} \\
       --soloCBwhitelist \$BARCODE_FILE \\
@@ -218,16 +222,15 @@ process SUBSAMPLE_READS {
     label "process_low"
 
     input:
-    tuple val(sample), path("R1.fq"), path("R2.fq")
+    tuple val(sample), path("input*_R1.fq"), path("input*_R2.fq")
 
     output:
     tuple val(sample), path("${sample}_R1.fq"), path("${sample}_R2.fq")
 
-    script:
+    script: 
     """
-    # subsample to 0.1 mil reads
-    head -n 400000 R1.fq > ${sample}_R1.fq
-    head -n 400000 R2.fq > ${sample}_R2.fq
+    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_R1.fq input*_R1.fq
+    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_R2.fq input*_R2.fq
     """
     
     stub:

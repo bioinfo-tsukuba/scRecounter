@@ -33,10 +33,10 @@ workflow DOWNLOAD_WF {
         }
 
     // Merge by sample
-    MERGE_READS(ch_fastq)
+    //MERGE_READS(ch_fastq)
 
     emit:
-    fastq = MERGE_READS.out
+    fastq = ch_fastq // MERGE_READS.out
 }
 
 process MERGE_READS {
@@ -158,7 +158,6 @@ process VDB_DUMP_INFO {
 
     script:
     """
-    exit 1
     vdb-dump --info ${accession} > ${accession}_info.txt
     """
 }
