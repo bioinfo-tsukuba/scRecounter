@@ -56,6 +56,48 @@ def run_cmd(cmd: str) -> tuple:
     output, err = p.communicate()
     return p.returncode, output, err
 
+def get_read_lens(fastq_file: str) -> int:
+    """
+    Get read lengths from a fastq file.
+    Args:
+        fastq_file: Fastq file
+    Returns:
+        list: List of read lengths
+    """
+    # get read lengths
+    read_lens = []
+    with open(fastq_file) as f:
+        for i, line in enumerate(f):
+            if i % 4 == 1:
+                read_lens.append(len(line.strip()))
+            if i >= 400:
+                break
+    # return average read length
+    return int(sum(read_lens) / len(read_lens))
+
+def check_output(sra_file, outdir: str) -> None:
+    accession = os.path.splitext(os.path.basename(sra_file))[0]
+    read_files = {
+        "R1" : os.path.join(outdir, accession + "_1.fastq"), 
+        "R2" : os.path.join(outdir, accession + "_2.fastq")
+    }
+    # get read lengths
+    read_lens = {}
+    for read_type,file_path in read_files.items():
+        if not os.path.exists(file_path):
+            logging.error(f'Output file not found: {x}')
+            sys.exit(1)
+        read_lens[read_type] = get_read_lens(file_path)
+    
+    # if R1 is longer than R2, swap names
+    if read_lens["R1"] > read_lens["R2"]:
+        logging.warning('Read 1 is longer than Read 2; swapping reads')
+        # rename files
+        os.rename(read_files["R1"], "tmp_R1.fastq")
+        os.rename(read_files["R2"], read_files["R1"])
+        os.rename("tmp_R1.fastq", read_files["R2"])
+
+    
 def main(args):
     # check for fastq-dump and fasterq-dump
     for exe in ['fastq-dump', 'fasterq-dump']:
@@ -82,6 +124,10 @@ def main(args):
     if returncode != 0:
         logging.error(err)
         sys.exit(1)
+    
+    # Check the output
+    check_output(args.sra_file, args.outdir)
+
 
 ## script main
 if __name__ == '__main__':

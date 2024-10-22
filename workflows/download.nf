@@ -50,7 +50,7 @@ process FASTERQ_DUMP {
 
     script:
     """
-    f-dump.py \\
+    fastq-dump.py \\
       --threads ${task.cpus} \\
       --bufsize 10MB \\
       --curcache 50MB \\
