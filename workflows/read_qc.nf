@@ -16,7 +16,6 @@ workflow READ_QC_WF{
           storeDir:  file(params.outdir) / "read_qc", 
           newLine: false, keepHeader: true
         )
-    //SEQKIT_STATS_MERGE(SEQKIT_STATS.out.collect())
 }
 
 // Run `seqkit stats` on fastq files

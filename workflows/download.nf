@@ -32,38 +32,8 @@ workflow DOWNLOAD_WF {
             return [sample, fastq_1.flatten(), fastq_2.flatten()]
         }
 
-    // Merge by sample
-    //MERGE_READS(ch_fastq)
-
     emit:
-    fastq = ch_fastq // MERGE_READS.out
-}
-
-process MERGE_READS {
-    conda "envs/read_qc.yml"
-    scratch true
-    
-    input:
-    tuple val(sample), path("*_read1.fq"), path("*_read2.fq")
-
-    output:
-    tuple val(sample), path("${sample}_R1.fq"), path("${sample}_R2.fq")
-
-    script:
-    """
-    seqkit seq *_read1.fq > ${sample}_R1.fq
-    seqkit seq *_read2.fq > ${sample}_R2.fq
-
-    # remove the input files to save space
-    if [[ "${params.keep_temp}"  != "true" ]]; then
-        rm -f \$(readlink *_read1.fq) \$(readlink *_read2.fq)
-    fi  
-    """
-
-    stub:
-    """
-    touch ${sample}_R1.fq ${sample}_R2.fq
-    """
+    fastq = ch_fastq
 }
 
 process FASTERQ_DUMP {

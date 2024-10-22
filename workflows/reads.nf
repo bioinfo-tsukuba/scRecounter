@@ -29,15 +29,15 @@ process MERGE_READS {
     conda "envs/read_qc.yml"
     
     input:
-    tuple val(sample), path("*_read1.fq"), path("*_read2.fq")
+    tuple val(sample), path("*_read1.fq.gz"), path("*_read2.fq.gz")
 
     output:
     tuple val(sample), path("${sample}_R1.fq"), path("${sample}_R2.fq")
 
     script:
     """
-    seqkit seq *_read1.fq > ${sample}_R1.fq
-    seqkit seq *_read2.fq > ${sample}_R2.fq
+    seqkit seq *_read1.fq.gz > ${sample}_R1.fq
+    seqkit seq *_read2.fq.gz > ${sample}_R2.fq
     """
 
     stub:
