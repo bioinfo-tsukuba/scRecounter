@@ -23,8 +23,14 @@ workflow DOWNLOAD_WF {
     // fasterq-dump
     FASTERQ_DUMP(PREFETCH.out)
 
-    // join R1 and R2 channels, which will filter out empties
-    ch_fastq = FASTERQ_DUMP.out.R1.join(FASTERQ_DUMP.out.R2, by: [0, 1])
+    // join R1 and R2 channels, which will filter out empty R2 records
+    ch_fastq = FASTERQ_DUMP.out.R1.join(FASTERQ_DUMP.out.R2, by: [0, 1], remainder: true)
+        .filter { sample, accession, r1, r2 -> 
+            if(r2 == null) {
+                println "Warning: Read 2 is empty for ${sample}-${accession}; skipping"
+            }
+            return r2 != null
+        }
         .groupTuple()
         .map { sample, accession, fastq_1, fastq_2 ->
             return [sample, fastq_1.flatten(), fastq_2.flatten()]
@@ -50,6 +56,11 @@ process MERGE_READS {
     """
     seqkit seq *_read1.fq > ${sample}_R1.fq
     seqkit seq *_read2.fq > ${sample}_R2.fq
+
+    # remove the input files to save space
+    if [[ "${params.keep_temp}"  != "true" ]]; then
+        rm -f \$(readlink *_read1.fq) \$(readlink *_read2.fq)
+    fi  
     """
 
     stub:
@@ -81,9 +92,14 @@ process FASTERQ_DUMP {
       --maxSpotId ${params.max_spots} \\
       --outdir reads \\
       ${sra_file}
-    
-    # remove the sra file and temp files
-    rm -rf TMP_FILES ${sra_file}
+
+    # remove temp files
+    rm -rf TMP_FILES
+
+    # remove the sra file
+    if [[ "${params.keep_temp}"  != "true" ]]; then
+        rm -f \$(readlink ${sra_file})
+    fi
     """
 
     stub:
@@ -151,56 +167,3 @@ process VDB_DUMP_INFO {
     """
 }
 
-
-// --list-sizes
-// --ascp-path
-// vdb-validate
-
-/*
-vdb-config --cfg 
-vdb-config --set "/repository/user/main/public/root=/scratch/multiomics/nickyoungblut/sra/"
-vdb-config --set "/repository/user/cache/root=/scratch/multiomics/nickyoungblut/sra_cache/"
-prefetch --transport http --max-size 1G --output-directory prefetch_out SRR13711615
-prefetch --max-size 1G --output-directory prefetch_out SRR13711615
-
-
-
-fasterq-dump \\
-      --threads ${task.cpus} \\
-      --bufsize 10MB \\
-      --curcache 50MB
-      --mem 5GB \\
-      --temp TMP_FILES \\
-      --outdir data \\
-      --split-files \\
-      --spots 10000 \\
-      --force \\
-      ${accession} 
-    
-    # remove the temporary files
-    rm -rf TMP_FILES
-*/
-
-/*
-process FASTQ_DUMP {
-    conda "envs/download.yml"
-    label "process_low"
-
-    input:
-    val accession
-
-    output:
-    tuple val(accession), path("data/${accession}_1.fastq"), emit: "R1"
-    tuple val(accession), path("data/${accession}_2.fastq"), emit: "R2", optional: true
-
-    script:
-    """
-    # Run fastq-dump
-    fastq-dump \\
-      --outdir data \\
-      --split-files \\
-      --maxSpotId 10000 \\
-      ${accession} 
-    """
-}
-*/
