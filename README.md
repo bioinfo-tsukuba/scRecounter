@@ -84,17 +84,37 @@ Nextflow will automatically create the environments as long as `mamba` is instal
 
 ## Input
 
-### Samples table
+Input can either be:
+
+1. `Accessions table` => A table of accessions per sample. The read data will be downloaded from the SRA.
+1. `Reads table` => A table of read files per sample. The read data has already been downloaded.
+
+Note: in either case, reads will be merged by `sample` if there are multiple read files (accessions) per sample.
+
+### Accessions table
+
+Lists the samples and their associated SRA experiment accessions.
+
+Example:
+
+| Sample      | Accession    |
+|-------------|--------------|
+| sample1     | SRR13112659  |
+| sample1     | SRR13112660  |
+| sample2     | SRR13112661  |
+
+
+### Reads table
 
 Lists the samples and their associated read (fastq) files.
 
 Example:
 
 
-| sample                     | fastq_1                                                                                                       | fastq_2                                                                                                       |
-|-----------------------------|----------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| SRX10188997_SRR13806043     | path/to/reads/SRX10188997_SRR13806043_1.fastq.gz               | path/to/reads/SRX10188997_SRR13806043_2.fastq.gz               |
-| SRX10188963_SRR13806077     | path/to/reads/SRX10188963_SRR13806077_1.fastq.gz               | path/to/reads/SRX10188963_SRR13806077_2.fastq.gz               |
+| sample                     | fastq_1    | fastq_2   |
+|----------------------------|------------|-----------|
+| SRX10188997_SRR13806043    | path/to/reads/SRX10188997_SRR13806043_1.fastq.gz  | path/to/reads/SRX10188997_SRR13806043_2.fastq.gz  |
+| SRX10188963_SRR13806077    | path/to/reads/SRX10188963_SRR13806077_1.fastq.gz  | path/to/reads/SRX10188963_SRR13806077_2.fastq.gz  |
 
 
 ### Barcode table
@@ -105,9 +125,9 @@ Example:
 
 | name               | cell_barcode_length | umi_length | file_path                                                                      |
 |--------------------|---------------------|------------|--------------------------------------------------------------------------------|
-| 737K-arc-v1        | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-arc-v1.txt             |
-| 737K-august-2016   | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-august-2016.txt        |
-| 3M-february-2018   | 16                  | 10         | /large_storage/goodarzilab/public/scRecount/genomes/3M-february-2018.txt        |
+| 737K-arc-v1        | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-arc-v1.txt            |
+| 737K-august-2016   | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-august-2016.txt       |
+| 3M-february-2018   | 16                  | 10         | /large_storage/goodarzilab/public/scRecount/genomes/3M-february-2018.txt       |
 
 
 ## Nextflow run
