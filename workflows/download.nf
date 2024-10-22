@@ -13,10 +13,6 @@ workflow DOWNLOAD_WF {
             return [row.sample, row.accession]
         }
 
-    // Get vdb-dump info
-    //VDB_DUMP_INFO(ch_accessions)
-    //VDB_DUMP_MERGE(VDB_DUMP_INFO.out.collect{ it[1] })
-
     // prefetch
     PREFETCH(ch_accessions)
     
@@ -155,13 +151,14 @@ process VDB_DUMP_INFO {
     label "process_low"
 
     input:
-    val accession
+    tuple val(sample), val(accession)
 
     output:
-    tuple val(accession), path("${accession}_info.txt")
+    tuple val(sample), val(accession), path("${sample}_${accession}_info.txt")
 
     script:
     """
+    exit 1
     vdb-dump --info ${accession} > ${accession}_info.txt
     """
 }

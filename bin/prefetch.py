@@ -81,10 +81,67 @@ def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> bool:
         sleep(sleep_time)
     return False
     
+def run_vdb_dump(accession, min_size: int=1e6) -> bool:
+    """
+    Run vdb-dump with error handling.
+    Args:
+        sra_file: SRA file
+        outdir: Output directory
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    cmd = f'vdb-dump --info {accession}'
+    rc,output,err = run_cmd(cmd)
+    if rc != 0:
+        logging.error('Dump failed')
+        logging.error(err)
+        return False
+
+    # parse the output
+    regex = re.compile(r' *: ')
+    data = {}
+    for line in output.decode().split('\n'):
+        line = regex.split(line.rstrip(), 1)
+        if len(line) < 2:
+            continue
+        data[line[0]] = line[1]
+
+    # checks
+    ## keys
+    for x in ['acc', 'size', 'FMT', 'platf']:
+        if x not in data:
+            logging.error(f'Missing key in vdb-dump output: {x}')
+            return False
+    ## accession
+    if data['acc'] != accession:
+        logging.error(f'Accession mismatch: {data["acc"]} != {accession}')
+        return False
+    ## size
+    size = int(data['size'].replace(',', ''))
+    if size < min_size:
+        logging.error(f'File size too small: {size} < {min_size}')
+        return False
+    ## format
+    if data['FMT'].lower() != 'fastq':
+        logging.error(f'Invalid format: {data["FMT"]}')
+        return False
+    ## platform
+    if 'illumina' not in data['platf'].lower():
+        logging.error(f'Invalid platform: {data["platf"]}')
+        return False
+    # all checks passed
+    return True
+
 def main(args):
     # check for prefetch in path
-    if not find_executable('prefetch'):
-        logging.error('prefetch not found in PATH')
+    for exe in ['prefetch', 'vdb-dump']:
+        if not find_executable(exe):
+            logging.error(f'{exe} not found in PATH')
+            sys.exit(1)
+
+    # run vdb-dump
+    if not run_vdb_dump(args.accession):
+        logging.error('vdb-dump validation failed')
         sys.exit(1)
 
     # run prefetch
