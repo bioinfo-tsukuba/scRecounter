@@ -97,11 +97,11 @@ Lists the samples and their associated SRA experiment accessions.
 
 Example:
 
-| Sample      | Accession    |
-|-------------|--------------|
-| sample1     | SRR13112659  |
-| sample1     | SRR13112660  |
-| sample2     | SRR13112661  |
+| Sample    | Accession    |
+|-----------|--------------|
+| sample1   | SRR13112659  |
+| sample1   | SRR13112660  |
+| sample2   | SRR13112661  |
 
 
 ### Reads table
@@ -111,10 +111,10 @@ Lists the samples and their associated read (fastq) files.
 Example:
 
 
-| sample                   | fastq_1                                           | fastq_2                                           |
-|--------------------------|---------------------------------------------------|---------------------------------------------------|
-| SRX10188997_SRR13806043  | path/to/reads/SRX10188997_SRR13806043_1.fastq.gz  | path/to/reads/SRX10188997_SRR13806043_2.fastq.gz  |
-| SRX10188963_SRR13806077  | path/to/reads/SRX10188963_SRR13806077_1.fastq.gz  | path/to/reads/SRX10188963_SRR13806077_2.fastq.gz  |
+| sample                  | fastq_1                                          | fastq_2                                          |
+|-------------------------|--------------------------------------------------|--------------------------------------------------|
+| SRX10188997_SRR13806043 | path/to/reads/SRX10188997_SRR13806043_1.fastq.gz | path/to/reads/SRX10188997_SRR13806043_2.fastq.gz |
+| SRX10188963_SRR13806077 | path/to/reads/SRX10188963_SRR13806077_1.fastq.gz | path/to/reads/SRX10188963_SRR13806077_2.fastq.gz |
 
 
 ### Barcode table
@@ -123,11 +123,11 @@ Lists all of the possible barcodes that will be used to determine the cell barco
 
 Example:
 
-| name               | cell_barcode_length | umi_length | file_path                                                                      |
-|--------------------|---------------------|------------|--------------------------------------------------------------------------------|
-| 737K-arc-v1        | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-arc-v1.txt            |
-| 737K-august-2016   | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-august-2016.txt       |
-| 3M-february-2018   | 16                  | 10         | /large_storage/goodarzilab/public/scRecount/genomes/3M-february-2018.txt       |
+| name             | cell_barcode_length | umi_length | file_path                                                                |
+|------------------|---------------------|------------|--------------------------------------------------------------------------|
+| 737K-arc-v1      | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-arc-v1.txt      |
+| 737K-august-2016 | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-august-2016.txt |
+| 3M-february-2018 | 16                  | 10         | /large_storage/goodarzilab/public/scRecount/genomes/3M-february-2018.txt |
 
 
 ## Nextflow run
@@ -151,11 +151,25 @@ nextflow run main.nf -profile conda,vm,dev_acc
 
 #### SLURM, with accessions
 
+A couple of small-data accessions
+
 ```bash
 nextflow run main.nf \
   -profile conda,slurm \
   --keep_temp true \
-  --accessions data/accessions_small_n2.csv
+  --accessions data/accessions_small_n2.csv \
+  --outdir tmp/results_small_n2
+```
+
+Many small-data accessions, subsampled
+
+```bash
+nextflow run main.nf \
+  -profile conda,slurm \
+  --keep_temp true \
+  --max_spots 500000 \
+  --accessions data/accessions_small_n10.csv \
+  --outdir tmp/results_small_n10
 ```
 
 ## Convert Docker container to Apptainer

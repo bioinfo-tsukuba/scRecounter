@@ -13,13 +13,16 @@ workflow DOWNLOAD_WF {
             return [row.sample, row.accession]
         }
 
-    // prefetch
-    PREFETCH(ch_accessions)
+    // Set up vdb-config with GCP credentials, if provided
+    VDB_CONFIG()
+
+    // Run prefetch
+    PREFETCH(ch_accessions, VDB_CONFIG.out)
     
-    // fasterq-dump
+    // Run fasterq-dump
     FASTERQ_DUMP(PREFETCH.out)
 
-    // join R1 and R2 channels, which will filter out empty R2 records
+    // Join R1 and R2 channels, which will filter out empty R2 records
     ch_fastq = FASTERQ_DUMP.out.R1.join(FASTERQ_DUMP.out.R2, by: [0, 1], remainder: true)
         .filter { sample, accession, r1, r2 -> 
             if(r2 == null) {
@@ -45,7 +48,7 @@ process FASTERQ_DUMP {
     maxRetries 2
 
     input:
-    tuple val(sample), val(accession), path(sra_file)
+    tuple val(sample), val(accession), path(sra_file) 
 
     output:
     tuple val(sample), val(accession), path("reads/${accession}_1.fastq"), emit: "R1"
@@ -85,6 +88,7 @@ process PREFETCH {
 
     input:
     tuple val(sample), val(accession)
+    val vdb_config
 
     output:
     tuple val(sample), val(accession), path("prefetch_out/${accession}/${accession}.sra")
@@ -104,3 +108,16 @@ process PREFETCH {
     """
 }
 
+process VDB_CONFIG {
+    conda "envs/download.yml"
+
+    output:
+    val true
+
+    script:
+    """
+    if [[ -f "${params.gcp_json}" ]] && [[ ! -z "${params.gcp_json}" ]]; then
+        vdb-config set storage.gcs.service-account-file ${params.gcp_json}
+    fi
+    """
+}
