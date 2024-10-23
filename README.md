@@ -135,7 +135,7 @@ Example:
 ```bash
 nextflow run main.nf \
   -profile conda,slurm \
-  --accessions data/accessions_n2.csv
+  --accessions data/accessions_small_n2.csv
 ```
 
 
@@ -143,8 +143,19 @@ nextflow run main.nf \
 
 ## Run
 
+#### Local, with accessions
+
 ```bash
 nextflow run main.nf -profile conda,vm,dev_acc
+```
+
+#### SLURM, with accessions
+
+```bash
+nextflow run main.nf \
+  -profile conda,slurm \
+  --keep_temp true \
+  --accessions data/accessions_small_n2.csv
 ```
 
 ## Convert Docker container to Apptainer

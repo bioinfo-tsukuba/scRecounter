@@ -7,7 +7,7 @@ import sys
 import argparse
 import logging
 from time import sleep
-from distutils.spawn import find_executable
+from shutil import which
 from subprocess import Popen, PIPE
 
 
@@ -90,6 +90,7 @@ def check_output(sra_file, outdir: str) -> None:
         read_lens[read_type] = get_read_lens(file_path)
     
     # if R1 is longer than R2, swap names
+    ## R2 should be cDNA read, while R1 is the barcode (cell+UMI)
     if read_lens["R1"] > read_lens["R2"]:
         logging.warning('Read 1 is longer than Read 2; swapping reads')
         # rename files
@@ -101,7 +102,7 @@ def check_output(sra_file, outdir: str) -> None:
 def main(args):
     # check for fastq-dump and fasterq-dump
     for exe in ['fastq-dump', 'fasterq-dump']:
-        if not find_executable(exe):
+        if not which(exe):
             logging.error(f'{exe} not found in PATH')
             sys.exit(1)
 

@@ -63,7 +63,6 @@ process STAR_FULL {
     publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(filename) }
     conda "envs/star.yml"
     label "process_high"
-    scratch true
 
     input:
     tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), path(star_params)
@@ -147,7 +146,6 @@ process STAR_SET_PARAMS {
 process STAR_GET_VALID_BARCODES {
     conda "envs/star.yml"
     label "process_medium"
-    scratch true
 
     input:
     tuple val(sample), path(fastq_1), path(fastq_2), val(strand), val(barcode_name), val(cell_barcode_length), val(umi_length), path(barcodes)

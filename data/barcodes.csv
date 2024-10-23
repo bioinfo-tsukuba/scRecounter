@@ -1,4 +1,6 @@
 name,cell_barcode_length,umi_length,file_path
+737K-august-2016,16,10,/large_storage/goodarzilab/public/scRecount/genomes/737K-august-2016.txt
+3M-february-2018,16,12,/large_storage/goodarzilab/public/scRecount/genomes/3M-february-2018.txt
+3M-5pgex-jan-2023,16,12,/large_storage/goodarzilab/public/scRecount/genomes/3M-5pgex-jan-2023.txt
+3M-3pgex-may-2023,16,12,/large_storage/goodarzilab/public/scRecount/genomes/3M-3pgex-may-2023.txt
 737K-arc-v1,16,12,/large_storage/goodarzilab/public/scRecount/genomes/737K-arc-v1.txt
-737K-august-2016,16,12,/large_storage/goodarzilab/public/scRecount/genomes/737K-august-2016.txt
-3M-february-2018,16,10,/large_storage/goodarzilab/public/scRecount/genomes/3M-february-2018.txt

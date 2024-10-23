@@ -6,7 +6,7 @@ workflow READ_QC_WF{
     main:
     // Flatten the channel to process each read file separately
     ch_fastq_flat = ch_fastq.flatMap { sample, fastq_1, fastq_2 -> 
-        [ [sample, 'R1', fastq_1], [sample, 'R2', fastq_2] ] 
+        [ [sample, "R1", fastq_1], [sample, "R2", fastq_2] ] 
     }
 
     // Run seqkit stats
@@ -24,14 +24,14 @@ process SEQKIT_STATS {
     label "process_low"
 
     input:
-    tuple val(sample), val(read), path(fastq)
+    tuple val(sample), val(read), path("${sample}_${read}_*.fastq")
 
     output:
     path "${sample}_${read}.tsv"
 
     script:
     """
-    seqkit -j $task.cpus stats -a -T $fastq > ${sample}_${read}.tsv
+    seqkit -j $task.cpus stats -a -T ${sample}_${read}_*.fastq > ${sample}_${read}.tsv
     """
 
     stub:
@@ -39,26 +39,3 @@ process SEQKIT_STATS {
     touch ${sample}_${read}.tsv
     """
 }
-
-/*
-process SEQKIT_STATS_MERGE {
-    publishDir file(params.outdir) / "read_qc" , mode: "copy", overwrite: true
-    conda "envs/read_qc.yml"
-
-    input:
-    path tsv
-
-    output:
-    path "seqkit-stats.tsv"
-
-    script:
-    """
-    seqkit-stats_merge.py $tsv > seqkit-stats.tsv
-    """
-
-    stub:
-    """
-    touch seqkit-stats.tsv
-    """
-}
-*/

@@ -38,8 +38,11 @@ workflow DOWNLOAD_WF {
 
 process FASTERQ_DUMP {
     conda "envs/download.yml"
-    label "process_low_long"
-    scratch true
+    scratch { sra_file.size() < 200.GB ? "ram-disk" : false }
+    memory { sra_file.size() < 200.GB ? (sra_file.size() / 1e9).GB * (task.attempt + 1) + 6.GB : 32.GB * task.attempt }
+    time { sra_file.size() < 200.GB ? 24.h * task.attempt : 48.h + 12.h * task.attempt }
+    cpus 8
+    maxRetries 2
 
     input:
     tuple val(sample), val(accession), path(sra_file)
@@ -60,8 +63,11 @@ process FASTERQ_DUMP {
       --outdir reads \\
       ${sra_file}
 
+    # remove the temporary files
+    rm -rf TMP_FILES
+
     # remove the input sra file
-    if [[ "${params.keep_temp}"  != "true" ]]; then
+    if [[ "${params.keep_temp}" != "true" ]]; then
         rm -f \$(readlink ${sra_file})
     fi
     """
@@ -75,8 +81,7 @@ process FASTERQ_DUMP {
 
 process PREFETCH {
     conda "envs/download.yml"
-    label "process_low_long"
-    scratch true
+    label "process_long"
 
     input:
     tuple val(sample), val(accession)

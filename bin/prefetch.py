@@ -7,7 +7,7 @@ import sys
 import argparse
 import logging
 from time import sleep
-from distutils.spawn import find_executable
+from shutil import which
 from subprocess import Popen, PIPE
 
 
@@ -81,7 +81,7 @@ def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> bool:
         sleep(sleep_time)
     return False
     
-def run_vdb_dump(accession, min_size: int=1e6) -> bool:
+def run_vdb_dump(accession: str, min_size: int=1e6) -> bool:
     """
     Run vdb-dump with error handling.
     Args:
@@ -122,7 +122,7 @@ def run_vdb_dump(accession, min_size: int=1e6) -> bool:
         logging.error(f'File size too small: {size} < {min_size}')
         return False
     ## format
-    if data['FMT'].lower() != 'fastq':
+    if 'fastq' not in data['FMT'].lower():
         logging.error(f'Invalid format: {data["FMT"]}')
         return False
     ## platform
@@ -135,7 +135,7 @@ def run_vdb_dump(accession, min_size: int=1e6) -> bool:
 def main(args):
     # check for prefetch in path
     for exe in ['prefetch', 'vdb-dump']:
-        if not find_executable(exe):
+        if not which(exe):
             logging.error(f'{exe} not found in PATH')
             sys.exit(1)
 
