@@ -148,9 +148,14 @@ process STAR_SET_PARAMS {
     """
 }
 
+// Set STAR parameters based on valid barcodes
+def saveAsValid(sample, filename) {
+    return "${sample}/param_search/${filename}"
+}
+
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_GET_VALID_BARCODES {
-    publishDir file(params.outdir) / "STAR" / "param_search", mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
+    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
     conda "envs/star.yml"
     label "process_medium"
 
