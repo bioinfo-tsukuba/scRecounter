@@ -111,10 +111,16 @@ def main(args):
 
     # read summary tables
     data = read_summary(args.star_summary_csv, args.sample)
-    
+
     # filter to the max `Fraction of Unique Reads in Cells`
+    data = data[data['FRAC_UNIQUE_READS'] != float("inf")]
     max_frac = data['FRAC_UNIQUE_READS'].max()
     data = data[data['FRAC_UNIQUE_READS'] == max_frac]
+
+    # check if data is empty
+    if data.shape[0] == 0:
+        logging.error("No valid barcodes found in the STAR summary table.")
+        sys.exit(1)
     
     # read stats file
     stats = read_stats(args.stats)
@@ -129,6 +135,19 @@ def main(args):
         data = pd.merge(
             data, barcodes, left_on="BARCODE_NAME", right_on="name", how="left"
         ).drop(columns="name")
+
+    # Convert dtypes
+    for x in ["CELL_BARCODE_LENGTH", "UMI_LENGTH", "read1_length"]:
+        data[x] = data[x].astype(int)
+
+    # Check that read lengths are >= CELL_BARCODE_LENGTH + UMI_LENGTH
+    data["CHECK"] = data["CELL_BARCODE_LENGTH"] + data["UMI_LENGTH"] - data["read1_length"]
+    data = data[data["CHECK"] <= 0]
+    if data.shape[0] == 0:
+        logging.error("No valid barcodes found in the STAR summary table after accounting for read lengths.")
+        sys.exit(1)
+    # drop "CHECK" column
+    data.drop(columns="CHECK", inplace=True)
 
     # if multiple rows, take the first; then print as json
     print(data.iloc[0].to_json())

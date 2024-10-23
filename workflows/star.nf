@@ -139,7 +139,8 @@ process STAR_SET_PARAMS {
       --sample $sample \\
       --stats $stats_tsv \\
       --barcodes $barcodes \\
-      $summary_csv > star_params.json
+      $summary_csv \\
+      > star_params.json
     """
 
     stub:
