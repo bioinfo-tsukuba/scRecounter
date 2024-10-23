@@ -5,4 +5,4 @@ channels:
 dependencies:
   - python=3.11
   - pandas=2.2
-  - seqkit
+  - seqkit=2.8
