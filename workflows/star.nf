@@ -119,6 +119,7 @@ process STAR_FULL {
 
 // Set STAR parameters based on valid barcodes
 process STAR_SET_PARAMS {
+    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true
     conda "envs/star.yml"
 
     input:
