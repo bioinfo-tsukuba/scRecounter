@@ -1,0 +1,3 @@
+name,cell_barcode_length,umi_length,file_path
+737K-august-2016,16,10,/common_datasets/external/references/cellranger/barcodes/737K-august-2016.txt
+3M-february-2018,16,12,/common_datasets/external/references/cellranger/barcodes/3M-february-2018.txt

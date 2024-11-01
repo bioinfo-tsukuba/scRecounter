@@ -10,6 +10,8 @@ workflow DOWNLOAD_WF {
             if (miss_columns) {
                 error "Missing columns in the input CSV file: ${miss_columns}"
             }
+            // remove special characters from the sample name
+            row.sample = row.sample.replaceAll("\\s", "_")
             return [row.sample, row.accession]
         }
 
@@ -19,11 +21,11 @@ workflow DOWNLOAD_WF {
     // Run prefetch
     PREFETCH(ch_accessions, VDB_CONFIG.out)
     
-    // Run fasterq-dump
-    FASTERQ_DUMP(PREFETCH.out)
+    // Run fast(er)q-dump
+    FQ_DUMP(PREFETCH.out)
 
     // Join R1 and R2 channels, which will filter out empty R2 records
-    ch_fastq = FASTERQ_DUMP.out.R1.join(FASTERQ_DUMP.out.R2, by: [0, 1], remainder: true)
+    ch_fastq = FQ_DUMP.out.R1.join(FQ_DUMP.out.R2, by: [0, 1], remainder: true)
         .filter { sample, accession, r1, r2 -> 
             if(r2 == null) {
                 println "Warning: Read 2 is empty for ${sample}-${accession}; skipping"
@@ -39,7 +41,7 @@ workflow DOWNLOAD_WF {
     fastq = ch_fastq
 }
 
-process FASTERQ_DUMP {
+process FQ_DUMP {
     conda "envs/download.yml"
     scratch { sra_file.size() < 200.GB ? "ram-disk" : false }
     memory { sra_file.size() < 200.GB ? (sra_file.size() / 1e9).GB * (task.attempt + 1) + 6.GB : 32.GB * task.attempt }
@@ -56,7 +58,7 @@ process FASTERQ_DUMP {
 
     script:
     """
-    fastq-dump.py \\
+    fq-dump.py \\
       --threads ${task.cpus} \\
       --bufsize 10MB \\
       --curcache 50MB \\

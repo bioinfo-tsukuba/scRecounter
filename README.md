@@ -130,12 +130,22 @@ Example:
 | 3M-february-2018 | 16                  | 10         | /large_storage/goodarzilab/public/scRecount/genomes/3M-february-2018.txt |
 
 
-## Nextflow run
+### STAR index table
+
+TODO
+
+## Nextflow run 
+
+### Characterize datasets
+
+Use just a small subset of reads in the dataset to identify library prep method, species, etc.
+
+TODO
+
 
 ```bash
 nextflow run main.nf \
-  -profile conda,slurm \
-  --accessions data/accessions_small_n2.csv
+  -profile conda,slurm
 ```
 
 
@@ -178,6 +188,38 @@ Pull the docker image (e.g., `ubuntu:latest`) and convert it to an Apptainer con
 
 ```bash
 apptainer pull ubuntu_latest.sif docker://ubuntu:latest
+```
+
+## GCP
+
+Create VM
+
+```bash
+gcloud compute instances create sc-recounter-vm \
+    --project=c-tc-429521 \
+    --zone=us-east1-b \
+    --machine-type=e2-standard-4 \
+    --image-family=ubuntu-2204-lts \
+    --image-project=ubuntu-os-cloud \
+    --boot-disk-size=50GB \
+    --boot-disk-type=pd-balanced \
+    --tags=allow-http,allow-https \
+    --scopes=storage-full
+```
+
+ssh onto the VM
+
+```bash
+gcloud compute ssh sc-recounter-vm \
+  --zone=us-east1-b \
+  --project=c-tc-429521 \
+  --impersonate-service-account=${HOME}/.gcp/c-tc-429521-6f6f5b8ccd93.json
+```
+
+To stop the VM 
+
+```bash
+gcloud compute instances stop sc-recounter-vm --zone=us-east1-b
 ```
 
 ## Resources

@@ -15,7 +15,7 @@ workflow {
     }
 
     // QC on reads
-    READ_QC_WF(ch_fastq)
+    //READ_QC_WF(ch_fastq)
 
     // STAR
     STAR_WF(ch_fastq)

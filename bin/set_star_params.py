@@ -33,6 +33,11 @@ parser.add_argument('--stats', type=str, default=None,
                     help='Path to the seqkit stats file')
 parser.add_argument('--barcodes', type=str, default=None,
                     help='Path to the barcode file')
+parser.add_argument('--star-index', type=str, default=None,
+                    help='Path to the STAR index')
+parser.add_argument('--outfile', type=str, default="star_params.json",
+                    help='Path to the output JSON file')
+
 
 # functions
 def read_summary(input_files: list, sample: str) -> pd.DataFrame:
@@ -53,15 +58,26 @@ def read_summary(input_files: list, sample: str) -> pd.DataFrame:
         # replace spaces with underscores
         DF['name'] = DF['name'].str.replace(" ", "_")
         # filter `name` to just specific values
-        to_keep = {"Fraction_of_Unique_Reads_in_Cells", "STRAND", "BARCODE_NAME", "CELL_BARCODE_LENGTH", "UMI_LENGTH"}
+        to_keep = {
+            "Fraction_of_Unique_Reads_in_Cells", "Reads_With_Valid_Barcodes", "STRAND", 
+            "BARCODE_NAME", "CELL_BARCODE_LENGTH", "UMI_LENGTH", "ORGANISM"
+        }
         DF = DF[DF['name'].isin(to_keep)]
         # add sample
         DF['sample'] = sample
         # pivot wider
         DF = DF.pivot(index='sample', columns='name', values='value').reset_index()
-        DF = DF.rename(columns={"Fraction_of_Unique_Reads_in_Cells": "FRAC_UNIQUE_READS"})
+        DF = DF.rename(
+            columns={
+                "Fraction_of_Unique_Reads_in_Cells": "FRAC_UNIQUE_READS",
+                "Reads_With_Valid_Barcodes": "READS_WITH_VALID_BARCODES"
+            }
+        )
         # convert FRAC_UNIQUE_READS to float
-        DF["FRAC_UNIQUE_READS"] = DF["FRAC_UNIQUE_READS"].astype(float)
+        to_float = ["FRAC_UNIQUE_READS", "READS_WITH_VALID_BARCODES"]
+        for x in to_float:
+            DF[x] = DF[x].astype(float)
+        # append to data
         data.append(DF)
     return pd.concat(data)
 
@@ -73,6 +89,7 @@ def read_stats(stats_file: str) -> pd.DataFrame:
     Returns:
         pandas dataframe
     """
+    # check if stats_file is None
     if stats_file is None:
         return None
     # read in as pandas dataframe
@@ -104,6 +121,24 @@ def read_barcodes(barcode_file: str) -> pd.DataFrame:
     DF = DF[["name", "file_path"]].rename(columns={"file_path": "BARCODE_FILE"})
     return DF
 
+def read_star_index(index_file: str) -> pd.DataFrame:
+    """
+    Read star index file and return as pandas dataframe.
+    Args:
+        index_file: Path to barcode file
+    Returns:
+        pandas dataframe
+    """
+    if index_file is None:
+        return None
+    # read in as pandas dataframe
+    DF = pd.read_csv(index_file, sep=',')
+    DF["organism"] = DF["organism"].str.replace(r"\s", "_", regex=True)
+    DF = DF[["organism", "star_index"]].rename(
+        columns={"organism" : "ORGANISM", "star_index": "STAR_INDEX"}
+    )
+    return DF
+
 def main(args):
     # set pandas display optionqs
     pd.set_option('display.max_columns', 30)
@@ -115,13 +150,13 @@ def main(args):
     # filter to the max `Fraction of Unique Reads in Cells`
     data = data[data['FRAC_UNIQUE_READS'] != float("inf")]
     max_frac = data['FRAC_UNIQUE_READS'].max()
-    data = data[data['FRAC_UNIQUE_READS'] == max_frac]
+    #data = data[data['FRAC_UNIQUE_READS'] == max_frac]
 
     # check if data is empty
     if data.shape[0] == 0:
         logging.error("No valid barcodes found in the STAR summary table.")
         sys.exit(1)
-    
+
     # read stats file
     stats = read_stats(args.stats)
     ## if read stats is not None, merge on "sample"
@@ -136,6 +171,11 @@ def main(args):
             data, barcodes, left_on="BARCODE_NAME", right_on="name", how="left"
         ).drop(columns="name")
 
+    # read the STAR index
+    star_index = read_star_index(args.star_index)
+    if star_index is not None:
+        data = pd.merge(data, star_index, on="ORGANISM", how="left")
+
     # Convert dtypes
     for x in ["CELL_BARCODE_LENGTH", "UMI_LENGTH", "read1_length"]:
         data[x] = data[x].astype(int)
@@ -149,8 +189,16 @@ def main(args):
     # drop "CHECK" column
     data.drop(columns="CHECK", inplace=True)
 
-    # if multiple rows, take the first; then print as json
-    print(data.iloc[0].to_json())
+    # if multiple rows, take the first after sorting by "READS_WITH_VALID_BARCODES"
+    data = data.sort_values("READS_WITH_VALID_BARCODES", ascending=False).iloc[0]
+
+    # write to JSON
+    outdir = os.path.dirname(args.outfile)
+    if outdir != "":
+        os.makedirs(outdir, exist_ok=True)
+    with open(args.outfile, "w") as outF:
+        outF.write(data.to_json())
+    logging.info(f"Output written to: {args.outfile}")
 
 ## script main
 if __name__ == '__main__':

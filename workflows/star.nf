@@ -16,6 +16,8 @@ workflow STAR_WF{
             if (miss_columns) {
                 error "Missing columns in the input CSV file: ${miss_columns}"
             }
+            // remove special characters
+            row.name = row.name.replaceAll("\\s", "_")
             return [
                 row.name, 
                 row.cell_barcode_length.toInteger(), 
@@ -24,17 +26,33 @@ workflow STAR_WF{
             ]
         }
 
+    // load star indices
+    ch_star_indices = Channel
+        .fromPath(params.star_indices, checkIfExists: true)
+        .splitCsv(header: true)
+        .map { row ->
+            def req_columns = ["organism", "star_index"]
+            def miss_columns = req_columns.findAll { !row.containsKey(it) }
+            if (miss_columns) {
+                error "Missing columns in the input CSV file: ${miss_columns}"
+            }
+            // remove special characters
+            row.organism = row.organism.replaceAll("\\s", "_")
+            return [row.organism, file(row.star_index)]
+        }
+
     // Subsample reads
     SUBSAMPLE_READS(ch_fastq)
 
     // Get read lengths
     SEQKIT_STATS(SUBSAMPLE_READS.out)
 
-    // Pairwise combine samples with barcodes and strand
+    // Pairwise combine samples with barcodes, strand, and star index
     ch_fastq_barcodes = SUBSAMPLE_READS.out
         .combine(Channel.of("Forward", "Reverse"))
         .combine(ch_barcodes)
-        
+        .combine(ch_star_indices)
+
     // Run STAR on subsampled reads, for all pairwise parameter combinations
     STAR_GET_VALID_BARCODES(ch_fastq_barcodes)
 
@@ -44,11 +62,14 @@ workflow STAR_WF{
         .join(SEQKIT_STATS.out, by: 0)
     STAR_SET_PARAMS(
         ch_valid_barcodes, 
-        Channel.fromPath(params.barcodes, checkIfExists: true)
+        Channel.fromPath(params.barcodes, checkIfExists: true),
+        Channel.fromPath(params.star_indices, checkIfExists: true)
     )
 
     // Run STAR with best parameters
-    STAR_FULL(ch_fastq.join(STAR_SET_PARAMS.out, by: 0))
+    if (! params.define){
+        STAR_FULL(ch_fastq.join(STAR_SET_PARAMS.out, by: 0))
+    }
 }
 
 // STAR alignment with all reads and selected parameters
@@ -84,7 +105,7 @@ process STAR_FULL {
     """
     # load parameters
     json2env.py \\
-      --params BARCODE_FILE CELL_BARCODE_LENGTH UMI_LENGTH STRAND \\
+      --params BARCODE_FILE CELL_BARCODE_LENGTH UMI_LENGTH STRAND STAR_INDEX \\
       -- $star_params > params.env
     source params.env
 
@@ -96,7 +117,7 @@ process STAR_FULL {
     STAR \\
       --readFilesIn \$R2 \$R1 \\
       --runThreadN ${task.cpus} \\
-      --genomeDir ${params.star_index} \\
+      --genomeDir \$STAR_INDEX \\
       --soloCBwhitelist \$BARCODE_FILE \\
       --soloUMIlen \$UMI_LENGTH \\
       --soloStrand \$STRAND \\
@@ -127,8 +148,9 @@ process STAR_SET_PARAMS {
     conda "envs/star.yml"
 
     input:
-    tuple val(sample), path(summary_csv), path(stats_tsv)
+    tuple val(sample), path(star_summary), path(stats_tsv)
     each path(barcodes)
+    each path(star_index)
 
     output:
     tuple val(sample), path("star_params.json")
@@ -139,8 +161,8 @@ process STAR_SET_PARAMS {
       --sample $sample \\
       --stats $stats_tsv \\
       --barcodes $barcodes \\
-      $summary_csv \\
-      > star_params.json
+      --star-index $star_index \\
+      $star_summary
     """
 
     stub:
@@ -161,10 +183,12 @@ process STAR_GET_VALID_BARCODES {
     label "process_medium"
 
     input:
-    tuple val(sample), path(fastq_1), path(fastq_2), val(strand), val(barcode_name), val(cell_barcode_length), val(umi_length), path(barcodes)
+    tuple val(sample), path(fastq_1), path(fastq_2), 
+          val(strand), val(barcode_name), val(cell_barcode_length), val(umi_length), path(barcodes), 
+          val(organism), path(star_index)
 
     output:
-    tuple val(sample), path("${sample}_${strand}_${barcode_name}.csv")
+    tuple val(sample), path("${sample}_${organism}_${strand}_${barcode_name}_star-summary.csv")
 
     script:
     """
@@ -172,7 +196,7 @@ process STAR_GET_VALID_BARCODES {
     STAR \\
       --readFilesIn $fastq_2 $fastq_1 \\
       --runThreadN ${task.cpus} \\
-      --genomeDir ${params.star_index} \\
+      --genomeDir ${star_index} \\
       --soloCBwhitelist $barcodes \\
       --soloCBlen ${cell_barcode_length} \\
       --soloUMIlen ${umi_length} \\
@@ -191,17 +215,18 @@ process STAR_GET_VALID_BARCODES {
       --outFileNamePrefix results 
 
     # format output
-    OUTNAME="${sample}_${strand}_${barcode_name}.csv"
+    OUTNAME="${sample}_${organism}_${strand}_${barcode_name}_star-summary.csv"
     mv -f resultsSolo.out/GeneFull/Summary.csv \$OUTNAME
     echo "STRAND,${strand}" >> \$OUTNAME
     echo "BARCODE_NAME,${barcode_name}" >> \$OUTNAME
     echo "CELL_BARCODE_LENGTH,${cell_barcode_length}" >> \$OUTNAME
     echo "UMI_LENGTH,${umi_length}" >> \$OUTNAME
+    echo "ORGANISM,${organism}" >> \$OUTNAME
     """
 
     stub:
     """
-    touch ${sample}_${strand}_${barcode_name}.csv
+    touch ${sample}_${organism}_${strand}_${barcode_name}_star-summary.csv
     """
 }
 
