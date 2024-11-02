@@ -29,7 +29,7 @@ parser.add_argument('read_stats_tsv', type=str,
                     help='Path to the seqkit stats file')
 parser.add_argument('star_params_csv', type=str, nargs='+',
                     help='Path to the STAR parameters CSV file')
-parser.add_argument('--outfile', type=str, default="star_params.json",
+parser.add_argument('--outdir', type=str, default="results",
                     help='Path to the output JSON file')
                     
 # functions
@@ -99,39 +99,6 @@ def read_seqkit_stats(stats_file: str) -> pd.DataFrame:
     DF = DF.pivot(index='sample', columns='read', values='read_length').reset_index()
     return DF
 
-# def read_barcodes(barcode_file: str) -> pd.DataFrame:
-#     """
-#     Read barcode file and return as pandas dataframe.
-#     Args:
-#         barcode_file: Path to barcode file
-#     Returns:
-#         pandas dataframe
-#     """
-#     if barcode_file is None:
-#         return None
-#     # read in as pandas dataframe
-#     DF = pd.read_csv(barcode_file, sep=',')
-#     DF = DF[["name", "file_path"]].rename(columns={"file_path": "BARCODE_FILE"})
-#     return DF
-
-# def read_star_index(index_file: str) -> pd.DataFrame:
-#     """
-#     Read star index file and return as pandas dataframe.
-#     Args:
-#         index_file: Path to barcode file
-#     Returns:
-#         pandas dataframe
-#     """
-#     if index_file is None:
-#         return None
-#     # read in as pandas dataframe
-#     DF = pd.read_csv(index_file, sep=',')
-#     DF["organism"] = DF["organism"].str.replace(r"\s", "_", regex=True)
-#     DF = DF[["organism", "star_index"]].rename(
-#         columns={"organism" : "ORGANISM", "star_index": "STAR_INDEX"}
-#     )
-#     return DF
-
 def read_params(params_file: str) -> pd.DataFrame:
     """
     Read STAR params file and return as pandas dataframe.
@@ -158,6 +125,12 @@ def main(args):
     # merge on sample
     data = pd.merge(params, seqkit_stats, on="sample", how="left")
 
+    # output
+    os.makedirs(args.outdir, exist_ok=True)
+    outfile = os.path.join(args.outdir, "merged_star_params.csv")
+    data.to_csv(outfile, index=False)
+    logging.info(f"Output written to: {outfile}")
+
     # filter to the max `Fraction of Unique Reads in Cells`
     data = data[data['Fraction of Unique Reads in Cells'] != float("inf")]
     max_frac = data['Fraction of Unique Reads in Cells'].max()
@@ -183,11 +156,11 @@ def main(args):
     # renmame
     data.rename(
         columns={
-            "BARCODES_FILE" : "barcodes_file",
-            "CELL_BARCODE_LENGTH" : "cell_barcode_length",
-            "UMI_LENGTH" : "umi_length",
-            "STRAND" : "strand",
-            "STAR_INDEX" : "star_index"
+            "barcodes_file" : "BARCODES_FILE",
+            "cell_barcode_length" : "CELL_BARCODE_LENGTH",
+            "umi_length" : "UMI_LENGTH",
+            "strand" : "STRAND",
+            "star_index" : "STAR_INDEX"
         },
         inplace=True
     )
@@ -196,12 +169,10 @@ def main(args):
     data = data.sort_values("Reads With Valid Barcodes", ascending=False).iloc[0]
 
     # Write to JSON
-    outdir = os.path.dirname(args.outfile)
-    if outdir != "":
-        os.makedirs(outdir, exist_ok=True)
-    with open(args.outfile, "w") as outF:
-        outF.write(data.to_json())
-    logging.info(f"Output written to: {args.outfile}")
+    outfile = os.path.join(args.outdir, "selected_star_params.json")
+    with open(outfile, "w") as outF:
+        outF.write(data.to_json(indent=4))
+    logging.info(f"Output written to: {outfile}")
 
 
 ## script main

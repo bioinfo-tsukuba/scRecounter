@@ -18,9 +18,10 @@ class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
     pass
 
-desc = 'Load JSON file and print parameter'
+desc = 'Load JSON file and write env param file to source'
 epi = """DESCRIPTION:
-Load JSON file and print parameter
+Env param file (ENV=value) is written to stdout.
+Example usage: `source <(json2env.py <json_file> --params <param1> <param2> ...)`
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)

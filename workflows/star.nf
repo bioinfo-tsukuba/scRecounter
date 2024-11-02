@@ -74,7 +74,7 @@ workflow STAR_WF{
 
     // Run STAR with the best parameters
     if (! params.define){
-        STAR_FULL(ch_fastq.join(STAR_SET_PARAMS.out, by: 0))
+        STAR_FULL(ch_fastq.join(STAR_SET_PARAMS.out.json, by: 0))
     }
 }
 
@@ -146,6 +146,7 @@ process STAR_FULL {
 
 // Set STAR parameters based on valid barcodes
 def saveAsParams(sample, filename) {
+    filename = filename.tokenize("/").last()
     return "${sample}/${filename}"
 }
 
@@ -157,7 +158,9 @@ process STAR_SET_PARAMS {
     tuple val(sample), path("star_params*.csv"), path(read_stats)
 
     output:
-    tuple val(sample), path("star_params.json")
+    tuple val(sample), path("results/merged_star_params.csv"),    emit: csv
+    tuple val(sample), path("results/selected_star_params.json"), emit: json
+    
 
     script:
     """
