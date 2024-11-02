@@ -4,7 +4,7 @@ workflow STAR_WF{
     ch_fastq
 
     main:
-    // for each sample (accession), run STAR on subset of reads with various parameters to determine which params produce the most valid barcodes
+    //-- for each sample (accession), run STAR on subset of reads with various parameters to determine which params produce the most valid barcodes --/
     
     // Subsample reads
     SUBSAMPLE_READS(ch_fastq)
@@ -13,33 +13,10 @@ workflow STAR_WF{
     SEQKIT_STATS(SUBSAMPLE_READS.out)
 
     // Load barcodes file
-    ch_barcodes = Channel
-        .fromPath(params.barcodes, checkIfExists: true)
-        .splitCsv(header: true)
-        .map { row ->
-            def req_columns = ["name", "cell_barcode_length", "umi_length", "file_path"]
-            validateRequiredColumns(row, req_columns)
-            // remove special characters
-            row.name = row.name.replaceAll("\\s", "_")
-            return [
-                row.name, 
-                row.cell_barcode_length.toInteger(), 
-                row.umi_length.toInteger(),
-                file(row.file_path)  
-            ]
-        }
+    ch_barcodes = loadBarcodes(params)
 
     // Load star indices
-    ch_star_indices = Channel
-        .fromPath(params.star_indices, checkIfExists: true)
-        .splitCsv(header: true)
-        .map { row ->
-            def req_columns = ["organism", "star_index"]
-            validateRequiredColumns(row, req_columns)
-            // remove special characters
-            row.organism = row.organism.replaceAll("\\s", "_")
-            return [row.organism, file(row.star_index)]
-        }
+    ch_star_indices = loadStarIndices(params)
 
     // Pairwise combine samples with barcodes, strand, and star index
     ch_params = SUBSAMPLE_READS.out
@@ -72,7 +49,8 @@ workflow STAR_WF{
         .join(SEQKIT_STATS.out, by: 0)
     STAR_SET_PARAMS(ch_params_all)
 
-    // Run STAR with the best parameters
+
+    //-- Run STAR with the best parameters --//
     if (! params.define){
         STAR_FULL(ch_fastq.join(STAR_SET_PARAMS.out.json, by: 0))
     }
@@ -299,4 +277,35 @@ def validateRequiredColumns(row, required) {
     if (missing) {
         error "Missing columns in the input CSV file: ${missing}"
     }
+}
+
+def loadBarcodes(params) {
+    return Channel
+        .fromPath(params.barcodes, checkIfExists: true)
+        .splitCsv(header: true)
+        .map { row ->
+            def req_columns = ["name", "cell_barcode_length", "umi_length", "file_path"]
+            validateRequiredColumns(row, req_columns)
+            // remove special characters
+            row.name = row.name.replaceAll("\\s", "_")
+            return [
+                row.name, 
+                row.cell_barcode_length.toInteger(), 
+                row.umi_length.toInteger(),
+                file(row.file_path)  
+            ]
+        }
+}
+
+def loadStarIndices(params) {
+    return Channel
+        .fromPath(params.star_indices, checkIfExists: true)
+        .splitCsv(header: true)
+        .map { row ->
+            def req_columns = ["organism", "star_index"]
+            validateRequiredColumns(row, req_columns)
+            // remove special characters
+            row.organism = row.organism.replaceAll("\\s", "_")
+            return [row.organism, file(row.star_index)]
+        }
 }
