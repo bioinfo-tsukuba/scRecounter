@@ -17,7 +17,7 @@ class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
     pass
 
-desc = 'Set STAR parameters for each sample.'
+desc = 'Select the best STAR parameters for each sample.'
 epi = """DESCRIPTION:
 The script reads the STAR summary CSV file and determines
 the STAR parameters, based on the number of valid barcodes
@@ -25,20 +25,13 @@ for each parameter set among the test STAR runs.
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
-parser.add_argument('star_summary_csv', type=str, nargs='+',
-                    help='Path to the STAR summary CSV file')
-parser.add_argument('--sample', type=str, default="sample",
-                    help='Sample name')
-parser.add_argument('--stats', type=str, default=None,
+parser.add_argument('read_stats_tsv', type=str,
                     help='Path to the seqkit stats file')
-parser.add_argument('--barcodes', type=str, default=None,
-                    help='Path to the barcode file')
-parser.add_argument('--star-index', type=str, default=None,
-                    help='Path to the STAR index')
+parser.add_argument('star_params_csv', type=str, nargs='+',
+                    help='Path to the STAR parameters CSV file')
 parser.add_argument('--outfile', type=str, default="star_params.json",
                     help='Path to the output JSON file')
-
-
+                    
 # functions
 def read_summary(input_files: list, sample: str) -> pd.DataFrame:
     """
@@ -81,7 +74,7 @@ def read_summary(input_files: list, sample: str) -> pd.DataFrame:
         data.append(DF)
     return pd.concat(data)
 
-def read_stats(stats_file: str) -> pd.DataFrame:
+def read_seqkit_stats(stats_file: str) -> pd.DataFrame:
     """
     Read seqkit stats table and return as pandas dataframe.
     Args:
@@ -106,37 +99,49 @@ def read_stats(stats_file: str) -> pd.DataFrame:
     DF = DF.pivot(index='sample', columns='read', values='read_length').reset_index()
     return DF
 
-def read_barcodes(barcode_file: str) -> pd.DataFrame:
-    """
-    Read barcode file and return as pandas dataframe.
-    Args:
-        barcode_file: Path to barcode file
-    Returns:
-        pandas dataframe
-    """
-    if barcode_file is None:
-        return None
-    # read in as pandas dataframe
-    DF = pd.read_csv(barcode_file, sep=',')
-    DF = DF[["name", "file_path"]].rename(columns={"file_path": "BARCODE_FILE"})
-    return DF
+# def read_barcodes(barcode_file: str) -> pd.DataFrame:
+#     """
+#     Read barcode file and return as pandas dataframe.
+#     Args:
+#         barcode_file: Path to barcode file
+#     Returns:
+#         pandas dataframe
+#     """
+#     if barcode_file is None:
+#         return None
+#     # read in as pandas dataframe
+#     DF = pd.read_csv(barcode_file, sep=',')
+#     DF = DF[["name", "file_path"]].rename(columns={"file_path": "BARCODE_FILE"})
+#     return DF
 
-def read_star_index(index_file: str) -> pd.DataFrame:
+# def read_star_index(index_file: str) -> pd.DataFrame:
+#     """
+#     Read star index file and return as pandas dataframe.
+#     Args:
+#         index_file: Path to barcode file
+#     Returns:
+#         pandas dataframe
+#     """
+#     if index_file is None:
+#         return None
+#     # read in as pandas dataframe
+#     DF = pd.read_csv(index_file, sep=',')
+#     DF["organism"] = DF["organism"].str.replace(r"\s", "_", regex=True)
+#     DF = DF[["organism", "star_index"]].rename(
+#         columns={"organism" : "ORGANISM", "star_index": "STAR_INDEX"}
+#     )
+#     return DF
+
+def read_params(params_file: str) -> pd.DataFrame:
     """
-    Read star index file and return as pandas dataframe.
+    Read STAR params file and return as pandas dataframe.
     Args:
-        index_file: Path to barcode file
+        params_file: Path to STAR params file
     Returns:
         pandas dataframe
     """
-    if index_file is None:
-        return None
     # read in as pandas dataframe
-    DF = pd.read_csv(index_file, sep=',')
-    DF["organism"] = DF["organism"].str.replace(r"\s", "_", regex=True)
-    DF = DF[["organism", "star_index"]].rename(
-        columns={"organism" : "ORGANISM", "star_index": "STAR_INDEX"}
-    )
+    DF = pd.read_csv(params_file)
     return DF
 
 def main(args):
@@ -144,61 +149,60 @@ def main(args):
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 300)
 
-    # read summary tables
-    data = read_summary(args.star_summary_csv, args.sample)
+    # read in seqkit stats file
+    seqkit_stats = read_seqkit_stats(args.read_stats_tsv)
+
+    # read in param files
+    params = pd.concat([pd.read_csv(x) for x in args.star_params_csv], axis=0)
+
+    # merge on sample
+    data = pd.merge(params, seqkit_stats, on="sample", how="left")
 
     # filter to the max `Fraction of Unique Reads in Cells`
-    data = data[data['FRAC_UNIQUE_READS'] != float("inf")]
-    max_frac = data['FRAC_UNIQUE_READS'].max()
-    #data = data[data['FRAC_UNIQUE_READS'] == max_frac]
+    data = data[data['Fraction of Unique Reads in Cells'] != float("inf")]
+    max_frac = data['Fraction of Unique Reads in Cells'].max()
+    data = data[data['Fraction of Unique Reads in Cells'] == max_frac]
 
     # check if data is empty
     if data.shape[0] == 0:
         logging.error("No valid barcodes found in the STAR summary table.")
         sys.exit(1)
 
-    # read stats file
-    stats = read_stats(args.stats)
-    ## if read stats is not None, merge on "sample"
-    if stats is not None:
-        data = pd.merge(data, stats, on="sample", how="left")
-
-    # read barcode file
-    barcodes = read_barcodes(args.barcodes)
-    ## if barcodes is not None, merge on "BARCODE_NAME"="name"
-    if barcodes is not None:
-        data = pd.merge(
-            data, barcodes, left_on="BARCODE_NAME", right_on="name", how="left"
-        ).drop(columns="name")
-
-    # read the STAR index
-    star_index = read_star_index(args.star_index)
-    if star_index is not None:
-        data = pd.merge(data, star_index, on="ORGANISM", how="left")
-
     # Convert dtypes
-    for x in ["CELL_BARCODE_LENGTH", "UMI_LENGTH", "read1_length"]:
+    for x in ["cell_barcode_length", "umi_length", "read1_length", "read2_length"]:
         data[x] = data[x].astype(int)
 
     # Check that read lengths are >= CELL_BARCODE_LENGTH + UMI_LENGTH
-    data["CHECK"] = data["CELL_BARCODE_LENGTH"] + data["UMI_LENGTH"] - data["read1_length"]
+    data["CHECK"] = data["cell_barcode_length"] + data["umi_length"] - data["read1_length"]
     data = data[data["CHECK"] <= 0]
     if data.shape[0] == 0:
         logging.error("No valid barcodes found in the STAR summary table after accounting for read lengths.")
         sys.exit(1)
-    # drop "CHECK" column
     data.drop(columns="CHECK", inplace=True)
 
-    # if multiple rows, take the first after sorting by "READS_WITH_VALID_BARCODES"
-    data = data.sort_values("READS_WITH_VALID_BARCODES", ascending=False).iloc[0]
+    # renmame
+    data.rename(
+        columns={
+            "BARCODES_FILE" : "barcodes_file",
+            "CELL_BARCODE_LENGTH" : "cell_barcode_length",
+            "UMI_LENGTH" : "umi_length",
+            "STRAND" : "strand",
+            "STAR_INDEX" : "star_index"
+        },
+        inplace=True
+    )
 
-    # write to JSON
+    # If multiple rows, take the first after sorting by "READS_WITH_VALID_BARCODES"
+    data = data.sort_values("Reads With Valid Barcodes", ascending=False).iloc[0]
+
+    # Write to JSON
     outdir = os.path.dirname(args.outfile)
     if outdir != "":
         os.makedirs(outdir, exist_ok=True)
     with open(args.outfile, "w") as outF:
         outF.write(data.to_json())
     logging.info(f"Output written to: {args.outfile}")
+
 
 ## script main
 if __name__ == '__main__':

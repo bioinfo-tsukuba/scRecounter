@@ -18,15 +18,15 @@ class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
     pass
 
-desc = 'Load JSON file and export as environment variables'
+desc = 'Load JSON file and print parameter'
 epi = """DESCRIPTION:
-Export JSON file as environment variables. This script is useful for loading
+Load JSON file and print parameter
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
 parser.add_argument('json_file', type=str, help='JSON file')
-parser.add_argument('--params', type=str, default=[], nargs='+',
-                    help='Parameters to export as environment variables')
+parser.add_argument('--params', type=str, nargs='+', default=[],
+                    help='Parameters to export as environment variables',)
 
 
 # functions

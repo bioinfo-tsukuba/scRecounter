@@ -6,16 +6,19 @@ workflow STAR_WF{
     main:
     // for each sample (accession), run STAR on subset of reads with various parameters to determine which params produce the most valid barcodes
     
-    // load barcodes file
+    // Subsample reads
+    SUBSAMPLE_READS(ch_fastq)
+
+    // Get read lengths
+    SEQKIT_STATS(SUBSAMPLE_READS.out)
+
+    // Load barcodes file
     ch_barcodes = Channel
         .fromPath(params.barcodes, checkIfExists: true)
         .splitCsv(header: true)
         .map { row ->
             def req_columns = ["name", "cell_barcode_length", "umi_length", "file_path"]
-            def miss_columns = req_columns.findAll { !row.containsKey(it) }
-            if (miss_columns) {
-                error "Missing columns in the input CSV file: ${miss_columns}"
-            }
+            validateRequiredColumns(row, req_columns)
             // remove special characters
             row.name = row.name.replaceAll("\\s", "_")
             return [
@@ -26,47 +29,50 @@ workflow STAR_WF{
             ]
         }
 
-    // load star indices
+    // Load star indices
     ch_star_indices = Channel
         .fromPath(params.star_indices, checkIfExists: true)
         .splitCsv(header: true)
         .map { row ->
             def req_columns = ["organism", "star_index"]
-            def miss_columns = req_columns.findAll { !row.containsKey(it) }
-            if (miss_columns) {
-                error "Missing columns in the input CSV file: ${miss_columns}"
-            }
+            validateRequiredColumns(row, req_columns)
             // remove special characters
             row.organism = row.organism.replaceAll("\\s", "_")
             return [row.organism, file(row.star_index)]
         }
 
-    // Subsample reads
-    SUBSAMPLE_READS(ch_fastq)
-
-    // Get read lengths
-    SEQKIT_STATS(SUBSAMPLE_READS.out)
-
     // Pairwise combine samples with barcodes, strand, and star index
-    ch_fastq_barcodes = SUBSAMPLE_READS.out
+    ch_params = SUBSAMPLE_READS.out
         .combine(Channel.of("Forward", "Reverse"))
         .combine(ch_barcodes)
         .combine(ch_star_indices)
+        .map { sample, r1, r2, strand, barcodes_name, cb_len, umi_len, barcodes_file, organism, star_index ->
+            def params = [
+                sample: sample,
+                strand: strand,
+                barcodes_name: barcodes_name,
+                cell_barcode_length: cb_len,
+                umi_length: umi_len,
+                barcodes_file: barcodes_file,
+                organism: organism,
+                star_index: star_index
+            ]
+            return [sample, r1, r2, params] 
+        }
 
     // Run STAR on subsampled reads, for all pairwise parameter combinations
-    STAR_GET_VALID_BARCODES(ch_fastq_barcodes)
+    STAR_PARAM_SEARCH(ch_params)
+    
+    // Format the STAR parameters
+    STAR_FORMAT_PARAMS(STAR_PARAM_SEARCH.out)
 
-    // Set STAR parameters
-    ch_valid_barcodes = STAR_GET_VALID_BARCODES.out
+    // Get best parameters
+    ch_params_all = STAR_FORMAT_PARAMS.out
         .groupTuple()
         .join(SEQKIT_STATS.out, by: 0)
-    STAR_SET_PARAMS(
-        ch_valid_barcodes, 
-        Channel.fromPath(params.barcodes, checkIfExists: true),
-        Channel.fromPath(params.star_indices, checkIfExists: true)
-    )
+    STAR_SET_PARAMS(ch_params_all)
 
-    // Run STAR with best parameters
+    // Run STAR with the best parameters
     if (! params.define){
         STAR_FULL(ch_fastq.join(STAR_SET_PARAMS.out, by: 0))
     }
@@ -105,7 +111,7 @@ process STAR_FULL {
     """
     # load parameters
     json2env.py \\
-      --params BARCODE_FILE CELL_BARCODE_LENGTH UMI_LENGTH STRAND STAR_INDEX \\
+      --params BARCODES_FILE CELL_BARCODE_LENGTH UMI_LENGTH STRAND STAR_INDEX \\
       -- $star_params > params.env
     source params.env
 
@@ -118,7 +124,7 @@ process STAR_FULL {
       --readFilesIn \$R2 \$R1 \\
       --runThreadN ${task.cpus} \\
       --genomeDir \$STAR_INDEX \\
-      --soloCBwhitelist \$BARCODE_FILE \\
+      --soloCBwhitelist \$BARCODES_FILE \\
       --soloUMIlen \$UMI_LENGTH \\
       --soloStrand \$STRAND \\
       --soloCBlen \$CELL_BARCODE_LENGTH \\
@@ -148,26 +154,43 @@ process STAR_SET_PARAMS {
     conda "envs/star.yml"
 
     input:
-    tuple val(sample), path(star_summary), path(stats_tsv)
-    each path(barcodes)
-    each path(star_index)
+    tuple val(sample), path("star_params*.csv"), path(read_stats)
 
     output:
     tuple val(sample), path("star_params.json")
 
     script:
     """
-    set_star_params.py \\
-      --sample $sample \\
-      --stats $stats_tsv \\
-      --barcodes $barcodes \\
-      --star-index $star_index \\
-      $star_summary
+    select_star_params.py $read_stats star_params*.csv
     """
 
     stub:
     """
     touch star_params.json
+    """
+}
+
+process STAR_FORMAT_PARAMS {
+    conda "envs/star.yml"
+
+    input:
+    tuple val(sample), val(params), path(star_summary) //, path(read_stats_tsv)
+
+    output:
+    tuple val(sample), path("star_params.csv")
+
+    script:
+    """
+    format_star_params.py \\
+      --sample ${params.sample} \\
+      --strand ${params.strand} \\
+      --barcodes-name ${params.barcodes_name} \\
+      --barcodes-file ${params.barcodes_file} \\
+      --cell-barcode-length ${params.cell_barcode_length} \\
+      --umi-length ${params.umi_length} \\
+      --organism ${params.organism} \\
+      --star-index ${params.star_index} \\
+      $star_summary 
     """
 }
 
@@ -177,18 +200,16 @@ def saveAsValid(sample, filename) {
 }
 
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
-process STAR_GET_VALID_BARCODES {
-    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
+process STAR_PARAM_SEARCH {
+    //publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
     conda "envs/star.yml"
     label "process_medium"
 
     input:
-    tuple val(sample), path(fastq_1), path(fastq_2), 
-          val(strand), val(barcode_name), val(cell_barcode_length), val(umi_length), path(barcodes), 
-          val(organism), path(star_index)
+    tuple val(sample), path(fastq_1), path(fastq_2), val(params)
 
     output:
-    tuple val(sample), path("${sample}_${organism}_${strand}_${barcode_name}_star-summary.csv")
+    tuple val(sample), val(params), path("star_summary.csv")
 
     script:
     """
@@ -196,11 +217,11 @@ process STAR_GET_VALID_BARCODES {
     STAR \\
       --readFilesIn $fastq_2 $fastq_1 \\
       --runThreadN ${task.cpus} \\
-      --genomeDir ${star_index} \\
-      --soloCBwhitelist $barcodes \\
-      --soloCBlen ${cell_barcode_length} \\
-      --soloUMIlen ${umi_length} \\
-      --soloStrand ${strand} \\
+      --genomeDir ${params.star_index} \\
+      --soloCBwhitelist ${params.barcodes_file} \\
+      --soloCBlen ${params.cell_barcode_length} \\
+      --soloUMIlen ${params.umi_length} \\
+      --soloStrand ${params.strand} \\
       --soloType CB_UMI_Simple \\
       --clipAdapterType CellRanger4 \\
       --outFilterScoreMin 30 \\
@@ -213,20 +234,14 @@ process STAR_GET_VALID_BARCODES {
       --outSAMtype None \\
       --soloBarcodeReadLength 0 \\
       --outFileNamePrefix results 
-
-    # format output
-    OUTNAME="${sample}_${organism}_${strand}_${barcode_name}_star-summary.csv"
-    mv -f resultsSolo.out/GeneFull/Summary.csv \$OUTNAME
-    echo "STRAND,${strand}" >> \$OUTNAME
-    echo "BARCODE_NAME,${barcode_name}" >> \$OUTNAME
-    echo "CELL_BARCODE_LENGTH,${cell_barcode_length}" >> \$OUTNAME
-    echo "UMI_LENGTH,${umi_length}" >> \$OUTNAME
-    echo "ORGANISM,${organism}" >> \$OUTNAME
+    
+    # rename output
+    mv -f resultsSolo.out/GeneFull/Summary.csv star_summary.csv
     """
 
     stub:
     """
-    touch ${sample}_${organism}_${strand}_${barcode_name}_star-summary.csv
+    touch star_summary.csv
     """
 }
 
@@ -273,4 +288,12 @@ process SUBSAMPLE_READS {
     """
     touch ${sample}_R1.fq ${sample}_R2.fq
     """
+}
+
+// Utility functions
+def validateRequiredColumns(row, required) {
+    def missing = required.findAll { !row.containsKey(it) }
+    if (missing) {
+        error "Missing columns in the input CSV file: ${missing}"
+    }
 }
