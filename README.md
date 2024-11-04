@@ -144,8 +144,13 @@ TODO
 
 
 ```bash
-nextflow run main.nf \
-  -profile conda,slurm
+nextflow run main.nf -profile conda,vm \
+  --keep_temp true \
+  --define \
+  --max_spots 50000 \
+  --accessions data/accessions_var.csv \
+  --outdir tmp/accessions_var \
+  -resume
 ```
 
 
@@ -181,6 +186,16 @@ nextflow run main.nf \
   --accessions data/accessions_small_n10.csv \
   --outdir tmp/results_small_n10
 ```
+
+## Convert accessions
+
+Use the `acc2srr.py` script in this repo. An example:
+
+```bash
+./scripts/acc2srr.py --email YOUR_EMAIL@arcinstitute.org accessions.txt 
+```
+
+The `accessions.txt` file should contain a list of GEO or SRA accessions (one per line). 
 
 ## Convert Docker container to Apptainer
 

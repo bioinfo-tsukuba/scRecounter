@@ -85,20 +85,20 @@ def check_output(sra_file, outdir: str) -> None:
     read_lens = {}
     for read_type,file_path in read_files.items():
         if not os.path.exists(file_path):
-            logging.error(f'Output file not found: {x}')
-            sys.exit(1)
-        read_lens[read_type] = get_read_lens(file_path)
+            logging.warning(f'Output file not found: {file_path}')
+            read_lens[read_type] = None
+        else:
+            read_lens[read_type] = get_read_lens(file_path)
     
     # if R1 is longer than R2, swap names
     ## R2 should be cDNA read, while R1 is the barcode (cell+UMI)
-    if read_lens["R1"] > read_lens["R2"]:
+    if read_lens["R1"] and read_lens["R2"] and read_lens["R1"] > read_lens["R2"]:
         logging.warning('Read 1 is longer than Read 2; swapping reads')
         # rename files
         os.rename(read_files["R1"], "tmp_R1.fastq")
         os.rename(read_files["R2"], read_files["R1"])
         os.rename("tmp_R1.fastq", read_files["R2"])
 
-    
 def main(args):
     # check for fastq-dump and fasterq-dump
     for exe in ['fastq-dump', 'fasterq-dump']:

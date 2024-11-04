@@ -138,8 +138,12 @@ def main(args):
 
     # check if data is empty
     if data.shape[0] == 0:
-        logging.error("No valid barcodes found in the STAR summary table.")
-        sys.exit(1)
+        logging.warning("No valid barcodes found in the STAR summary table.")
+        # write empty json file
+        outfile = os.path.join(args.outdir, "selected_star_params.json")
+        with open(outfile, "w") as outF:
+            outF.write("{}")
+        return None
 
     # Convert dtypes
     for x in ["cell_barcode_length", "umi_length", "read1_length", "read2_length"]:

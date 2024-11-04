@@ -28,7 +28,7 @@ workflow DOWNLOAD_WF {
     ch_fastq = FQ_DUMP.out.R1.join(FQ_DUMP.out.R2, by: [0, 1], remainder: true)
         .filter { sample, accession, r1, r2 -> 
             if(r2 == null) {
-                println "Warning: Read 2 is empty for ${sample}-${accession}; skipping"
+                println "Warning: Read 2 is empty for ${sample}; skipping"
             }
             return r2 != null
         }

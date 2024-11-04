@@ -30,10 +30,29 @@ parser.add_argument('accession_file', type=str,
                     help='Text file with accessions; 1 per line')
 parser.add_argument('--email', type=str, default=None,
                     help='Email address for Entrez')
+parser.add_argument('--batch-size', type=int, default=50,
+                    help='Batch size for fetching')
 parser.add_argument('--outfile', type=str, default='srr_accessions.csv',
                     help='Output file name')
 
 # functions
+def load_accessions(accession_file: str) -> List[str]:
+    """
+    Load accessions from file
+    Args:
+        accession_file: File with accessions
+    Returns:
+        List of accessions
+    """
+    accessions = []
+    with open(accession_file) as inF:
+        for line in inF:
+            line = line.strip().split(',')[0]
+            if line == "" or line.startswith("#"):
+                continue
+            accessions.append(line)
+    return accessions
+
 def esearch_batch(db, accession, batch_size = 50, ntries=3, sleep_time=5) -> List[str]:
     """
     Entrez esearch in batches
@@ -55,8 +74,6 @@ def esearch_batch(db, accession, batch_size = 50, ntries=3, sleep_time=5) -> Lis
     results += record["IdList"] if record["IdList"] else None
     total_records = int(record["Count"])
     print(f"  Total records: {total_records}", file=sys.stderr)
-    
-    total_records = 10; # debug
 
     # Retrieve results in batches
     for start in range(0, total_records, batch_size):
@@ -124,7 +141,7 @@ def fetch_srr_from_srp(accession, batch_size=50, ntries=3, sleep_time=5) -> pd.D
         ntries: Number of tries before giving up
         sleep_time: Sleep time between retries
     Returns:
-
+        Dataframe with SRR accessions
     """
     # Search the SRA database for the SRP accession
     idlist = esearch_batch("sra", accession, batch_size=batch_size, ntries=ntries, sleep_time=sleep_time)
@@ -138,10 +155,20 @@ def fetch_srr_from_srp(accession, batch_size=50, ntries=3, sleep_time=5) -> pd.D
     df = pd.concat(results)
     # return specific columns
     to_keep = [
-        "Run", "Experiment", "Sample", "SRAStudy", "BioProject", 
+        "Sample", "Run", "Experiment",  "SRAStudy", "BioProject", 
         "spots", "spots_with_mates", "avgLength", "size_MB"
     ]
-    return df[to_keep]
+    df = df[to_keep].rename(columns={
+        "Sample" : "sample",
+        "Run" : "accession",
+        "Experiment" : "experiment",
+        "SRAStudy" : "sra_study",
+        "BioProject" : "bioproject",
+        "avgLength" : "avg_length",
+        "size_MB" : "size_mb"
+    })
+    # getting just unique for for "accession"
+    return df.drop_duplicates(subset=["accession"])
 
 def gse_to_srp(accession: str) -> str:
     """
@@ -162,36 +189,63 @@ def gse_to_srp(accession: str) -> str:
     print(f"Converted GSE to SRP: {srp_accession}", file=sys.stderr)
     return srp_accession
 
-def load_accessions(accession_file: str) -> List[str]:
+def gsm_to_srp(accession: str) -> str:
     """
-    Load accessions from file
+    Use pysradb to convert GSM to SRP
     Args:
-        accession_file: File with accessions
+        accession: GSM accession
     Returns:
-        List of accessions
+        SRP accession
     """
-    accessions = []
-    with open(accession_file) as inF:
-        for line in inF:
-            line = line.strip().split(',')[0]
-            if line == "" or line.startswith("#"):
-                continue
-            accessions.append(line)
-    return accessions
+    sradb = SRAweb()
+    df = sradb.gsm_to_srp(
+        [accession],
+        detailed=False,
+        sample_attribute=False,
+        expand_sample_attributes=False,
+    )
+    srp_accession = df["study_accession"].tolist()[0]
+    print(f"Converted GSM to SRP: {srp_accession}", file=sys.stderr)
+    return srp_accession
 
-def fetch_srr_from_accession(accession: str) -> List[pd.DataFrame]:
+def convert_to_srp(accession: str) -> str:
+    """
+    Convert GSE or GSM to SRP
+    Args:
+        accession: GSE or GSM accession
+    Returns:
+        SRP accession
+    """
+    if accession.startswith('GSE'):
+        try:
+            return gse_to_srp(accession)
+        except Exception as e:
+            print(f"Error converting GSE to SRP: {e}", file=sys.stderr)
+            return None
+    elif accession.startswith('GSM'):
+        try:
+            return gsm_to_srp(accession)
+        except Exception as e:
+            print(f"Error converting GSM to SRP: {e}", file=sys.stderr)
+            return None
+    else:
+        print(f"Accession type not recognized: {accession}", file=sys.stderr)
+        return None
+
+def fetch_srr_from_accession(accession: str, batch_size: int) -> List[pd.DataFrame]:
     """
     Fetch SRR accessions from SRP or GSE
     Args:
         accession: SRP or GSE accession
+        batch_size: Batch size for fetching
     Returns:
         List of dataframes with SRR accession info
     """
     print(f"#-- Fetching SRR accessions for: {accession} --#", file=sys.stderr)
-    if accession.startswith('GSE'):
+    if accession.startswith('GSE') or accession.startswith('GSM'):
         # convert GSE to SRP
-        sra_accession = gse_to_srp(accession)
-        df = fetch_srr_from_srp(sra_accession)
+        srp_accession = convert_to_srp(accession)
+        df = fetch_srr_from_srp(srp_accession)
     elif accession.startswith('SRP'):
         # fetch SRR from SRP
         df = fetch_srr_from_srp(accession)
@@ -199,7 +253,7 @@ def fetch_srr_from_accession(accession: str) -> List[pd.DataFrame]:
         print(f"Accession type not recognized: {accession}", file=sys.stderr)
         return None
     # add query accession
-    df["Query_accession"] = accession
+    df["query_accession"] = accession
     # move query accession to first column
     cols = df.columns.tolist()
     cols = cols[-1:] + cols[:-1]
@@ -219,7 +273,9 @@ def main(args):
     # get SRR accessions
     srr_accessions = []
     for accession in accessions:
-        srr_accessions.append(fetch_srr_from_accession(accession))
+        srr_accessions.append(
+            fetch_srr_from_accession(accession, batch_size=args.batch_size)
+        )
 
     # concat list of dataframes
     srr_accessions = pd.concat(srr_accessions)

@@ -49,10 +49,18 @@ workflow STAR_WF{
         .join(SEQKIT_STATS.out, by: 0)
     STAR_SET_PARAMS(ch_params_all)
 
+    // Filter empty params
+    ch_set_params_json = STAR_SET_PARAMS.out.json
+        .filter { sample, json_file -> 
+            if(json_file.size() < 5) {
+                println "Warning: No valid STAR parameters found for ${sample}; skipping"
+            }
+            return json_file.size() > 5
+        }
 
     //-- Run STAR with the best parameters --//
     if (! params.define){
-        STAR_FULL(ch_fastq.join(STAR_SET_PARAMS.out.json, by: 0))
+        STAR_FULL(ch_fastq.join(ch_set_params_json, by: 0))
     }
 }
 
@@ -155,7 +163,7 @@ process STAR_FORMAT_PARAMS {
     conda "envs/star.yml"
 
     input:
-    tuple val(sample), val(params), path(star_summary) //, path(read_stats_tsv)
+    tuple val(sample), val(params), path(star_summary) 
 
     output:
     tuple val(sample), path("star_params.csv")
