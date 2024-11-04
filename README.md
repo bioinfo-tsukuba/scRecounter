@@ -233,8 +233,12 @@ gcloud compute instances stop sc-recounter-vm --zone=us-east1-b
 * [ffq](https://github.com/pachterlab/ffq)
   * Fetch metadata information from the SRA and other databases
   * Can be used to get SRA study accessions from paper DOIs
+* [pysradb](https://github.com/saketkc/pysradb)
+  * A Python package for retrieving metadata from SRA/ENA/GEO
 * [gencube](https://github.com/snu-cdrc/gencube)
   * Efficient retrieval, download, and unification of genomic data from leading biodiversity databases
+* [geofetch](https://pep.databio.org/geofetch/)
+  * Downloads and organizes data and metadata from GEO and SRA
 * [nf-core/fetchngs](https://nf-co.re/fetchngs/1.12.0/)
   * Nextflow pipeline for downloading NGS data
 
