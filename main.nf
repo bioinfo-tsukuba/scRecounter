@@ -2,7 +2,8 @@
 include { DOWNLOAD_WF } from './workflows/download.nf'
 include { READS_WF } from './workflows/reads.nf'
 include { READ_QC_WF } from './workflows/read_qc.nf'
-include { STAR_WF } from './workflows/star.nf'
+include { STAR_PARAMS_WF } from './workflows/star_params.nf'
+include { STAR_FULL_WF } from './workflows/star_full.nf'
 
 // Main workflow
 workflow {
@@ -21,7 +22,8 @@ workflow {
     //READ_QC_WF(ch_fastq)
 
     // STAR
-    STAR_WF(ch_fastq, ch_sra_stat)
+    STAR_PARAMS_WF(ch_fastq, ch_sra_stat)
+    STAR_FULL_WF(STAR_PARAMS_WF.out)
 }
 
 // On complete

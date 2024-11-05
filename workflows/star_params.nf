@@ -1,5 +1,5 @@
 // Workflow to run STAR alignment on scRNA-seq data
-workflow STAR_WF{
+workflow STAR_PARAMS_WF{
     take:
     ch_fastq
     ch_sra_stat
@@ -49,92 +49,24 @@ workflow STAR_WF{
         .groupTuple()
         .join(SEQKIT_STATS.out, by: 0)
         .join(ch_sra_stat, by: 0)
-    STAR_SET_PARAMS(ch_params_all)
+    STAR_SELECT_PARAMS(ch_params_all)
 
-    // Merge params csvs
-    STAR_MERGE_PARAMS(STAR_SET_PARAMS.out.csv.collect { it[1] })
+    // Merge param CSVs
+    STAR_MERGE_PARAMS(STAR_SELECT_PARAMS.out.csv.collect { it[1] })
 
     // Filter empty params
-    ch_set_params_json = STAR_SET_PARAMS.out.json
+    ch_star_params_json = STAR_SELECT_PARAMS.out.json
         .filter { sample, json_file -> 
             if(json_file.size() < 5) {
                 println "Warning: No valid STAR parameters found for ${sample}; skipping"
             }
             return json_file.size() > 5
         }
+    ch_fastq = ch_fastq.join(ch_star_params_json, by: 0)
 
-    //-- Run STAR with the best parameters --//
-    if (! params.define){
-        STAR_FULL(ch_fastq.join(ch_set_params_json, by: 0))
-    }
+    emit:
+    fastq = ch_fastq
 }
-
-// STAR alignment with all reads and selected parameters
-def saveAsSTAR(sample, filename) {
-    if (filename.endsWith(".mtx") || filename.endsWith(".tsv")){
-        def parts = filename.tokenize("/")
-        return "${sample}/" + parts[1..-1].join('/')
-    } 
-    return null
-}
-
-process STAR_FULL {
-    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
-    conda "envs/star.yml"
-    label "process_high"
-
-    input:
-    tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), path(star_params)
-
-    output:
-    tuple val(sample), path("resultsSolo.out/Gene/raw/*"),                         emit: gene_raw
-    tuple val(sample), path("resultsSolo.out/Gene/filtered/*"),                    emit: gene_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/GeneFull/raw/*"),                     emit: gene_full_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull/filtered/*"),                emit: gene_full_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/raw/*"),             emit: gene_ex50_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/filtered/*"),        emit: gene_ex50_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/raw/*"),      emit: gene_ex_int_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/filtered/*"), emit: gene_ex_int_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/Velocyto/raw/*"),                     emit: velocyto_raw
-    tuple val(sample), path("resultsSolo.out/Velocyto/filtered/*"),                emit: velocyto_filt, optional: true
-
-    script:
-    """
-    # load parameters
-    json2env.py \\
-      --params BARCODES_FILE CELL_BARCODE_LENGTH UMI_LENGTH STRAND STAR_INDEX \\
-      -- $star_params > params.env
-    source params.env
-
-    # run STAR
-    R1=\$(printf "%s," input*_R1.fastq)
-    R1=\${R1%,} 
-    R2=\$(printf "%s," input*_R2.fastq)
-    R2=\${R2%,}
-    STAR \\
-      --readFilesIn \$R2 \$R1 \\
-      --runThreadN ${task.cpus} \\
-      --genomeDir \$STAR_INDEX \\
-      --soloCBwhitelist \$BARCODES_FILE \\
-      --soloUMIlen \$UMI_LENGTH \\
-      --soloStrand \$STRAND \\
-      --soloCBlen \$CELL_BARCODE_LENGTH \\
-      --soloType CB_UMI_Simple \\
-      --clipAdapterType CellRanger4 \\
-      --outFilterScoreMin 30 \\
-      --soloCBmatchWLtype 1MM_multi_Nbase_pseudocounts \\
-      --soloCellFilter EmptyDrops_CR \\
-      --soloUMIfiltering MultiGeneUMI_CR \\
-      --soloUMIdedup 1MM_CR \\
-      --soloFeatures Gene GeneFull GeneFull_ExonOverIntron GeneFull_Ex50pAS Velocyto \\
-      --soloMultiMappers EM Uniform \\
-      --outSAMtype None \\
-      --soloBarcodeReadLength 0 \\
-      --outFileNamePrefix results
-    """
-}
-//TODO: remove `--soloBarcodeReadLength 0`?
 
 process STAR_MERGE_PARAMS {
     publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true
@@ -164,7 +96,7 @@ def saveAsParams(sample, filename) {
     return "${sample}/${filename}"
 }
 
-process STAR_SET_PARAMS {
+process STAR_SELECT_PARAMS {
     publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
@@ -178,7 +110,7 @@ process STAR_SET_PARAMS {
     
     script:
     """
-    select_star_params.py $read_stats $sra_stats star_params*.csv
+    select-star-params.py $read_stats $sra_stats star_params*.csv
     """
 
     stub:
@@ -199,7 +131,7 @@ process STAR_FORMAT_PARAMS {
 
     script:
     """
-    format_star_params.py \\
+    format-star-params.py \\
       --sample ${params.sample} \\
       --strand ${params.strand} \\
       --barcodes-name ${params.barcodes_name} \\
