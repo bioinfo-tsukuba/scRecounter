@@ -156,15 +156,6 @@ nextflow run main.nf -profile conda,vm \
 
 # Dev
 
-## TODO
-
-* Add estimation of number of cells
-  * Need total number of reads
-    * 
-  * Need cell quantification of cells by STARsolo
-    * `Estimated Number of Cells`
-    * `Number of Reads`
-
 ## Run
 
 #### Local, defining STAR params

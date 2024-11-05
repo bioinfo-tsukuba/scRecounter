@@ -80,6 +80,7 @@ def saveAsSTAR(sample, filename) {
 
 process STAR_FULL {
     publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
     label "process_high"
 
@@ -137,6 +138,7 @@ process STAR_FULL {
 
 process STAR_MERGE_PARAMS {
     publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
 
     input:
@@ -164,6 +166,7 @@ def saveAsParams(sample, filename) {
 
 process STAR_SET_PARAMS {
     publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
 
     input:
@@ -185,6 +188,7 @@ process STAR_SET_PARAMS {
 }
 
 process STAR_FORMAT_PARAMS {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
 
     input:
@@ -216,6 +220,7 @@ def saveAsValid(sample, filename) {
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_PARAM_SEARCH {
     //publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
     label "process_medium"
 
@@ -261,6 +266,7 @@ process STAR_PARAM_SEARCH {
 
 // Get read lengths via `seqkit stats`
 process SEQKIT_STATS {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/read_qc.yml"
     label "process_low"
 
@@ -283,6 +289,7 @@ process SEQKIT_STATS {
 
 // Subsample reads
 process SUBSAMPLE_READS {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/read_qc.yml"
     label "process_low"
 

@@ -49,6 +49,7 @@ workflow DOWNLOAD_WF {
 }
 
 process FQ_DUMP {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
     scratch { sra_file.size() < 200.GB ? "ram-disk" : false }
     memory { sra_file.size() < 200.GB ? (sra_file.size() / 1e9).GB * (task.attempt + 1) + 6.GB : 32.GB * task.attempt }
@@ -92,6 +93,7 @@ process FQ_DUMP {
 }
 
 process PREFETCH {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
     label "process_long"
 
@@ -118,6 +120,7 @@ process PREFETCH {
 }
 
 process SRA_STAT_MERGE{
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
 
     input:
@@ -138,6 +141,7 @@ process SRA_STAT_MERGE{
 }
 
 process SRA_STAT {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
 
     input:
@@ -159,6 +163,7 @@ process SRA_STAT {
 }
 
 process VDB_CONFIG {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
 
     output:

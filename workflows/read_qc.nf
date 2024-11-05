@@ -20,6 +20,7 @@ workflow READ_QC_WF{
 
 // Run `seqkit stats` on fastq files
 process SEQKIT_STATS {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/read_qc.yml"
     label "process_low"
 
