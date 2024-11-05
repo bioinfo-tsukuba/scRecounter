@@ -156,7 +156,28 @@ nextflow run main.nf -profile conda,vm \
 
 # Dev
 
+## TODO
+
+* Add estimation of number of cells
+  * Need total number of reads
+    * 
+  * Need cell quantification of cells by STARsolo
+    * `Estimated Number of Cells`
+    * `Number of Reads`
+
 ## Run
+
+#### Local, defining STAR params
+
+```bash
+nextflow run main.nf \
+  -profile conda,vm  \
+  --keep_temp true  \
+  --define \
+  --max_spots 50000 \
+  --accessions data/accessions_var.csv \
+  --outdir tmp/accessions_var \
+  -resume
 
 #### Local, with accessions
 

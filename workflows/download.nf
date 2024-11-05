@@ -18,6 +18,11 @@ workflow DOWNLOAD_WF {
     // Set up vdb-config with GCP credentials, if provided
     VDB_CONFIG()
 
+    // Run sra-stat
+    SRA_STAT(ch_accessions, VDB_CONFIG.out)
+    /// Merge by sample
+    SRA_STAT_MERGE(SRA_STAT.out.groupTuple())
+
     // Run prefetch
     PREFETCH(ch_accessions, VDB_CONFIG.out)
     
@@ -36,9 +41,11 @@ workflow DOWNLOAD_WF {
         .map { sample, accession, fastq_1, fastq_2 ->
             return [sample, fastq_1.flatten(), fastq_2.flatten()]
         }
+        //.join(SRA_STAT_MERGE.out, by: 0)
 
     emit:
     fastq = ch_fastq
+    sra_stat = SRA_STAT_MERGE.out
 }
 
 process FQ_DUMP {
@@ -107,6 +114,47 @@ process PREFETCH {
     """
     mkdir -p prefetch_out/${accession}
     touch prefetch_out/${accession}/${accession}.sra
+    """
+}
+
+process SRA_STAT_MERGE{
+    conda "envs/download.yml"
+
+    input:
+    tuple val(sample), path("sra-stat_*.csv")
+
+    output:
+    tuple val(sample), path("sra-stat-merged.csv")
+
+    script:
+    """
+    sra-stat-merge.py $sample sra-stat_*.csv
+    """
+
+    stub:
+    """
+    touch sra-stat-merged.csv
+    """
+}
+
+process SRA_STAT {
+    conda "envs/download.yml"
+
+    input:
+    tuple val(sample), val(accession)
+    val vdb_config
+
+    output:
+    tuple val(sample), path("sra-stat.csv")
+
+    script:
+    """
+    sra-stat.py ${accession}
+    """
+
+    stub:
+    """
+    touch sra-stat.csv
     """
 }
 

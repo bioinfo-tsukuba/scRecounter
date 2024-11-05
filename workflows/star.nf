@@ -2,6 +2,7 @@
 workflow STAR_WF{
     take:
     ch_fastq
+    ch_sra_stat
 
     main:
     //-- for each sample (accession), run STAR on subset of reads with various parameters to determine which params produce the most valid barcodes --/
@@ -47,7 +48,11 @@ workflow STAR_WF{
     ch_params_all = STAR_FORMAT_PARAMS.out
         .groupTuple()
         .join(SEQKIT_STATS.out, by: 0)
+        .join(ch_sra_stat, by: 0)
     STAR_SET_PARAMS(ch_params_all)
+
+    // Merge params csvs
+    STAR_MERGE_PARAMS(STAR_SET_PARAMS.out.csv.collect { it[1] })
 
     // Filter empty params
     ch_set_params_json = STAR_SET_PARAMS.out.json
@@ -130,6 +135,27 @@ process STAR_FULL {
 }
 //TODO: remove `--soloBarcodeReadLength 0`?
 
+process STAR_MERGE_PARAMS {
+    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true
+    conda "envs/star.yml"
+
+    input:
+    path "star_params_*.csv"
+
+    output:
+    path "merged_star_params.csv"
+    
+    script:
+    """
+    star-params-merge.py star_params_*.csv
+    """
+
+    stub:
+    """
+    touch merged_star_params.csv
+    """
+}
+
 // Set STAR parameters based on valid barcodes
 def saveAsParams(sample, filename) {
     filename = filename.tokenize("/").last()
@@ -141,16 +167,15 @@ process STAR_SET_PARAMS {
     conda "envs/star.yml"
 
     input:
-    tuple val(sample), path("star_params*.csv"), path(read_stats)
+    tuple val(sample), path("star_params*.csv"), path(read_stats), path(sra_stats)
 
     output:
     tuple val(sample), path("results/merged_star_params.csv"),    emit: csv
     tuple val(sample), path("results/selected_star_params.json"), emit: json
     
-
     script:
     """
-    select_star_params.py $read_stats star_params*.csv
+    select_star_params.py $read_stats $sra_stats star_params*.csv
     """
 
     stub:
@@ -279,7 +304,8 @@ process SUBSAMPLE_READS {
     """
 }
 
-// Utility functions
+
+//-- Utility functions --//
 def validateRequiredColumns(row, required) {
     def missing = required.findAll { !row.containsKey(it) }
     if (missing) {

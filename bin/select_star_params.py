@@ -27,6 +27,8 @@ parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
 parser.add_argument('read_stats_tsv', type=str,
                     help='Path to the seqkit stats file')
+parser.add_argument('sra_stats_csv', type=str,
+                    help='Path to the sra-stat file')
 parser.add_argument('star_params_csv', type=str, nargs='+',
                     help='Path to the STAR parameters CSV file')
 parser.add_argument('--outdir', type=str, default="results",
@@ -116,6 +118,9 @@ def main(args):
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 300)
 
+    # read in sra stats file
+    sra_stats = pd.read_csv(args.sra_stats_csv).drop(columns="accession")
+
     # read in seqkit stats file
     seqkit_stats = read_seqkit_stats(args.read_stats_tsv)
 
@@ -124,6 +129,7 @@ def main(args):
 
     # merge on sample
     data = pd.merge(params, seqkit_stats, on="sample", how="left")
+    data = pd.merge(data, sra_stats, on="sample", how="left")
 
     # output
     os.makedirs(args.outdir, exist_ok=True)
