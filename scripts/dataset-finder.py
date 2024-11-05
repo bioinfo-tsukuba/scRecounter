@@ -6,7 +6,9 @@ import sys
 import re
 import time
 import json
+import shutil
 import argparse
+import pickle
 from pprint import pprint
 from datetime import datetime, timedelta
 from typing import List, Dict, Literal, Any
@@ -38,6 +40,10 @@ parser.add_argument('--end-date', type=str, default=datetime.now().strftime('%Y-
                     help='Maximum date to search for papers')
 parser.add_argument('--search-terms', type=str, default=None, nargs='+',
                     help='Optional search term to filter results')
+parser.add_argument('--max-accessions', type=int, default=None,
+                    help='Maximum number of accessions to fetch')
+parser.add_argument('--tmpdir', type=str, default='dataset-finder-tmp',
+                    help='Temporary directory for storing downloaded files')
 parser.add_argument('--email', type=str, default=None,
                     help='Email address for NCBI API')
 
@@ -73,24 +79,35 @@ def construct_query(start_date: str, end_date: str, search_terms: list = None) -
     query += ' AND "human"[Organism]'
     return query
 
-def get_ids(db: DatabaseType, query: str, retmax: int) -> List[str]:
+def get_ids(db: DatabaseType, query: str, max_ids: int, retmax: int = 50) -> List[str]:
     """
-    Search database and return matching IDs.
+    Search database and return all matching IDs in batches.
     Args:
         db: Database to search ("sra" or "gds")
         query: Entrez query string
-        retmax: Maximum number of results to return
+        max_ids: Maximum number of IDs to fetch
+        retmax: Batch size for fetching results
     Returns:
-        List of matching IDs
+        List of all matching IDs
     """
-    try:
-        search_handle = Entrez.esearch(db=db, term=query, retmax=retmax)
-        search_results = Entrez.read(search_handle)
-        search_handle.close()
-        return search_results["IdList"]
-    except Exception as e:
-        print(f"Error searching {db}: {str(e)}")
-        return []
+    ids = []
+    retstart = 0
+    while True:
+        try:
+            search_handle = Entrez.esearch(db=db, term=query, retstart=retstart, retmax=retmax)
+            search_results = Entrez.read(search_handle)
+            search_handle.close()
+            ids.extend(search_results["IdList"])
+            retstart += retmax
+            time.sleep(0.5)
+            if max_ids and len(ids) >= max_ids:
+                break
+            if retstart >= int(search_results['Count']):
+                break
+        except Exception as e:
+            print(f"Error searching {db}: {str(e)}")
+            break 
+    return ids[:max_ids]
 
 def xml_to_dict(element) -> Dict[str, Any]:
     """
@@ -133,6 +150,8 @@ def fetch_dataset(db: DatabaseType, dataset_id: str) -> list:
     Returns:
         Dictionary containing parsed dataset
     """
+    time.sleep(0.5)
+
     # Fetch dataset record
     handle = Entrez.efetch(db=db, id=dataset_id, retmode="xml")
     record = handle.read()
@@ -147,8 +166,11 @@ def fetch_dataset(db: DatabaseType, dataset_id: str) -> list:
         data.append(xml_to_dict(child))
     return data
 
-def search_datasets(email: str, start_date: str, end_date: str, db: DatabaseType,
-                    search_terms: list = None, retmax: int = 20) -> List[Dict]:
+def search_datasets(email: str, start_date: str, end_date: str, 
+                    db: DatabaseType, temp_dir: str,
+                    search_terms: list = None, 
+                    max_accessions: int = None
+                    ) -> List[Dict]:
     """
     Search for recent datasets in specified database.
     Args:
@@ -157,25 +179,32 @@ def search_datasets(email: str, start_date: str, end_date: str, db: DatabaseType
         end_date: End date (YYYY-MM-DD)
         db: Database to search ("sra" or "gds")
         search_terms: Optional search term to filter results
-        retmax: Maximum number of results to return
+        max_accessions: Maximum number of accessions to fetch
     Returns:
         List of dictionaries containing dataset information
     """
+    # Set email address
     Entrez.email = email
     
+    # Construct query and fetch IDs
     query = construct_query(start_date, end_date, search_terms)
-    dataset_ids = get_ids(db, query, retmax)
-
+    dataset_ids = get_ids(db, query, max_ids=max_accessions)
     print(f"Found {len(dataset_ids)} datasets.", file=sys.stderr)
     
+    # Fetch datasets from IDs
     datasets = {}
     for id in dataset_ids:
         print(f"  Fetching dataset \"{id}\"...", file=sys.stderr)
-        time.sleep(0.5)
-        ret = fetch_dataset(db, id)
+        tmp_file = os.path.join(temp_dir, f"{id}.pkl")
+        if os.path.exists(tmp_file):
+            with open(tmp_file, "rb") as inF:
+                ret = pickle.load(inF)
+        else:
+            ret = fetch_dataset(db, id)
+            with open(tmp_file, "wb") as outF:
+                pickle.dump(ret, outF)
         if ret:
             datasets[id] = ret
-
     return datasets
 
 def write_dataset_info(id: str, dataset: Dict, outdir: str) -> None:
@@ -195,14 +224,19 @@ def main(args):
     print(f"Searching for datasets between {args.start_date} and {args.end_date}...", file=sys.stderr)
 
     # output
+    os.makedirs(args.tmpdir, exist_ok=True)
     os.makedirs(args.outdir, exist_ok=True)
-
+    
     # Search SRA
     print("Searching SRA...", file=sys.stderr)
     sra_datasets = search_datasets(
         args.email, 
-        start_date=args.start_date, end_date=args.end_date, 
-        db="sra", search_terms=args.search_terms
+        start_date=args.start_date,
+        end_date=args.end_date, 
+        db="sra", 
+        temp_dir=args.tmpdir,
+        search_terms=args.search_terms,
+        max_accessions=args.max_accessions
     )
     for id,dataset in sra_datasets.items():
         write_dataset_info(id, dataset, args.outdir)
@@ -211,11 +245,19 @@ def main(args):
     print("Searching GEO...", file=sys.stderr)
     geo_datasets = search_datasets(
         args.email, 
-        start_date=args.start_date, end_date=args.end_date, 
-        db="gds", search_terms=args.search_terms
+        start_date=args.start_date, 
+        end_date=args.end_date, 
+        db="gds", 
+        temp_dir=args.tmpdir,
+        search_terms=args.search_terms,
+        max_accessions=args.max_accessions
     )
     for id,dataset in geo_datasets.items():
         write_dataset_info(id, dataset, args.outdir)
+
+    # remove temporary directory
+    if os.path.exists(args.tmpdir):
+        shutil.rmtree(args.tmpdir)
 
 # Example usage
 if __name__ == "__main__":
