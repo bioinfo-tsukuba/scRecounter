@@ -169,6 +169,20 @@ nextflow run main.nf \
   --accessions data/accessions_var.csv \
   --outdir tmp/accessions_var \
   -resume
+```
+
+Problematic accessions
+
+```bash
+nextflow run main.nf \
+  -profile conda,vm  \
+  --keep_temp true  \
+  --define \
+  --max_spots 50000 \
+  --accessions data/accessions_problems.csv \
+  --outdir tmp/accessions_problems \
+  -resume
+```
 
 #### Local, with accessions
 

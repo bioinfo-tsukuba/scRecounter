@@ -81,7 +81,7 @@ process STAR_MERGE_PARAMS {
     
     script:
     """
-    star-params-merge.py star_params_*.csv
+    csv-merge.py --outfile merged_star_params.csv star_params_*.csv
     """
 
     stub:

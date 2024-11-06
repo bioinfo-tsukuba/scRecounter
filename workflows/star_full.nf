@@ -5,6 +5,8 @@ workflow STAR_FULL_WF{
 
     main:
     //-- Run STAR with the best parameters --//
+    // TODO: allow user to provide parameters
+
     if (! params.define){
         STAR_FULL(ch_fastq)
     }

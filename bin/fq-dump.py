@@ -25,7 +25,7 @@ Run sra-tools prefetch with handling of errors
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
-parser.add_argument('sra_file', type=str, help='SRA file')
+parser.add_argument('sra_file', type=str, help='SRA file or accession')
 parser.add_argument('--threads', type=int, default=4,
                     help='Number of threads')
 parser.add_argument('--bufsize', type=str, default='5MB',
@@ -38,6 +38,8 @@ parser.add_argument('--temp', type=str, default='TMP_FILES',
                     help='Temporary directory')
 parser.add_argument('--maxSpotId', type=int, default=None,
                     help='Maximum reads to write')
+parser.add_argument('--sample', type=str, default="",
+                    help='Sample name')
 parser.add_argument('--outdir', type=str, default='prefetch_out',
                     help='Output directory')
 
@@ -75,7 +77,10 @@ def get_read_lens(fastq_file: str) -> int:
     # return average read length
     return int(sum(read_lens) / len(read_lens))
 
-def check_output(sra_file, outdir: str) -> None:
+def check_output(sra_file: str, outdir: str) -> None:
+    """
+    Check the output of fastq-dump.
+    """
     accession = os.path.splitext(os.path.basename(sra_file))[0]
     read_files = {
         "R1" : os.path.join(outdir, accession + "_1.fastq"), 
@@ -99,14 +104,32 @@ def check_output(sra_file, outdir: str) -> None:
         os.rename(read_files["R2"], read_files["R1"])
         os.rename("tmp_R1.fastq", read_files["R2"])
 
-def main(args):
+def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
+    """
+    Write skip reason to file.
+    Args:
+        logF: Log file handle
+        sample: Sample name
+        accession: SRA accession
+        step: Step name
+        msg: Message
+    """
+    if len(msg) > 100:
+        msg = msg[:100] + '...'
+    logF.write(','.join([sample, accession, step, msg]) + '\n')
+
+def main(args, logF):
     # check for fastq-dump and fasterq-dump
     for exe in ['fastq-dump', 'fasterq-dump']:
         if not which(exe):
             logging.error(f'{exe} not found in PATH')
             sys.exit(1)
 
+    # get accession
+    accession = os.path.splitext(os.path.basename(args.sra_file))[0]
+
     # run fast(er)q-dump
+    cmd = []
     if args.maxSpotId and args.maxSpotId > 0:
         # fastq-dump with maxSpotId
         cmd = [
@@ -122,6 +145,11 @@ def main(args):
         ]
     ## run command
     returncode, output, err = run_cmd(cmd)
+    if returncode == 0:
+        msg = '; '.join(output.decode().split('\n'))
+    else:
+        msg = '; '.join(err.decode().split('\n'))
+    write_log(logF, args.sample, accession, cmd[0], msg)
     if returncode != 0:
         logging.error(err)
         sys.exit(1)
@@ -129,8 +157,11 @@ def main(args):
     # Check the output
     check_output(args.sra_file, args.outdir)
 
-
 ## script main
 if __name__ == '__main__':
     args = parser.parse_args()
-    main(args)
+    os.makedirs(args.outdir, exist_ok=True)
+    logfile = os.path.join(args.outdir, 'fq-dump_log.csv')
+    with open(logfile, 'w') as logF:
+        logF.write('sample,accession,step,message\n')
+        main(args, logF)

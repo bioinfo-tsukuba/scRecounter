@@ -15,17 +15,17 @@ class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
     pass
 
-desc = 'Merge sra-stat output files'
+desc = 'Merge csv files'
 epi = """DESCRIPTION:
-Merge multiple sra-stat output files into a single table.
+Merge multiple csv files into a single table.
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
-parser.add_argument('sample', type=str,
-                    help='Sample name')
 parser.add_argument('csv_files', type=str, nargs='+',
-                    help='sra-stat output files')
-parser.add_argument('--outfile', type=str, default='sra-stat-merged.csv',
+                    help='CSV files')
+parser.add_argument('--sample', type=str, default=None,
+                    help='Sample name')
+parser.add_argument('--outfile', type=str, default='merged.csv',
                     help='Output file')
 
 # functions
@@ -34,12 +34,15 @@ def main(args):
     tables = [pd.read_csv(f) for f in args.csv_files]
     # merge
     df = pd.concat(tables, ignore_index=True)
-    # add sample name
-    df['sample'] = args.sample
-    # reorder columns
-    cols = ['sample'] + [c for c in df.columns if c != 'sample']
+    # add sample name, if provided
+    if args.sample:
+        # add sample name
+        df['sample'] = args.sample
+        # reorder columns
+        cols = ['sample'] + [c for c in df.columns if c != 'sample']
+        df = df[cols]
     # write
-    df[cols].to_csv(args.outfile, index=False)
+    df.to_csv(args.outfile, index=False)
     logging.info(f'Output written to: {args.outfile}')
 
 ## script main

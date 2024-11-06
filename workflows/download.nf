@@ -23,14 +23,18 @@ workflow DOWNLOAD_WF {
     /// Merge by sample
     SRA_STAT_MERGE(SRA_STAT.out.groupTuple())
 
-    // Run prefetch
-    PREFETCH(ch_accessions, VDB_CONFIG.out)
+    // Run prefetch & fast(er)q-dump
+    if ( params.define ){
+        ch_fqdump = FASTQ_DUMP(ch_accessions)
+    } else {
+        PREFETCH(ch_accessions, VDB_CONFIG.out)
+        PREFETCH_LOG_MERGE(PREFETCH.out.log.collect())
+        ch_fqdump = FASTERQ_DUMP(PREFETCH.out.sra)
+    }
+    FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
     
-    // Run fast(er)q-dump
-    FQ_DUMP(PREFETCH.out)
-
     // Join R1 and R2 channels, which will filter out empty R2 records
-    ch_fastq = FQ_DUMP.out.R1.join(FQ_DUMP.out.R2, by: [0, 1], remainder: true)
+    ch_fastq = ch_fqdump.R1.join(ch_fqdump.R2, by: [0, 1], remainder: true)
         .filter { sample, accession, r1, r2 -> 
             if(r2 == null) {
                 println "Warning: Read 2 is empty for ${sample}; skipping"
@@ -41,14 +45,35 @@ workflow DOWNLOAD_WF {
         .map { sample, accession, fastq_1, fastq_2 ->
             return [sample, fastq_1.flatten(), fastq_2.flatten()]
         }
-        //.join(SRA_STAT_MERGE.out, by: 0)
 
     emit:
     fastq = ch_fastq
     sra_stat = SRA_STAT_MERGE.out
 }
 
-process FQ_DUMP {
+process FQDUMP_LOG_MERGE {
+    publishDir file(params.outdir) / "logs", mode: "copy", overwrite: true
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
+    conda "envs/download.yml"
+
+    input:
+    path "*_log.csv"
+
+    output:
+    path "fq-dump.csv"
+
+    script:
+    """
+    csv-merge.py --outfile fq-dump.csv *_log.csv
+    """
+
+    stub:
+    """
+    touch fq-dump.csv 
+    """
+}
+
+process FASTERQ_DUMP {
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
     scratch { sra_file.size() < 200.GB ? "ram-disk" : false }
@@ -63,10 +88,12 @@ process FQ_DUMP {
     output:
     tuple val(sample), val(accession), path("reads/${accession}_1.fastq"), emit: "R1"
     tuple val(sample), val(accession), path("reads/${accession}_2.fastq"), emit: "R2", optional: true
+    path "reads/fq-dump_log.csv", emit: "log"
 
     script:
     """
     fq-dump.py \\
+      --sample ${sample} \\
       --threads ${task.cpus} \\
       --bufsize 10MB \\
       --curcache 50MB \\
@@ -92,6 +119,64 @@ process FQ_DUMP {
     """
 }
 
+process FASTQ_DUMP {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
+    conda "envs/download.yml"
+
+    input:
+    tuple val(sample), val(accession)
+
+    output:
+    tuple val(sample), val(accession), path("reads/${accession}_1.fastq"), emit: "R1"
+    tuple val(sample), val(accession), path("reads/${accession}_2.fastq"), emit: "R2", optional: true
+    path "reads/fq-dump_log.csv", emit: "log"
+
+    script:
+    """
+    fq-dump.py \\
+      --sample ${sample} \\
+      --threads ${task.cpus} \\
+      --bufsize 10MB \\
+      --curcache 50MB \\
+      --mem 5GB \\
+      --temp TMP_FILES \\
+      --maxSpotId ${params.max_spots} \\
+      --outdir reads \\
+      ${accession}
+
+    # remove the temporary files
+    rm -rf TMP_FILES
+    """
+
+    stub:
+    """
+    mkdir -p reads
+    touch reads/${accession}_1.fastq reads/${accession}_2.fastq
+    """
+}
+
+process PREFETCH_LOG_MERGE{
+    publishDir file(params.outdir) / "logs", mode: "copy", overwrite: true
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
+    conda "envs/download.yml"
+
+    input:
+    path "*_log.csv"
+
+    output:
+    path "prefetch.csv"
+
+    script:
+    """
+    csv-merge.py --outfile prefetch.csv *_log.csv
+    """
+
+    stub:
+    """
+    touch prefetch.csv 
+    """
+}
+
 process PREFETCH {
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
@@ -102,11 +187,13 @@ process PREFETCH {
     val vdb_config
 
     output:
-    tuple val(sample), val(accession), path("prefetch_out/${accession}/${accession}.sra")
+    tuple val(sample), val(accession), path("prefetch_out/${accession}/${accession}.sra"), emit: sra, optional: true
+    path "prefetch_out/prefetch_log.csv",  emit: log
 
     script:
     """
     prefetch.py \\
+      --sample ${sample} \\
       --max-size 5000 \\
       --outdir prefetch_out \\
       ${accession}
@@ -115,7 +202,7 @@ process PREFETCH {
     stub:
     """
     mkdir -p prefetch_out/${accession}
-    touch prefetch_out/${accession}/${accession}.sra
+    touch prefetch_out/${accession}/${accession}.sra prefetch_out/prefetch-log.csv
     """
 }
 
@@ -131,7 +218,7 @@ process SRA_STAT_MERGE{
 
     script:
     """
-    sra-stat-merge.py $sample sra-stat_*.csv
+    csv-merge.py --sample $sample --outfile sra-stat-merged.csv sra-stat_*.csv
     """
 
     stub:

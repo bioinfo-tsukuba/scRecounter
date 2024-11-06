@@ -15,7 +15,7 @@ workflow {
     } else {
         // Load existing reads
         ch_fastq = READS_WF()
-        ch_sra_stat = Channel.empty()
+        ch_sra_stat = Channel.empty() // TODO: update
     }
 
     // QC on reads

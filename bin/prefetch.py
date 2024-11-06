@@ -6,6 +6,7 @@ import re
 import sys
 import argparse
 import logging
+from pprint import pprint
 from time import sleep
 from shutil import which
 from subprocess import Popen, PIPE
@@ -26,12 +27,14 @@ Run sra-tools prefetch with handling of errors
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
 parser.add_argument('accession', type=str, help='SRA accession')
+parser.add_argument('--outdir', type=str, default='prefetch_out',
+                    help='Output directory')
 parser.add_argument('--max-size', type=int, default=5000,
                     help='Max file size in Gb')
 parser.add_argument('--tries', type=int, default=5,
                     help='Number of tries to download')
-parser.add_argument('--outdir', type=str, default='prefetch_out',
-                    help='Output directory')
+parser.add_argument('--sample', type=str, default="",
+                    help='Sample name')
 
 # functions
 def run_cmd(cmd: str) -> tuple:
@@ -58,6 +61,7 @@ def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> bool:
     """
     logging.info(f'Downloading {accession}')
     cmd = f'prefetch --max-size {max_size}G --output-directory {outdir} {accession}'
+    err = ""
     for i in range(tries):
         logging.info(f'Attempt: {i+1}/{tries}')
         rc,output,err = run_cmd(cmd)
@@ -68,7 +72,7 @@ def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> bool:
             rc,output,err = run_cmd(f'vdb-validate {sra_file}')
             if rc == 0:
                 logging.info('Validation successful')
-                return True
+                return True,"Download and validation successful"
             else:
                 logging.error('Validation failed')
                 logging.error(err)
@@ -79,7 +83,9 @@ def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> bool:
         sleep_time = 10 * (i + 1)
         logging.info(f'Sleeping for {sleep_time} seconds...')
         sleep(sleep_time)
-    return False
+    # assume failure
+    err = err.replace('\n', ' ')
+    return False,f"Failed to download and validate: {err}"
     
 def run_vdb_dump(accession: str, min_size: int=1e6) -> bool:
     """
@@ -110,29 +116,38 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> bool:
     ## keys
     for x in ['acc', 'size', 'FMT', 'platf']:
         if x not in data:
-            logging.error(f'Missing key in vdb-dump output: {x}')
-            return False
+            return False,'Missing key in vdb-dump output: {x}'
     ## accession
     if data['acc'] != accession:
-        logging.error(f'Accession mismatch: {data["acc"]} != {accession}')
-        return False
+        return False,f'Accession mismatch: {data["acc"]} != {accession}'
     ## size
     size = int(data['size'].replace(',', ''))
     if size < min_size:
-        logging.error(f'File size too small: {size} < {min_size}')
-        return False
+        return False,f'File size too small: {size} < {min_size}'
     ## format
     if 'fastq' not in data['FMT'].lower():
-        logging.error(f'Invalid format: {data["FMT"]}')
-        return False
+        return False,f'Invalid format: {data["FMT"]}'
     ## platform
     if 'illumina' not in data['platf'].lower():
-        logging.error(f'Invalid platform: {data["platf"]}')
-        return False
+        return False,f'Invalid platform: {data["platf"]}'
     # all checks passed
-    return True
+    return True,"Validation successful"
 
-def main(args):
+def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
+    """
+    Write skip reason to file.
+    Args:
+        logF: Log file handle
+        sample: Sample name
+        accession: SRA accession
+        step: Step name
+        msg: Message
+    """
+    if len(msg) > 100:
+        msg = msg[:100] + '...'
+    logF.write(','.join([sample, accession, step, msg]) + '\n')
+
+def main(args, logF):
     # check for prefetch in path
     for exe in ['prefetch', 'vdb-dump']:
         if not which(exe):
@@ -140,16 +155,25 @@ def main(args):
             sys.exit(1)
 
     # run vdb-dump
-    if not run_vdb_dump(args.accession):
-        logging.error('vdb-dump validation failed')
-        sys.exit(1)
+    success,msg = run_vdb_dump(args.accession)
+    write_log(logF, args.sample, args.accession, "vdb-dump", msg)
+    if not success:
+       logging.warning(f'vdb-dump validation failed: {msg}')
+       return None
 
     # run prefetch
-    if not prefetch(args.accession, args.tries, args.max_size, args.outdir):
-        logging.error('Failed to download')
-        sys.exit(1)
+    success,msg = prefetch(args.accession, args.tries, args.max_size, args.outdir)
+    write_log(logF, args.sample, args.accession, "prefetch", msg)
+    if not success:
+        logging.warning(f'Failed to download: {msg}')
+        return None
 
 ## script main
 if __name__ == '__main__':
     args = parser.parse_args()
-    main(args)
+    os.makedirs(args.outdir, exist_ok=True)
+    logfile = os.path.join(args.outdir, 'prefetch_log.csv')
+    with open(logfile, 'w') as logF:
+        logF.write("sample,accession,step,message\n")
+        main(args, logF)
+    
