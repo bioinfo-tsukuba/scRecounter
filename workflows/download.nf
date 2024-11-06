@@ -25,12 +25,15 @@ workflow DOWNLOAD_WF {
 
     // Run prefetch & fast(er)q-dump
     if ( params.max_spots > 0 ){
+        // Subsample reads
         ch_fqdump = FASTQ_DUMP(ch_accessions)
     } else {
+        // Download all reads
         PREFETCH(ch_accessions, VDB_CONFIG.out)
         PREFETCH_LOG_MERGE(PREFETCH.out.log.collect())
         ch_fqdump = FASTERQ_DUMP(PREFETCH.out.sra)
     }
+    /// Merge logs
     FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
     
     // Join R1 and R2 channels, which will filter out empty R2 records

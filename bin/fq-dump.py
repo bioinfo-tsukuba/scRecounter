@@ -95,6 +95,12 @@ def check_output(sra_file: str, outdir: str) -> None:
         else:
             read_lens[read_type] = get_read_lens(file_path)
     
+    # if no R1 or R2, return warning
+    if not read_lens["R1"]:
+        return 'Read 1 not found'
+    if not read_lens["R2"]:
+        return 'Read 2 not found'
+
     # if R1 is longer than R2, swap names
     ## R2 should be cDNA read, while R1 is the barcode (cell+UMI)
     if read_lens["R1"] and read_lens["R2"] and read_lens["R1"] > read_lens["R2"]:
@@ -103,6 +109,8 @@ def check_output(sra_file: str, outdir: str) -> None:
         os.rename(read_files["R1"], "tmp_R1.fastq")
         os.rename(read_files["R2"], read_files["R1"])
         os.rename("tmp_R1.fastq", read_files["R2"])
+        return 'Swapped R1 and R2'
+    return 'Checks passed'
 
 def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
     """
@@ -155,7 +163,8 @@ def main(args, logF):
         sys.exit(1)
     
     # Check the output
-    check_output(args.sra_file, args.outdir)
+    msg = check_output(args.sra_file, args.outdir)
+    write_log(logF, args.sample, accession, 'check_output', msg)
 
 ## script main
 if __name__ == '__main__':

@@ -20,23 +20,7 @@ workflow STAR_PARAMS_WF{
     ch_star_indices = loadStarIndices(params)
 
     // Pairwise combine samples with barcodes, strand, and star index
-    ch_params = SUBSAMPLE_READS.out
-        .combine(Channel.of("Forward", "Reverse"))
-        .combine(ch_barcodes)
-        .combine(ch_star_indices)
-        .map { sample, r1, r2, strand, barcodes_name, cb_len, umi_len, barcodes_file, organism, star_index ->
-            def params = [
-                sample: sample,
-                strand: strand,
-                barcodes_name: barcodes_name,
-                cell_barcode_length: cb_len,
-                umi_length: umi_len,
-                barcodes_file: barcodes_file,
-                organism: organism,
-                star_index: star_index
-            ]
-            return [sample, r1, r2, params] 
-        }
+    ch_params = makeParamSets(SUBSAMPLE_READS.out, ch_barcodes, ch_star_indices)
 
     // Run STAR on subsampled reads, for all pairwise parameter combinations
     STAR_PARAM_SEARCH(ch_params)
@@ -50,6 +34,9 @@ workflow STAR_PARAMS_WF{
         .join(SEQKIT_STATS.out, by: 0)
         .join(ch_sra_stat, by: 0)
     STAR_SELECT_PARAMS(ch_params_all)
+
+    // Create report for selected params
+    //STAR_SELECT_PARAMS_REPORT(STAR_SELECT_PARAMS.out.json.collect { it[1] })
 
     // Merge param CSVs
     STAR_MERGE_PARAMS(STAR_SELECT_PARAMS.out.csv.collect { it[1] })
@@ -66,6 +53,28 @@ workflow STAR_PARAMS_WF{
 
     emit:
     fastq = ch_fastq
+}
+
+process STAR_SELECT_PARAMS_REPORT {
+    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
+    conda "envs/star.yml"
+
+    input:
+    path "star_params_*.json"
+
+    output:
+    path "report.csv"
+    
+    script:
+    """
+    create-star-params-report.py star_params_*.json
+    """
+
+    stub:
+    """
+    touch merged_star_params.csv
+    """
 }
 
 process STAR_MERGE_PARAMS {
@@ -245,6 +254,28 @@ process SUBSAMPLE_READS {
 
 
 //-- Utility functions --//
+def makeParamSets(ch_subsample, ch_barcodes, ch_star_indices) {
+    return ch_subsample
+        .combine(Channel.of("Forward", "Reverse"))
+        .combine(ch_barcodes)
+        .combine(ch_star_indices)
+        .map { sample, r1, r2, strand, barcodes_name, cb_len, umi_len, barcodes_file, organism, star_index ->
+            def params = [
+                sample: sample,
+                strand: strand,
+                barcodes_name: barcodes_name,
+                cell_barcode_length: cb_len,
+                umi_length: umi_len,
+                barcodes_file: barcodes_file,
+                organism: organism,
+                star_index: star_index
+            ]
+            return [sample, r1, r2, params] 
+        }
+}
+
+
+
 def validateRequiredColumns(row, required) {
     def missing = required.findAll { !row.containsKey(it) }
     if (missing) {
