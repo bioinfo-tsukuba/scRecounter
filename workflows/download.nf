@@ -24,7 +24,7 @@ workflow DOWNLOAD_WF {
     SRA_STAT_MERGE(SRA_STAT.out.groupTuple())
 
     // Run prefetch & fast(er)q-dump
-    if ( params.define ){
+    if ( params.max_spots > 0 ){
         ch_fqdump = FASTQ_DUMP(ch_accessions)
     } else {
         PREFETCH(ch_accessions, VDB_CONFIG.out)
