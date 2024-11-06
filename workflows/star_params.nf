@@ -35,9 +35,6 @@ workflow STAR_PARAMS_WF{
         .join(ch_sra_stat, by: 0)
     STAR_SELECT_PARAMS(ch_params_all)
 
-    // Create report for selected params
-    //STAR_SELECT_PARAMS_REPORT(STAR_SELECT_PARAMS.out.json.collect { it[1] })
-
     // Merge param CSVs
     STAR_MERGE_PARAMS(STAR_SELECT_PARAMS.out.csv.collect { it[1] })
 

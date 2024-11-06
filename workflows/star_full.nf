@@ -14,7 +14,7 @@ workflow STAR_FULL_WF{
 
 // STAR alignment with all reads and selected parameters
 def saveAsSTAR(sample, filename) {
-    if (filename.endsWith(".mtx") || filename.endsWith(".tsv")){
+    if (filename.endsWith(".mtx") || filename.endsWith(".tsv") || filename.endsWith(".csv")) {
         def parts = filename.tokenize("/")
         return "${sample}/" + parts[1..-1].join('/')
     } 
@@ -31,16 +31,21 @@ process STAR_FULL {
     tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), path(star_params)
 
     output:
-    tuple val(sample), path("resultsSolo.out/Gene/raw/*"),                         emit: gene_raw
-    tuple val(sample), path("resultsSolo.out/Gene/filtered/*"),                    emit: gene_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/GeneFull/raw/*"),                     emit: gene_full_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull/filtered/*"),                emit: gene_full_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/raw/*"),             emit: gene_ex50_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/filtered/*"),        emit: gene_ex50_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/raw/*"),      emit: gene_ex_int_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/filtered/*"), emit: gene_ex_int_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/Velocyto/raw/*"),                     emit: velocyto_raw
-    tuple val(sample), path("resultsSolo.out/Velocyto/filtered/*"),                emit: velocyto_filt, optional: true
+    tuple val(sample), path("resultsSolo.out/Gene/raw/*"),                          emit: gene_raw
+    tuple val(sample), path("resultsSolo.out/Gene/filtered/*"),                     emit: gene_filt, optional: true
+    tuple val(sample), path("resultsSolo.out/Gene/Summary.csv"),                    emit: gene_summary
+    tuple val(sample), path("resultsSolo.out/GeneFull/raw/*"),                      emit: gene_full_raw
+    tuple val(sample), path("resultsSolo.out/GeneFull/filtered/*"),                 emit: gene_full_filt, optional: true
+    tuple val(sample), path("resultsSolo.out/GeneFull/Summary.csv"),                emit: gene_full_summary
+    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/raw/*"),              emit: gene_ex50_raw
+    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/filtered/*"),         emit: gene_ex50_filt, optional: true
+    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/Summary.csv"),        emit: gene_ex50_summary
+    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/raw/*"),       emit: gene_ex_int_raw
+    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/filtered/*"),  emit: gene_ex_int_filt, optional: true
+    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/Summary.csv"), emit: gene_ex_int_summary
+    tuple val(sample), path("resultsSolo.out/Velocyto/raw/*"),                      emit: velocyto_raw
+    tuple val(sample), path("resultsSolo.out/Velocyto/filtered/*"),                 emit: velocyto_filt, optional: true
+    tuple val(sample), path("resultsSolo.out/Velocyto/Summary.csv"),                emit: velocyto_summary
 
     script:
     """

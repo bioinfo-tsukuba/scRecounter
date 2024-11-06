@@ -113,7 +113,7 @@ def read_params(params_file: str) -> pd.DataFrame:
     DF = pd.read_csv(params_file)
     return DF
 
-def main(args):
+def main(args):    
     # set pandas display optionqs
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 300)
@@ -131,16 +131,12 @@ def main(args):
     data = pd.merge(params, seqkit_stats, on="sample", how="left")
     data = pd.merge(data, sra_stats, on="sample", how="left")
 
-    # output
-    os.makedirs(args.outdir, exist_ok=True)
-    outfile = os.path.join(args.outdir, "merged_star_params.csv")
-    data.to_csv(outfile, index=False)
-    logging.info(f"Output written to: {outfile}")
-
-    # filter to the max `Fraction of Unique Reads in Cells`
+    # Filter to the max `Fraction of Unique Reads in Cells` => best parameters
     data = data[data['Fraction of Unique Reads in Cells'] != float("inf")]
     max_frac = data['Fraction of Unique Reads in Cells'].max()
-    data = data[data['Fraction of Unique Reads in Cells'] == max_frac]
+    data['Best parameters'] = data['Fraction of Unique Reads in Cells'] == max_frac
+    data_all = data.copy()
+    data = data[data['Best parameters'] == True].drop(columns="Best parameters")
 
     # check if data is empty
     if data.shape[0] == 0:
@@ -179,9 +175,23 @@ def main(args):
     data = data.sort_values("Reads With Valid Barcodes", ascending=False).iloc[0]
 
     # Write to JSON
+    os.makedirs(args.outdir, exist_ok=True)
     outfile = os.path.join(args.outdir, "selected_star_params.json")
     with open(outfile, "w") as outF:
         outF.write(data.to_json(indent=4))
+    logging.info(f"Output written to: {outfile}")
+
+    #-- table of all parameters --#
+    # Estimate the number of cells
+    data_all["saturation"] = data_all["Number of Reads"] / data_all["Sequencing Saturation"]
+    data_all["num_spots"] = data_all["saturation"].where(data_all["spot_count"] > data_all["saturation"], data_all["spot_count"])
+    data_all["num_cells"] = data_all["num_spots"] / data_all["Number of Reads"] * data_all["Estimated Number of Cells"] * data_all["Reads Mapped to GeneFull: Unique+Multiple GeneFull"]
+    data_all["Total Estimated Number of Cells"] = data_all["num_cells"]
+    data_all.drop(columns=["saturation", "num_spots", "num_cells"], inplace=True)
+
+    # Write parameters as CSV
+    outfile = os.path.join(args.outdir, "merged_star_params.csv")
+    data_all.to_csv(outfile, index=False)
     logging.info(f"Output written to: {outfile}")
 
 
