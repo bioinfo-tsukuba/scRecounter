@@ -1,0 +1,3 @@
+organism,star_index
+Homo sapiens,gs://arc-ctc-references/STAR/star_refData_2020_hg38/
+Mus musculus,gs://arc-ctc-references/STAR/star_refData_2020_mm10/

@@ -1,0 +1,3 @@
+name,cell_barcode_length,umi_length,file_path
+737K-august-2016,16,10,gs://arc-ctc-references/cellranger/barcodes/737K-august-2016.txt
+737K-arc-v1,16,12,gs://arc-ctc-references/cellranger/barcodes/737K-arc-v1.txt

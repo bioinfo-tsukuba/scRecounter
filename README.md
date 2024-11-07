@@ -257,6 +257,25 @@ gcloud compute ssh sc-recounter-vm \
   --impersonate-service-account=${HOME}/.gcp/c-tc-429521-6f6f5b8ccd93.json
 ```
 
+Install micromamba
+
+```bash
+curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+bash Miniforge3-$(uname)-$(uname -m).sh
+```
+
+Install nextflow
+
+```bash
+mamba install -n base -c conda-forge -c bioconda nextflow
+```
+
+Run the pipeline
+
+```bash
+nextflow run main.nf -profile docker,gcp,dev_acc_gcp
+```
+
 To stop the VM 
 
 ```bash
