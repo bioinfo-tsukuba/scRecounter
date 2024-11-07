@@ -102,8 +102,11 @@ process STAR_MERGE_PARAMS {
 
 // Set STAR parameters based on valid barcodes
 def saveAsParams(sample, filename) {
-    filename = filename.tokenize("/").last()
-    return "${sample}/${filename}"
+    if (filename.endsWith(".csv") || filename.endsWith(".json")){
+        filename = filename.tokenize("/").last()
+        return "${sample}/${filename}"
+    }
+    return null
 }
 
 process STAR_SELECT_PARAMS {
@@ -117,6 +120,7 @@ process STAR_SELECT_PARAMS {
     output:
     tuple val(sample), path("results/merged_star_params.csv"),    emit: csv
     tuple val(sample), path("results/selected_star_params.json"), emit: json
+    path "results/select-star-params_log.csv",                    emit: "log"
     
     script:
     """

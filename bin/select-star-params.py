@@ -7,6 +7,7 @@ import re
 import sys
 import argparse
 import logging
+from typing import List, Dict, Any, Tuple
 import pandas as pd
 
 # logging
@@ -35,47 +36,6 @@ parser.add_argument('--outdir', type=str, default="results",
                     help='Path to the output JSON file')
                     
 # functions
-def read_summary(input_files: list, sample: str) -> pd.DataFrame:
-    """
-    Read STAR summary tables and return as pandas dataframe.
-    Args:
-        input_files: List of paths to STAR summary tables
-        sample: Sample name
-    Returns:
-        pandas dataframe
-    """
-    data = []
-    for infile in input_files:
-        # read in as pandas dataframe
-        DF = pd.read_csv(infile, header=None)
-        # set columns
-        DF.columns = ['name', 'value']
-        # replace spaces with underscores
-        DF['name'] = DF['name'].str.replace(" ", "_")
-        # filter `name` to just specific values
-        to_keep = {
-            "Fraction_of_Unique_Reads_in_Cells", "Reads_With_Valid_Barcodes", "STRAND", 
-            "BARCODE_NAME", "CELL_BARCODE_LENGTH", "UMI_LENGTH", "ORGANISM"
-        }
-        DF = DF[DF['name'].isin(to_keep)]
-        # add sample
-        DF['sample'] = sample
-        # pivot wider
-        DF = DF.pivot(index='sample', columns='name', values='value').reset_index()
-        DF = DF.rename(
-            columns={
-                "Fraction_of_Unique_Reads_in_Cells": "FRAC_UNIQUE_READS",
-                "Reads_With_Valid_Barcodes": "READS_WITH_VALID_BARCODES"
-            }
-        )
-        # convert FRAC_UNIQUE_READS to float
-        to_float = ["FRAC_UNIQUE_READS", "READS_WITH_VALID_BARCODES"]
-        for x in to_float:
-            DF[x] = DF[x].astype(float)
-        # append to data
-        data.append(DF)
-    return pd.concat(data)
-
 def read_seqkit_stats(stats_file: str) -> pd.DataFrame:
     """
     Read seqkit stats table and return as pandas dataframe.
@@ -113,19 +73,42 @@ def read_params(params_file: str) -> pd.DataFrame:
     DF = pd.read_csv(params_file)
     return DF
 
-def main(args):    
-    # set pandas display optionqs
-    pd.set_option('display.max_columns', 30)
-    pd.set_option('display.width', 300)
+def write_log(logF, sample: str, step: str, success: bool, msg: str) -> None:
+    """
+    Write skip reason to file.
+    Args:
+        logF: Log file handle
+        sample: Sample name
+        accession: SRA accession
+        step: Step name
+        success: Success status
+        msg: Message
+    """
+    if len(msg) > 100:
+        msg = msg[:100] + '...'
+    logF.write(','.join([sample, step, str(success), msg]) + '\n')
 
+def load_info(sra_stats_csv, star_params_csv, read_stats_tsv, outdir) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Load the information from the sra_stats_csv, star_params_csv, and read_stats_tsv
+    and return the best parameters.
+    Args:
+        sra_stats_csv: Path to the sra_stats_csv file
+        star_params_csv: Path to the star_params_csv file
+        read_stats_tsv: Path to the read_stats_tsv file
+        outdir: Path to the output directory
+    Returns:
+        data: pandas dataframe of best parameters
+        data_all: pandas dataframe of all parameters
+    """
     # read in sra stats file
-    sra_stats = pd.read_csv(args.sra_stats_csv).drop(columns="accession")
+    sra_stats = pd.read_csv(sra_stats_csv).drop(columns="accession")
 
     # read in seqkit stats file
-    seqkit_stats = read_seqkit_stats(args.read_stats_tsv)
+    seqkit_stats = read_seqkit_stats(read_stats_tsv)
 
     # read in param files
-    params = pd.concat([pd.read_csv(x) for x in args.star_params_csv], axis=0)
+    params = pd.concat([pd.read_csv(x) for x in star_params_csv], axis=0)
 
     # merge on sample
     data = pd.merge(params, seqkit_stats, on="sample", how="left")
@@ -137,14 +120,57 @@ def main(args):
     data['Best parameters'] = data['Fraction of Unique Reads in Cells'] == max_frac
     data_all = data.copy()
     data = data[data['Best parameters'] == True].drop(columns="Best parameters")
+    return data,data_all
+
+def write_all_data(data_all: pd.DataFrame, outfile_merged: str) -> None:
+    #-- table of all parameters --#
+    # Estimate the number of cells
+    data_all["saturation"] = data_all["Number of Reads"] / data_all["Sequencing Saturation"]
+    data_all["num_spots"] = data_all["saturation"].where(data_all["spot_count"] > data_all["saturation"], data_all["spot_count"])
+    data_all["num_cells"] = data_all["num_spots"] / data_all["Number of Reads"] * data_all["Estimated Number of Cells"] * data_all["Reads Mapped to GeneFull: Unique+Multiple GeneFull"]
+    data_all["Total Estimated Number of Cells"] = data_all["num_cells"]
+    data_all.drop(columns=["saturation", "num_spots", "num_cells"], inplace=True)
+
+    # Write parameters as CSV
+    data_all.to_csv(outfile_merged, index=False)
+    logging.info(f"Output written to: {outfile_merged}")
+
+def write_data(data, data_all, outfile_selected, outfile_merged):
+    # write data as JSON
+    if data is not None:
+        with open(outfile_selected, "w") as outF:
+            outF.write(data.to_json(indent=4))
+    else:
+        # write empty json file
+        with open(outfile_selected, "w") as outF:
+            outF.write("{}")
+    logging.info(f"Output written to: {outfile_selected}")
+
+    # write merged data as CSV
+    write_all_data(data_all, outfile_merged)
+
+def main(args, logF):
+    # set pandas display optionqs
+    pd.set_option('display.max_columns', 30)
+    pd.set_option('display.width', 300)
+
+    # set output file paths
+    outfile_selected = os.path.join(args.outdir, "selected_star_params.json")
+    outfile_merged = os.path.join(args.outdir, "merged_star_params.csv")
+
+    # load the data
+    data,data_all = load_info(args.sra_stats_csv, args.star_params_csv, args.read_stats_tsv, args.outdir)
+
+    # get sample
+    sample = data_all["sample"].unique()[0]
 
     # check if data is empty
     if data.shape[0] == 0:
-        logging.warning("No valid barcodes found in the STAR summary table.")
+        msg = "No valid barcodes found in the STAR summary table"
+        logging.warning(msg)
+        write_log(logF, sample, "Valid barcode check", False, msg)
         # write empty json file
-        outfile = os.path.join(args.outdir, "selected_star_params.json")
-        with open(outfile, "w") as outF:
-            outF.write("{}")
+        write_data(None, data_all, outfile_selected, outfile_merged)
         return None
 
     # Convert dtypes
@@ -155,8 +181,11 @@ def main(args):
     data["CHECK"] = data["cell_barcode_length"] + data["umi_length"] - data["read1_length"]
     data = data[data["CHECK"] <= 0]
     if data.shape[0] == 0:
-        logging.error("No valid barcodes found in the STAR summary table after accounting for read lengths.")
-        sys.exit(1)
+        msg = "No valid barcodes found in the STAR summary table after accounting for read lengths"
+        logging.error(msg)
+        write_log(logF, sample, "Valid barcode check", False, msg)
+        write_data(None, data_all, outfile_selected, outfile_merged)
+        return None
     data.drop(columns="CHECK", inplace=True)
 
     # renmame
@@ -174,28 +203,17 @@ def main(args):
     # If multiple rows, take the first after sorting by "READS_WITH_VALID_BARCODES"
     data = data.sort_values("Reads With Valid Barcodes", ascending=False).iloc[0]
 
-    # Write to JSON
-    os.makedirs(args.outdir, exist_ok=True)
-    outfile = os.path.join(args.outdir, "selected_star_params.json")
-    with open(outfile, "w") as outF:
-        outF.write(data.to_json(indent=4))
-    logging.info(f"Output written to: {outfile}")
+    # Write output
+    write_data(data, data_all, outfile_selected, outfile_merged)
 
-    #-- table of all parameters --#
-    # Estimate the number of cells
-    data_all["saturation"] = data_all["Number of Reads"] / data_all["Sequencing Saturation"]
-    data_all["num_spots"] = data_all["saturation"].where(data_all["spot_count"] > data_all["saturation"], data_all["spot_count"])
-    data_all["num_cells"] = data_all["num_spots"] / data_all["Number of Reads"] * data_all["Estimated Number of Cells"] * data_all["Reads Mapped to GeneFull: Unique+Multiple GeneFull"]
-    data_all["Total Estimated Number of Cells"] = data_all["num_cells"]
-    data_all.drop(columns=["saturation", "num_spots", "num_cells"], inplace=True)
-
-    # Write parameters as CSV
-    outfile = os.path.join(args.outdir, "merged_star_params.csv")
-    data_all.to_csv(outfile, index=False)
-    logging.info(f"Output written to: {outfile}")
-
+    # Write log
+    write_log(logF, sample, "Parameter selection", True, "Best parameters selected")
 
 ## script main
 if __name__ == '__main__':
     args = parser.parse_args()
-    main(args)
+    os.makedirs(args.outdir, exist_ok=True)
+    logfile = os.path.join(args.outdir, 'select-star-params_log.csv')
+    with open(logfile, 'w') as logF:
+        logF.write('sample,step,success,message\n')
+        main(args, logF)

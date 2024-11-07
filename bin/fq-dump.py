@@ -97,22 +97,23 @@ def check_output(sra_file: str, outdir: str) -> None:
     
     # if no R1 or R2, return warning
     if not read_lens["R1"]:
-        return 'Read 1 not found'
+        return False,'Read 1 not found'
     if not read_lens["R2"]:
-        return 'Read 2 not found'
+        return False,'Read 2 not found'
 
     # if R1 is longer than R2, swap names
     ## R2 should be cDNA read, while R1 is the barcode (cell+UMI)
+    msg = 'Checks passed'
     if read_lens["R1"] and read_lens["R2"] and read_lens["R1"] > read_lens["R2"]:
         logging.warning('Read 1 is longer than Read 2; swapping reads')
         # rename files
         os.rename(read_files["R1"], "tmp_R1.fastq")
         os.rename(read_files["R2"], read_files["R1"])
         os.rename("tmp_R1.fastq", read_files["R2"])
-        return 'Swapped R1 and R2'
-    return 'Checks passed'
+        msg += "; Swapped R1 and R2"
+    return True,msg
 
-def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
+def write_log(logF, sample: str, accession: str, step: str, success: bool, msg: str) -> None:
     """
     Write skip reason to file.
     Args:
@@ -120,11 +121,12 @@ def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
         sample: Sample name
         accession: SRA accession
         step: Step name
+        success: Success status
         msg: Message
     """
     if len(msg) > 100:
         msg = msg[:100] + '...'
-    logF.write(','.join([sample, accession, step, msg]) + '\n')
+    logF.write(','.join([sample, accession, step, str(success), msg]) + '\n')
 
 def main(args, logF):
     # check for fastq-dump and fasterq-dump
@@ -157,14 +159,14 @@ def main(args, logF):
         msg = '; '.join(output.decode().split('\n'))
     else:
         msg = '; '.join(err.decode().split('\n'))
-    write_log(logF, args.sample, accession, cmd[0], msg)
+    write_log(logF, args.sample, accession, cmd[0], returncode == 0, msg)
     if returncode != 0:
         logging.error(err)
         sys.exit(1)
     
     # Check the output
-    msg = check_output(args.sra_file, args.outdir)
-    write_log(logF, args.sample, accession, 'check_output', msg)
+    success,msg = check_output(args.sra_file, args.outdir)
+    write_log(logF, args.sample, accession, 'check_output', success, msg)
 
 ## script main
 if __name__ == '__main__':
@@ -172,5 +174,5 @@ if __name__ == '__main__':
     os.makedirs(args.outdir, exist_ok=True)
     logfile = os.path.join(args.outdir, 'fq-dump_log.csv')
     with open(logfile, 'w') as logF:
-        logF.write('sample,accession,step,message\n')
+        logF.write('sample,accession,step,success,message\n')
         main(args, logF)
