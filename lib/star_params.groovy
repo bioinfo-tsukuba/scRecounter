@@ -4,11 +4,11 @@ def expandStarParams(ch_fastq, ch_star_params_json) {
     return ch_fastq.join(ch_star_params_json, by: 0)
         .map{ sample, read1, read2, json_file -> 
             def params = new JsonSlurper().parseText(json_file.text)
-            def barcodes_file = params.BARCODES_FILE
-            def star_index = params.STAR_INDEX
-            def cell_barcode_length = params.CELL_BARCODE_LENGTH
-            def umi_length = params.UMI_LENGTH
-            def strand = params.STRAND
+            def barcodes_file = params.barcodes_file
+            def star_index = params.star_index
+            def cell_barcode_length = params.cell_barcode_length
+            def umi_length = params.umi_length
+            def strand = params.strand
             return [sample, read1, read2, barcodes_file, star_index, 
                     cell_barcode_length, umi_length, strand]
         }

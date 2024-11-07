@@ -117,9 +117,10 @@ def load_info(sra_stats_csv, star_params_csv, read_stats_tsv, outdir) -> Tuple[p
     # Filter to the max `Fraction of Unique Reads in Cells` => best parameters
     data = data[data['Fraction of Unique Reads in Cells'] != float("inf")]
     max_frac = data['Fraction of Unique Reads in Cells'].max()
-    data['Best parameters'] = data['Fraction of Unique Reads in Cells'] == max_frac
+    #data['Best parameters'] = data['Fraction of Unique Reads in Cells'] == max_frac
     data_all = data.copy()
-    data = data[data['Best parameters'] == True].drop(columns="Best parameters")
+    #data = data[data['Best parameters'] == True].drop(columns="Best parameters")
+    data = data[data['Fraction of Unique Reads in Cells'] == max_frac]
     return data,data_all
 
 def write_all_data(data_all: pd.DataFrame, outfile_merged: str) -> None:
@@ -127,8 +128,8 @@ def write_all_data(data_all: pd.DataFrame, outfile_merged: str) -> None:
     # Estimate the number of cells
     data_all["saturation"] = data_all["Number of Reads"] / data_all["Sequencing Saturation"]
     data_all["num_spots"] = data_all["saturation"].where(data_all["spot_count"] > data_all["saturation"], data_all["spot_count"])
-    data_all["num_cells"] = data_all["num_spots"] / data_all["Number of Reads"] * data_all["Estimated Number of Cells"] * data_all["Reads Mapped to GeneFull: Unique+Multiple GeneFull"]
-    data_all["Total Estimated Number of Cells"] = data_all["num_cells"]
+    data_all["num_cells"] = data_all["num_spots"] / data_all["Number of Reads"] * data_all["Estimated Number of Cells"] #* data_all["Reads Mapped to GeneFull: Unique+Multiple GeneFull"]
+    data_all["Total Estimated Number of Cells"] = data_all["num_cells"].round().astype(int)
     data_all.drop(columns=["saturation", "num_spots", "num_cells"], inplace=True)
 
     # Write parameters as CSV
@@ -137,13 +138,20 @@ def write_all_data(data_all: pd.DataFrame, outfile_merged: str) -> None:
 
 def write_data(data, data_all, outfile_selected, outfile_merged):
     # write data as JSON
-    if data is not None:
-        with open(outfile_selected, "w") as outF:
-            outF.write(data.to_json(indent=4))
-    else:
-        # write empty json file
+    if data is None:
+         # write empty json file
         with open(outfile_selected, "w") as outF:
             outF.write("{}")
+    else:
+        # write data as JSON
+        with open(outfile_selected, "w") as outF:
+            outF.write(data.to_json(indent=4))
+        # set best parameters for data_all
+        target_cols = ["sample", "barcodes_file", "star_index", "cell_barcode_length", "umi_length", "strand"]
+        df = data[target_cols].copy().to_frame().T
+        df["Best parameters"] = True
+        data_all = pd.merge(data_all, df, on=target_cols, how="left")
+        data_all["Best parameters"] = data_all["Best parameters"].astype('boolean').fillna(False)
     logging.info(f"Output written to: {outfile_selected}")
 
     # write merged data as CSV
@@ -189,16 +197,16 @@ def main(args, logF):
     data.drop(columns="CHECK", inplace=True)
 
     # renmame
-    data.rename(
-        columns={
-            "barcodes_file" : "BARCODES_FILE",
-            "cell_barcode_length" : "CELL_BARCODE_LENGTH",
-            "umi_length" : "UMI_LENGTH",
-            "strand" : "STRAND",
-            "star_index" : "STAR_INDEX"
-        },
-        inplace=True
-    )
+    # data.rename(
+    #     columns={
+    #         "barcodes_file" : "BARCODES_FILE",
+    #         "cell_barcode_length" : "CELL_BARCODE_LENGTH",
+    #         "umi_length" : "UMI_LENGTH",
+    #         "strand" : "STRAND",
+    #         "star_index" : "STAR_INDEX"
+    #     },
+    #     inplace=True
+    # )
 
     # If multiple rows, take the first after sorting by "READS_WITH_VALID_BARCODES"
     data = data.sort_values("Reads With Valid Barcodes", ascending=False).iloc[0]
