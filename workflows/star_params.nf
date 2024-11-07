@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 // Workflow to run STAR alignment on scRNA-seq data
 workflow STAR_PARAMS_WF{
     take:
@@ -46,7 +48,19 @@ workflow STAR_PARAMS_WF{
             }
             return json_file.size() > 5
         }
+
+    // Extract selected parameters from the JSON files
     ch_fastq = ch_fastq.join(ch_star_params_json, by: 0)
+        .map{ sample, read1, read2, json_file -> 
+            def params = new JsonSlurper().parseText(json_file.text)
+            def barcodes_file = params.BARCODES_FILE
+            def star_index = params.STAR_INDEX
+            def cell_barcode_length = params.CELL_BARCODE_LENGTH
+            def umi_length = params.UMI_LENGTH
+            def strand = params.STRAND
+            return [sample, read1, read2, barcodes_file, star_index, 
+                    cell_barcode_length, umi_length, strand]
+        }
 
     emit:
     fastq = ch_fastq
@@ -163,7 +177,7 @@ process STAR_PARAM_SEARCH {
     label "process_medium"
 
     input:
-    tuple val(sample), path(fastq_1), path(fastq_2), val(params)
+    tuple val(sample), path(fastq_1), path(fastq_2), path(barcodes_file), path(star_index), val(params)
 
     output:
     tuple val(sample), val(params), path("star_summary.csv")
@@ -174,8 +188,8 @@ process STAR_PARAM_SEARCH {
     STAR \\
       --readFilesIn $fastq_2 $fastq_1 \\
       --runThreadN ${task.cpus} \\
-      --genomeDir ${params.star_index} \\
-      --soloCBwhitelist ${params.barcodes_file} \\
+      --genomeDir ${star_index} \\
+      --soloCBwhitelist ${barcodes_file} \\
       --soloCBlen ${params.cell_barcode_length} \\
       --soloUMIlen ${params.umi_length} \\
       --soloStrand ${params.strand} \\
@@ -267,10 +281,9 @@ def makeParamSets(ch_subsample, ch_barcodes, ch_star_indices) {
                 organism: organism,
                 star_index: star_index
             ]
-            return [sample, r1, r2, params] 
+            return [sample, r1, r2, barcodes_file, star_index, params] 
         }
 }
-
 
 
 def validateRequiredColumns(row, required) {

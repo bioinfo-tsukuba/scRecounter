@@ -4,12 +4,8 @@ workflow STAR_FULL_WF{
     ch_fastq
 
     main:
-    //-- Run STAR with the best parameters --//
-    // TODO: allow user to provide parameters
-
-    if (! params.define){
-        STAR_FULL(ch_fastq)
-    }
+    //-- Run STAR with the selected parameters --//
+    STAR_FULL(ch_fastq)
 }
 
 // STAR alignment with all reads and selected parameters
@@ -28,7 +24,8 @@ process STAR_FULL {
     label "process_high"
 
     input:
-    tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), path(star_params)
+    tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), path(barcodes_file), 
+          path(star_index), val(cell_barcode_length), val(umi_length), val(strand)
 
     output:
     tuple val(sample), path("resultsSolo.out/Gene/raw/*"),                          emit: gene_raw
@@ -49,12 +46,6 @@ process STAR_FULL {
 
     script:
     """
-    # load parameters
-    json2env.py \\
-      --params BARCODES_FILE CELL_BARCODE_LENGTH UMI_LENGTH STRAND STAR_INDEX \\
-      -- $star_params > params.env
-    source params.env
-
     # run STAR
     R1=\$(printf "%s," input*_R1.fastq)
     R1=\${R1%,} 
@@ -63,11 +54,11 @@ process STAR_FULL {
     STAR \\
       --readFilesIn \$R2 \$R1 \\
       --runThreadN ${task.cpus} \\
-      --genomeDir \$STAR_INDEX \\
-      --soloCBwhitelist \$BARCODES_FILE \\
-      --soloUMIlen \$UMI_LENGTH \\
-      --soloStrand \$STRAND \\
-      --soloCBlen \$CELL_BARCODE_LENGTH \\
+      --genomeDir ${star_index} \\
+      --soloCBwhitelist ${barcodes_file} \\
+      --soloUMIlen ${umi_length} \\
+      --soloStrand ${strand} \\
+      --soloCBlen ${cell_barcode_length} \\
       --soloType CB_UMI_Simple \\
       --clipAdapterType CellRanger4 \\
       --outFilterScoreMin 30 \\
