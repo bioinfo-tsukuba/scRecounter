@@ -1,19 +1,9 @@
+include { readAccessions; joinReads } from '../lib/download.groovy'
+
 workflow DOWNLOAD_WF {
     main:
     // Load accessions from file
-    ch_accessions = Channel
-        .fromPath(params.accessions, checkIfExists: true)
-        .splitCsv(header: true, sep: ",")
-        .map { row ->
-            def req_columns = ["sample", "accession"]
-            def miss_columns = req_columns.findAll { !row.containsKey(it) }
-            if (miss_columns) {
-                error "Missing columns in the input CSV file: ${miss_columns}"
-            }
-            // remove special characters from the sample name
-            row.sample = row.sample.replaceAll("\\s", "_")
-            return [row.sample, row.accession]
-        }
+    ch_accessions = readAccessions(params.accessions)
 
     // Set up vdb-config with GCP credentials, if provided
     VDB_CONFIG()
@@ -37,17 +27,7 @@ workflow DOWNLOAD_WF {
     FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
     
     // Join R1 and R2 channels, which will filter out empty R2 records
-    ch_fastq = ch_fqdump.R1.join(ch_fqdump.R2, by: [0, 1], remainder: true)
-        .filter { sample, accession, r1, r2 -> 
-            if(r2 == null) {
-                println "Warning: Read 2 is empty for ${sample}; skipping"
-            }
-            return r2 != null
-        }
-        .groupTuple()
-        .map { sample, accession, fastq_1, fastq_2 ->
-            return [sample, fastq_1.flatten(), fastq_2.flatten()]
-        }
+    ch_fastq = joinReads(ch_fqdump.R1, ch_fqdump.R2)
 
     emit:
     fastq = ch_fastq
