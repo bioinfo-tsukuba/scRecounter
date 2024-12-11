@@ -13,7 +13,7 @@ workflow READ_QC_WF{
     SEQKIT_STATS(ch_fastq_flat)
         .collectFile(
           name: "seqkit-stats.tsv", 
-          storeDir:  file(params.outdir) / "read_qc", 
+          storeDir:  file(params.output_dir) / "read_qc", 
           newLine: false, keepHeader: true
         )
 }

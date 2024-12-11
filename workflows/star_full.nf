@@ -18,7 +18,7 @@ def saveAsSTAR(sample, filename) {
 }
 
 process STAR_FULL {
-    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
+    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
     label "process_high"

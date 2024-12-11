@@ -3,6 +3,7 @@
 .env
 .gcp/
 tmp/
+TMP/
 logs/
 work/
 results/

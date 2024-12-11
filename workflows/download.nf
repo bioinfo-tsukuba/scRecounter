@@ -35,7 +35,7 @@ workflow DOWNLOAD_WF {
 }
 
 process FQDUMP_LOG_MERGE {
-    publishDir file(params.outdir) / "logs", mode: "copy", overwrite: true
+    publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
 
@@ -139,7 +139,7 @@ process FASTQ_DUMP {
 }
 
 process PREFETCH_LOG_MERGE{
-    publishDir file(params.outdir) / "logs", mode: "copy", overwrite: true
+    publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
 

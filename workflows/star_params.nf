@@ -57,7 +57,7 @@ workflow STAR_PARAMS_WF{
 }
 
 process STAR_SELECT_PARAMS_REPORT {
-    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true
+    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
 
@@ -79,7 +79,7 @@ process STAR_SELECT_PARAMS_REPORT {
 }
 
 process STAR_MERGE_PARAMS {
-    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true
+    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
 
@@ -110,7 +110,7 @@ def saveAsParams(sample, filename) {
 }
 
 process STAR_SELECT_PARAMS {
-    publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
+    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
 
@@ -165,7 +165,7 @@ def saveAsValid(sample, filename) {
 
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_PARAM_SEARCH {
-    //publishDir file(params.outdir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
+    //publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
     label "process_medium"
