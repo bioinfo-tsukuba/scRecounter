@@ -104,13 +104,13 @@ process STAR_MERGE_PARAMS {
 def saveAsParams(sample, filename) {
     if (filename.endsWith(".csv") || filename.endsWith(".json")){
         filename = filename.tokenize("/").last()
-        return "${sample}/${filename}"
+        return "${filename}"
     }
     return null
 }
 
 process STAR_SELECT_PARAMS {
-    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
+    publishDir file(params.output_dir) / "${sample}" / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
 
@@ -160,12 +160,12 @@ process STAR_FORMAT_PARAMS {
 
 // Set STAR parameters based on valid barcodes
 def saveAsValid(sample, filename) {
-    return "${sample}/param_search/${filename}"
+    return "param_search/${filename}"
 }
 
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_PARAM_SEARCH {
-    //publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
+    //publishDir file(params.output_dir) / "${sample}"" /  "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
     label "process_medium"

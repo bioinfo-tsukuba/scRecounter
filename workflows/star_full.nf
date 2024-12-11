@@ -12,13 +12,13 @@ workflow STAR_FULL_WF{
 def saveAsSTAR(sample, filename) {
     if (filename.endsWith(".mtx") || filename.endsWith(".tsv") || filename.endsWith(".csv")) {
         def parts = filename.tokenize("/")
-        return "${sample}/" + parts[1..-1].join('/')
+        return parts[1..-1].join('/')
     } 
     return null
 }
 
 process STAR_FULL {
-    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
+    publishDir file(params.output_dir) / "${sample}" / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
     label "process_high"

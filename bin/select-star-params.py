@@ -196,18 +196,6 @@ def main(args, logF):
         return None
     data.drop(columns="CHECK", inplace=True)
 
-    # renmame
-    # data.rename(
-    #     columns={
-    #         "barcodes_file" : "BARCODES_FILE",
-    #         "cell_barcode_length" : "CELL_BARCODE_LENGTH",
-    #         "umi_length" : "UMI_LENGTH",
-    #         "strand" : "STRAND",
-    #         "star_index" : "STAR_INDEX"
-    #     },
-    #     inplace=True
-    # )
-
     # If multiple rows, take the first after sorting by "READS_WITH_VALID_BARCODES"
     data = data.sort_values("Reads With Valid Barcodes", ascending=False).iloc[0]
 
