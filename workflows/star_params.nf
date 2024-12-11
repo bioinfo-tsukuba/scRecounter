@@ -104,13 +104,13 @@ process STAR_MERGE_PARAMS {
 def saveAsParams(sample, filename) {
     if (filename.endsWith(".csv") || filename.endsWith(".json")){
         filename = filename.tokenize("/").last()
-        return "${filename}"
+        return "STAR/${sample}/${filename}"
     }
     return null
 }
 
 process STAR_SELECT_PARAMS {
-    publishDir file(params.output_dir) / "${sample}" / "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
 
