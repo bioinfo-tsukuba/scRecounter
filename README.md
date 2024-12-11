@@ -39,7 +39,7 @@ see the [conda/mamba Notion docs](https://www.notion.so/arcinstitute/Conda-Mamba
 It is easiest to install Nextflow using `mamba`:
 
 ```bash
-mamba install -n nextflow_env -c bioconda nextflow
+mamba create -n nextflow_env -c bioconda nextflow
 ```
 
 Make sure to activate the environment before running the pipeline:
@@ -102,7 +102,7 @@ Lists the samples and their associated SRA experiment accessions.
 
 Example:
 
-| Sample    | Accession    |
+| sample    | accession    |
 |-----------|--------------|
 | sample1   | SRR13112659  |
 | sample1   | SRR13112660  |
@@ -165,19 +165,35 @@ Example:
 
 Use just a small subset of reads in the dataset to identify library prep method, species, etc.
 
-TODO
+
+***
+
+TEST GCP run:
 
 
 ```bash
-nextflow run main.nf -profile conda,vm \
-  --keep_temp true \
-  --define \
-  --max_spots 50000 \
-  --accessions data/accessions_var.csv \
-  --outdir tmp/accessions_var \
-  -resume
+nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
+  -work-dir gs://arc-ctc-nextflow/scRecounter/work \
+  -profile docker,gcp,report,trace \
+  -ansi-log false \
+  --max_spots 100000 \
+  --output_dir gs://arc-ctc-nextflow/scRecounter/data/ \
+  --accessions TMP/SRX22716300.csv
 ```
 
+TEST local run:
+
+```bash
+nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
+  -work-dir TMP/work/ \
+  -profile docker,vm,report,trace \
+  -ansi-log false \
+  --max_spots 100000 \
+  --output_dir TMP/output/ \
+  --accessions TMP/SRX22716300.csv
+```
+
+***
 
 # Dev
 
@@ -192,7 +208,7 @@ nextflow run main.nf \
   --define \
   --max_spots 50000 \
   --accessions data/accessions_var.csv \
-  --outdir tmp/accessions_var \
+  --output_dir tmp/accessions_var \
   -resume
 ```
 
@@ -205,7 +221,7 @@ nextflow run main.nf \
   --define \
   --max_spots 50000 \
   --accessions data/accessions_problems.csv \
-  --outdir tmp/accessions_problems \
+  --output_dir tmp/accessions_problems \
   -resume
 ```
 
@@ -224,7 +240,7 @@ nextflow run main.nf \
   -profile conda,slurm \
   --keep_temp true \
   --accessions data/accessions_small_n2.csv \
-  --outdir tmp/results_small_n2
+  --output_dir tmp/results_small_n2
 ```
 
 Many small-data accessions, subsampled
@@ -235,7 +251,7 @@ nextflow run main.nf \
   --keep_temp true \
   --max_spots 500000 \
   --accessions data/accessions_small_n10.csv \
-  --outdir tmp/results_small_n10
+  --output_dir tmp/results_small_n10
 ```
 
 ## Convert accessions
@@ -263,8 +279,8 @@ Create VM
 ```bash
 gcloud compute instances create sc-recounter-vm \
     --project=c-tc-429521 \
-    --zone=us-east1-b \
-    --machine-type=e2-standard-4 \
+    --zone=us-east1-c \
+    --machine-type=e2-standard-8 \
     --image-family=ubuntu-2204-lts \
     --image-project=ubuntu-os-cloud \
     --boot-disk-size=50GB \
@@ -277,7 +293,7 @@ ssh onto the VM
 
 ```bash
 gcloud compute ssh sc-recounter-vm \
-  --zone=us-east1-b \
+  --zone=us-east1-c \
   --project=c-tc-429521 \
   --impersonate-service-account=${HOME}/.gcp/c-tc-429521-6f6f5b8ccd93.json
 ```
@@ -285,23 +301,81 @@ gcloud compute ssh sc-recounter-vm \
 Install micromamba
 
 ```bash
-curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-bash Miniforge3-$(uname)-$(uname -m).sh
+curl -L \
+  -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" \
+  && bash Miniforge3-$(uname)-$(uname -m).sh
+```
+
+Add the required channels
+
+```bash
+conda config --add channels nodefaults \
+  && conda config --add channels pytorch \
+  && conda config --add channels bioconda \
+  && conda config --add channels conda-forge
 ```
 
 Install nextflow
 
 ```bash
-mamba install -n base -c conda-forge -c bioconda nextflow
+conda install -n nextflow-env nextflow \
+  && conda activate nextflow-env
+```
+
+> Be sure that the `GOOGLE_APPLICATION_CREDENTIALS` env variable is set to the path of the service account key
+
+The service account needs the following roles:
+
+```bash
+# batch
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/batch.serviceAgent"
+
+# compute
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/compute.admin"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/compute.instanceAdmin.v1"
+
+# storage
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/storage.objectViewer"
+
+# Artifact Registry
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/artifactregistry.reader"
+
+# network and Monitoring Access
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/iam.serviceAccountUser"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/compute.networkUser"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/logging.viewer"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/monitoring.viewer"
 ```
 
 Run the pipeline
 
 ```bash
-nextflow run main.nf -profile docker,gcp,dev_acc_gcp
+nextflow run main.nf -profile docker,gcp,dev_acc
 ```
 
-To stop the VM 
+To stop the VM:
 
 ```bash
 gcloud compute instances stop sc-recounter-vm --zone=us-east1-b
