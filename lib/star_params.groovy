@@ -58,7 +58,7 @@ def loadBarcodes(params) {
                 row.name, 
                 row.cell_barcode_length.toInteger(), 
                 row.umi_length.toInteger(),
-                file(row.file_path)  
+                row.file_path
             ]
         }
 }
@@ -72,6 +72,6 @@ def loadStarIndices(params) {
             validateRequiredColumns(row, req_columns)
             // remove special characters
             row.organism = row.organism.replaceAll("\\s", "_")
-            return [row.organism, file(row.star_index)]
+            return [row.organism, row.star_index]
         }
 }

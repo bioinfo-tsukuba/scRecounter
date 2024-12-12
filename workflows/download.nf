@@ -89,11 +89,6 @@ process FASTERQ_DUMP {
 
     # remove the temporary files
     rm -rf TMP_FILES
-
-    # remove the input sra file
-    if [[ "${params.keep_temp}" != "true" ]]; then
-        rm -f \$(readlink ${sra_file})
-    fi
     """
 
     stub:
