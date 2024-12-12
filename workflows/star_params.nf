@@ -10,10 +10,12 @@ workflow STAR_PARAMS_WF{
     //-- for each sample (accession), run STAR on subset of reads with various parameters to determine which params produce the most valid barcodes --/
     
     // Subsample reads 
-    SUBSAMPLE_READS(ch_fastq)
+    SUBSAMPLE_R1(ch_fastq)
+    SUBSAMPLE_R2(ch_fastq)
+    ch_fastq_sub = SUBSAMPLE_R1.out.join(SUBSAMPLE_R2.out, by: [0,1])
 
     // Get read lengths
-    SEQKIT_STATS(SUBSAMPLE_READS.out)
+    SEQKIT_STATS(ch_fastq_sub)
 
     // Load barcodes file
     ch_barcodes = loadBarcodes(params)
@@ -22,7 +24,7 @@ workflow STAR_PARAMS_WF{
     ch_star_indices = loadStarIndices(params)
 
     // Pairwise combine samples with barcodes, strand, and star index
-    ch_params = makeParamSets(SUBSAMPLE_READS.out, ch_barcodes, ch_star_indices)
+    ch_params = makeParamSets(ch_fastq_sub, ch_barcodes, ch_star_indices)
 
     // Run STAR on subsampled reads, for all pairwise parameter combinations
     STAR_PARAM_SEARCH(ch_params)
@@ -235,7 +237,7 @@ process SEQKIT_STATS {
 }
 
 // Subsample reads
-process SUBSAMPLE_READS {
+process SUBSAMPLE_R2 {
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/read_qc.yml"
     label "process_low"
@@ -244,17 +246,38 @@ process SUBSAMPLE_READS {
     tuple val(sample), val(accession), path("input_R1.fq"), path("input_R2.fq")
 
     output:
-    tuple val(sample), val(accession), path("${sample}_${accession}_R1.fq"), path("${sample}_${accession}_R2.fq")
+    tuple val(sample), val(accession), path("${sample}_${accession}_R2.fq")
 
     script: 
     """
-    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_${accession}_R1.fq input_R1.fq
     subsample.py --num-seqs ${params.subsample} --out-file ${sample}_${accession}_R2.fq input_R2.fq
     """
     
     stub:
     """
-    #touch ${sample}_R1.fq ${sample}_R2.fq
+    touch ${sample}_${accession}_R2.fq
+    """
+}
+
+process SUBSAMPLE_R1 {
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
+    conda "envs/read_qc.yml"
+    label "process_low"
+
+    input:
+    tuple val(sample), val(accession), path("input_R1.fq"), path("input_R2.fq")
+
+    output:
+    tuple val(sample), val(accession), path("${sample}_${accession}_R1.fq")
+
+    script: 
+    """
+    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_${accession}_R1.fq input_R1.fq
+    """
+    
+    stub:
+    """
+    touch ${sample}_${accession}_R1.fq
     """
 }
 
