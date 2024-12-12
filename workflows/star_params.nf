@@ -39,9 +39,6 @@ workflow STAR_PARAMS_WF{
         .join(ch_sra_stat, by: [0,1])
     STAR_SELECT_PARAMS(ch_params_all)
 
-    // Merge param CSVs
-    //STAR_MERGE_PARAMS(STAR_SELECT_PARAMS.out.csv.collect { it[2] })
-
     // Filter empty params
     ch_star_params_json = STAR_SELECT_PARAMS.out.json
         .filter { sample, accession, json_file -> 

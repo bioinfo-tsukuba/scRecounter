@@ -202,13 +202,9 @@ nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
 
 ```bash
 nextflow run main.nf \
-  -profile conda,vm  \
-  --keep_temp true  \
-  --define \
-  --max_spots 50000 \
-  --accessions data/accessions_var.csv \
-  --output_dir tmp/accessions_var \
-  -resume
+  -profile conda,vm,vm_dev,dev_acc \
+  -resume \
+  --define true
 ```
 
 Problematic accessions
@@ -216,7 +212,6 @@ Problematic accessions
 ```bash
 nextflow run main.nf \
   -profile conda,vm  \
-  --keep_temp true  \
   --define \
   --max_spots 50000 \
   --accessions data/accessions_problems.csv \
@@ -227,7 +222,7 @@ nextflow run main.nf \
 #### Local, with accessions
 
 ```bash
-nextflow run main.nf -profile conda,vm,dev_acc
+nextflow run main.nf -profile conda,vm,vm_dev,dev_acc
 ```
 
 #### SLURM, with accessions
@@ -237,7 +232,6 @@ A couple of small-data accessions
 ```bash
 nextflow run main.nf \
   -profile conda,slurm \
-  --keep_temp true \
   --accessions data/accessions_small_n2.csv \
   --output_dir tmp/results_small_n2
 ```
@@ -247,7 +241,6 @@ Many small-data accessions, subsampled
 ```bash
 nextflow run main.nf \
   -profile conda,slurm \
-  --keep_temp true \
   --max_spots 500000 \
   --accessions data/accessions_small_n10.csv \
   --output_dir tmp/results_small_n10
