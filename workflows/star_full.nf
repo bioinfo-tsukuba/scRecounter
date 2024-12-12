@@ -12,7 +12,7 @@ workflow STAR_FULL_WF{
 def saveAsSTAR(sample, accession, filename) {
     if (filename.endsWith(".mtx") || filename.endsWith(".tsv") || filename.endsWith(".csv")) {
         def parts = filename.tokenize("/")
-        return "STAR/${sample}/${accession}" + parts[1..-1].join('/')
+        return "STAR/${sample}/${accession}/" + parts[1..-1].join('/')
     } 
     return null
 }

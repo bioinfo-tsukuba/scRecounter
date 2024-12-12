@@ -9,9 +9,9 @@ Nextflow pipeline to re-process public single-cell RNA-seq data.
   * A table of samples & associated accessions
   * A table of samples & downloaded fastq files
   * Associated files required:
-    * a table of input samples and associated fastq files
-    * a table of barcodes to use for cell barcode and UMI identification
-    * a table of STAR index files to use for mapping
+    * A table of input samples and associated fastq files
+    * A table of barcodes to use for cell barcode and UMI identification
+    * A table of STAR index files to use for mapping
   * The user can also provide a table of STAR parameters, if they have already been determined
 * Pipeline:
   * Read file formatting and QC
@@ -20,7 +20,6 @@ Nextflow pipeline to re-process public single-cell RNA-seq data.
     * via STARsolo with a subset of reads
       * assess fraction of valid barcodes
   * The STAR parameter setting with the highest fraction of valid barcodes is used for the full STAR run
-    * What to do if there is a tie?
   * STAR run with selected parameters
     * All final count tables are "published" to the output directory
 
@@ -50,39 +49,42 @@ mamba activate nextflow_env
 
 ## Pipeline install
 
-### Add ssh key to GitHub
-
-> This is only needed if you have not already added your ssh key to GitHub.
-
-```bash
-ssh-keygen -t ed25519 -C "your_email@example.com"
-```
-
-* change `your_email@example.com` to your Arc email
-
-```bash
-cat ~/.ssh/id_ed25519.pub
-```
-
-* copy the output
-* GoTo: `GitHub => Settings > SSH and GPG keys > New SSH key`
-* Paste the output into the key field
-* Add a title (e.g., `Chimera`)
-* Click `Add SSH key`
-
 ### Clone the repo
 
+You will need a GitHub PAT to clone the repo.
+
+To obtain a GitHub PAT:
+ - Go to your GitHub account settings
+ - Click on Developer settings
+ - Click on Personal access tokens
+ - Click on Generate new token
+
 ```bash
-git clone git@github.com:ArcInstitute/scRecounter.git \
+git clone https://github.com/ArcInstitute/scRecounter.git \
   && cd scRecounter
 ```
 
-### Pipeline conda environments 
+> Provide the GitHub PAT when prompted for a password
+
+To cache your GitHub credentials:
+
+```bash
+git config --global credential.helper cache
+```
+
+### Pipeline conda environments (if running locally)
 
 The pipeline uses conda environments to manage dependencies. 
 Nextflow will automatically create the environments as long as `mamba` is installed.
 
 **Note:** it can take a while to create the environments, even with `mamba`.
+
+### Pipeline Docker containers (if running on GCP) 
+
+The containers are hosted on the Google Artifact Registry.
+
+Be sure to set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to a service
+account with the required permissions.
 
 
 # Usage
@@ -94,7 +96,6 @@ Input can either be:
 1. `Accessions table` => A table of accessions per sample. The read data will be downloaded from the SRA.
 1. `Reads table` => A table of read files per sample. The read data has already been downloaded.
 
-~~Note: in either case, reads will be merged by `sample` if there are multiple read files (accessions) per sample.~~
 
 ### Accessions table
 
@@ -102,11 +103,10 @@ Lists the samples and their associated SRA experiment accessions.
 
 Example:
 
-| sample    | accession    |
-|-----------|--------------|
-| sample1   | SRR13112659  |
-| sample1   | SRR13112660  |
-| sample2   | SRR13112661  |
+| sample      | accession   |
+|-------------|-------------|
+| SRX22716300 | SRR27024456 |
+| SRX25994842 | SRR30571763 |
 
 
 ### Reads table
@@ -161,35 +161,34 @@ Example:
 
 ## Nextflow run 
 
+### Test runs
+
+Local run:
+
+```bash
+nextflow run main.nf \
+  -profile docker,vm,vm_dev,dev_acc
+```
+
+GCP run:
+
+```bash
+nextflow run main.nf \
+  -profile docker,gcp,gcp_dev,dev_acc
+```
+
 ### Characterize datasets
 
 Use just a small subset of reads in the dataset to identify library prep method, species, etc.
 
 
-***
-
-TEST GCP run:
-
-
 ```bash
 nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
   -work-dir gs://arc-ctc-nextflow/scRecounter/work \
-  -profile docker,gcp,report,trace \
+  -profile docker,gcp \
   -ansi-log false \
   --max_spots 100000 \
-  --output_dir gs://arc-ctc-nextflow/scRecounter/data/ \
-  --accessions TMP/SRX22716300.csv
-```
-
-TEST local run:
-
-```bash
-nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
-  -work-dir TMP/work/ \
-  -profile docker,vm,report,trace \
-  -ansi-log false \
-  --max_spots 100000 \
-  --output_dir TMP/output/ \
+  --output_dir gs://arc-ctc-nextflow/scRecounter/results/ \
   --accessions TMP/SRX22716300.csv
 ```
 
