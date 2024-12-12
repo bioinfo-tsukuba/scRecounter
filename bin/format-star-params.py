@@ -29,6 +29,8 @@ parser.add_argument('star_summary_csv', type=str,
                     help='Path to the STAR summary CSV file')
 parser.add_argument('--sample', type=str, default=None,
                     help='Sample name')
+parser.add_argument('--accession', type=str, default=None,
+                    help='Accession name')
 parser.add_argument('--strand', type=str, default=None,
                     help='Strandness')
 parser.add_argument('--barcodes-name', type=str, default=None,
@@ -55,6 +57,7 @@ def main(args):
     # create param table
     star_params = {
         "sample" : args.sample,
+        "accession" : args.accession,
         "strand" : args.strand,
         "barcodes_name" : args.barcodes_name,
         "barcodes_file" : args.barcodes_file,
@@ -69,13 +72,15 @@ def main(args):
     # read star summary
     star_summary = pd.read_csv(args.star_summary_csv, header=None)
     star_summary["sample"] = args.sample
+    star_summary["accession"] = args.accession 
     # pivot
-    star_summary = star_summary.pivot(index="sample", columns=0, values=1)
-    star_summary["sample"] = star_summary.index
+    star_summary = star_summary.pivot(index=["sample", "accession"], columns=0, values=1) 
+    star_summary["sample"] = star_summary.index.get_level_values('sample')  
+    star_summary["accession"] = star_summary.index.get_level_values('accession')
     star_summary.reset_index(drop=True, inplace=True)
 
-    # merge dataframes on sample
-    star_params = star_params.merge(star_summary, on="sample", how="inner")
+    # merge dataframes on sample and accession
+    star_params = star_params.merge(star_summary, on=["sample", "accession"], how="inner")
 
     # write to file
     star_params.to_csv(args.outfile, index=False)

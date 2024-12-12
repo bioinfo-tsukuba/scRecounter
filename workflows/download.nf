@@ -11,7 +11,7 @@ workflow DOWNLOAD_WF {
     // Run sra-stat
     SRA_STAT(ch_accessions, VDB_CONFIG.out)
     /// Merge by sample
-    SRA_STAT_MERGE(SRA_STAT.out.groupTuple())
+    //SRA_STAT_MERGE(SRA_STAT.out.groupTuple())
 
     // Run prefetch & fast(er)q-dump
     if ( params.max_spots > 0 ){
@@ -27,11 +27,12 @@ workflow DOWNLOAD_WF {
     FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
     
     // Join R1 and R2 channels, which will filter out empty R2 records
-    ch_fastq = joinReads(ch_fqdump.R1, ch_fqdump.R2)
-
+    //ch_fastq = joinReads(ch_fqdump.R1, ch_fqdump.R2) // merge by sample
+    ch_fastq = ch_fqdump.R1.join(ch_fqdump.R2, by: [0,1])
+ 
     emit:
     fastq = ch_fastq
-    sra_stat = SRA_STAT_MERGE.out
+    sra_stat = SRA_STAT.out
 }
 
 process FQDUMP_LOG_MERGE {
@@ -219,7 +220,7 @@ process SRA_STAT {
     val vdb_config
 
     output:
-    tuple val(sample), path("sra-stat.csv")
+    tuple val(sample), val(accession), path("sra-stat.csv")
 
     script:
     """

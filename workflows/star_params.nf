@@ -9,7 +9,7 @@ workflow STAR_PARAMS_WF{
     main:
     //-- for each sample (accession), run STAR on subset of reads with various parameters to determine which params produce the most valid barcodes --/
     
-    // Subsample reads
+    // Subsample reads 
     SUBSAMPLE_READS(ch_fastq)
 
     // Get read lengths
@@ -26,23 +26,23 @@ workflow STAR_PARAMS_WF{
 
     // Run STAR on subsampled reads, for all pairwise parameter combinations
     STAR_PARAM_SEARCH(ch_params)
-    
+
     // Format the STAR parameters
     STAR_FORMAT_PARAMS(STAR_PARAM_SEARCH.out)
 
     // Get best parameters
     ch_params_all = STAR_FORMAT_PARAMS.out
-        .groupTuple()
-        .join(SEQKIT_STATS.out, by: 0)
-        .join(ch_sra_stat, by: 0)
+        .groupTuple(by: [0,1])
+        .join(SEQKIT_STATS.out, by: [0,1])
+        .join(ch_sra_stat, by: [0,1])
     STAR_SELECT_PARAMS(ch_params_all)
 
     // Merge param CSVs
-    STAR_MERGE_PARAMS(STAR_SELECT_PARAMS.out.csv.collect { it[1] })
+    //STAR_MERGE_PARAMS(STAR_SELECT_PARAMS.out.csv.collect { it[2] })
 
     // Filter empty params
     ch_star_params_json = STAR_SELECT_PARAMS.out.json
-        .filter { sample, json_file -> 
+        .filter { sample, accession, json_file -> 
             if(json_file.size() < 5) {
                 println "Warning: No valid STAR parameters found for ${sample}; skipping"
             }
@@ -101,26 +101,26 @@ process STAR_MERGE_PARAMS {
 }
 
 // Set STAR parameters based on valid barcodes
-def saveAsParams(sample, filename) {
+def saveAsParams(sample, accession, filename) {
     if (filename.endsWith(".csv") || filename.endsWith(".json")){
         filename = filename.tokenize("/").last()
-        return "STAR/${sample}/${filename}"
+        return "STAR/${sample}/${accession}/${filename}"
     }
     return null
 }
 
 process STAR_SELECT_PARAMS {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, filename) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, accession, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
 
     input:
-    tuple val(sample), path("star_params*.csv"), path(read_stats), path(sra_stats)
+    tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats), path(sra_stats)
 
     output:
-    tuple val(sample), path("results/merged_star_params.csv"),    emit: csv
-    tuple val(sample), path("results/selected_star_params.json"), emit: json
-    path "results/select-star-params_log.csv",                    emit: "log"
+    tuple val(sample), val(accession), path("results/merged_star_params.csv"),    emit: csv
+    tuple val(sample), val(accession), path("results/selected_star_params.json"), emit: json
+    path "results/select-star-params_log.csv",                                    emit: "log"
     
     script:
     """
@@ -138,15 +138,16 @@ process STAR_FORMAT_PARAMS {
     conda "envs/star.yml"
 
     input:
-    tuple val(sample), val(params), path(star_summary) 
+    tuple val(sample), val(accession), val(params), path(star_summary) 
 
     output:
-    tuple val(sample), path("star_params.csv")
+    tuple val(sample), val(accession), path("star_params.csv")
 
     script:
     """
     format-star-params.py \\
       --sample ${params.sample} \\
+      --accession ${params.accession} \\
       --strand ${params.strand} \\
       --barcodes-name ${params.barcodes_name} \\
       --barcodes-file ${params.barcodes_file} \\
@@ -171,10 +172,10 @@ process STAR_PARAM_SEARCH {
     label "process_medium"
 
     input:
-    tuple val(sample), path(fastq_1), path(fastq_2), path(barcodes_file), path(star_index), val(params)
+    tuple val(sample), val(accession), path(fastq_1), path(fastq_2), path(barcodes_file), path(star_index), val(params)
 
     output:
-    tuple val(sample), val(params), path("star_summary.csv")
+    tuple val(sample), val(accession), val(params), path("star_summary.csv")
 
     script:
     """
@@ -217,14 +218,14 @@ process SEQKIT_STATS {
     label "process_low"
 
     input:
-    tuple val(sample), path(fastq_1), path(fastq_2)
+    tuple val(sample), val(accession), path(fastq_1), path(fastq_2)
 
     output:
-    tuple val(sample), path("${sample}_stats.tsv")
+    tuple val(sample), val(accession), path("${sample}_${accession}_stats.tsv")
 
     script:
     """
-    seqkit -j $task.cpus stats -T $fastq_1 $fastq_2 > ${sample}_stats.tsv
+    seqkit -j $task.cpus stats -T $fastq_1 $fastq_2 > ${sample}_${accession}_stats.tsv
     """
 
     stub:
@@ -240,20 +241,20 @@ process SUBSAMPLE_READS {
     label "process_low"
 
     input:
-    tuple val(sample), path("input*_R1.fq"), path("input*_R2.fq")
+    tuple val(sample), val(accession), path("input_R1.fq"), path("input_R2.fq")
 
     output:
-    tuple val(sample), path("${sample}_R1.fq"), path("${sample}_R2.fq")
+    tuple val(sample), val(accession), path("${sample}_${accession}_R1.fq"), path("${sample}_${accession}_R2.fq")
 
     script: 
     """
-    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_R1.fq input*_R1.fq
-    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_R2.fq input*_R2.fq
+    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_${accession}_R1.fq input_R1.fq
+    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_${accession}_R2.fq input_R2.fq
     """
     
     stub:
     """
-    touch ${sample}_R1.fq ${sample}_R2.fq
+    #touch ${sample}_R1.fq ${sample}_R2.fq
     """
 }
 

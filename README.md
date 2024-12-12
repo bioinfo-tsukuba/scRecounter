@@ -94,7 +94,7 @@ Input can either be:
 1. `Accessions table` => A table of accessions per sample. The read data will be downloaded from the SRA.
 1. `Reads table` => A table of read files per sample. The read data has already been downloaded.
 
-Note: in either case, reads will be merged by `sample` if there are multiple read files (accessions) per sample.
+~~Note: in either case, reads will be merged by `sample` if there are multiple read files (accessions) per sample.~~
 
 ### Accessions table
 

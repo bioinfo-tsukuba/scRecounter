@@ -1,15 +1,16 @@
 import groovy.json.JsonSlurper
 
 def expandStarParams(ch_fastq, ch_star_params_json) {
-    return ch_fastq.join(ch_star_params_json, by: 0)
-        .map{ sample, read1, read2, json_file -> 
+    return ch_fastq.join(ch_star_params_json, by: [0,1])
+        .map{ sample, accession, read1, read2, json_file -> 
             def params = new JsonSlurper().parseText(json_file.text)
             def barcodes_file = params.barcodes_file
             def star_index = params.star_index
             def cell_barcode_length = params.cell_barcode_length
             def umi_length = params.umi_length
             def strand = params.strand
-            return [sample, read1, read2, barcodes_file, star_index, 
+            return [sample, accession, 
+                    read1, read2, barcodes_file, star_index, 
                     cell_barcode_length, umi_length, strand]
         }
 }
@@ -20,9 +21,10 @@ def makeParamSets(ch_subsample, ch_barcodes, ch_star_indices) {
         .combine(Channel.of("Forward", "Reverse"))
         .combine(ch_barcodes)
         .combine(ch_star_indices)
-        .map { sample, r1, r2, strand, barcodes_name, cb_len, umi_len, barcodes_file, organism, star_index ->
+        .map { sample, accession, r1, r2, strand, barcodes_name, cb_len, umi_len, barcodes_file, organism, star_index ->
             def params = [
                 sample: sample,
+                accession: accession,
                 strand: strand,
                 barcodes_name: barcodes_name,
                 cell_barcode_length: cb_len,
@@ -31,7 +33,7 @@ def makeParamSets(ch_subsample, ch_barcodes, ch_star_indices) {
                 organism: organism,
                 star_index: star_index
             ]
-            return [sample, r1, r2, barcodes_file, star_index, params] 
+            return [sample, accession, r1, r2, barcodes_file, star_index, params] 
         }
 }
 

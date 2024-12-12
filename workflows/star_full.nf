@@ -9,23 +9,25 @@ workflow STAR_FULL_WF{
 }
 
 // STAR alignment with all reads and selected parameters
-def saveAsSTAR(sample, filename) {
+def saveAsSTAR(sample, accession, filename) {
     if (filename.endsWith(".mtx") || filename.endsWith(".tsv") || filename.endsWith(".csv")) {
         def parts = filename.tokenize("/")
-        return "STAR/${sample}/" + parts[1..-1].join('/')
+        return "STAR/${sample}/${accession}" + parts[1..-1].join('/')
     } 
     return null
 }
 
 process STAR_FULL {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, accession, filename) }
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
     conda "envs/star.yml"
     label "process_high"
 
     input:
-    tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), path(barcodes_file), 
-          path(star_index), val(cell_barcode_length), val(umi_length), val(strand)
+    tuple val(sample), val(accession), 
+          path("input*_R1.fastq"), path("input*_R2.fastq"), 
+          path(barcodes_file), path(star_index),
+          val(cell_barcode_length), val(umi_length), val(strand)
 
     output:
     tuple val(sample), path("resultsSolo.out/Gene/raw/*"),                          emit: gene_raw

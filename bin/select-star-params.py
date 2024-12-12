@@ -88,7 +88,7 @@ def write_log(logF, sample: str, step: str, success: bool, msg: str) -> None:
         msg = msg[:100] + '...'
     logF.write(','.join([sample, step, str(success), msg]) + '\n')
 
-def load_info(sra_stats_csv, star_params_csv, read_stats_tsv, outdir) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_info(sra_stats_csv, star_params_csv, read_stats_tsv) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Load the information from the sra_stats_csv, star_params_csv, and read_stats_tsv
     and return the best parameters.
@@ -102,17 +102,16 @@ def load_info(sra_stats_csv, star_params_csv, read_stats_tsv, outdir) -> Tuple[p
         data_all: pandas dataframe of all parameters
     """
     # read in sra stats file
-    sra_stats = pd.read_csv(sra_stats_csv).drop(columns="accession")
+    sra_stats = pd.read_csv(sra_stats_csv).drop("accession", axis=1)
 
     # read in seqkit stats file
-    seqkit_stats = read_seqkit_stats(read_stats_tsv)
+    seqkit_stats = read_seqkit_stats(read_stats_tsv).drop("sample", axis=1)
 
     # read in param files
     params = pd.concat([pd.read_csv(x) for x in star_params_csv], axis=0)
 
     # merge on sample
-    data = pd.merge(params, seqkit_stats, on="sample", how="left")
-    data = pd.merge(data, sra_stats, on="sample", how="left")
+    data = pd.merge(params, seqkit_stats, how="cross").merge(sra_stats, how="cross")
 
     # Filter to the max `Fraction of Unique Reads in Cells` => best parameters
     data = data[data['Fraction of Unique Reads in Cells'] != float("inf")]
@@ -167,7 +166,7 @@ def main(args, logF):
     outfile_merged = os.path.join(args.outdir, "merged_star_params.csv")
 
     # load the data
-    data,data_all = load_info(args.sra_stats_csv, args.star_params_csv, args.read_stats_tsv, args.outdir)
+    data,data_all = load_info(args.sra_stats_csv, args.star_params_csv, args.read_stats_tsv)
 
     # get sample
     sample = data_all["sample"].unique()[0]
