@@ -6,3 +6,7 @@ dependencies:
   - python=3.11
   - pandas=2.2
   - star=2.7
+  - psycopg2-binary=2.9
+  - pypika=0.48
+  - python-dotenv=1.0
+  - google-cloud-secret-manager=2.22

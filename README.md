@@ -196,6 +196,28 @@ nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
 
 # Dev
 
+## set env variables
+
+```bash
+export GCP_PROJECT_ID="c-tc-429521"
+export GOOGLE_APPLICATION_CREDENTIALS="${HOME}/.gcp/c-tc-429521-6f6f5b8ccd93.json"
+```
+
+## GCP SQL setup
+
+### Run proxy
+
+```bash
+SERVICE_ACCOUNT_JSON="c-tc-429521-6f6f5b8ccd93.json"
+PROXY_NAME="c-tc-429521:us-east1:sragent"
+rm -rf ${HOME}/cloudsql/${PROXY_NAME}
+cloud-sql-proxy ${PROXY_NAME} \
+  --unix-socket ${HOME}/cloudsql \
+  --credentials-file ${HOME}/.gcp/${SERVICE_ACCOUNT_JSON}
+```
+
+
+
 ## Run
 
 #### Local, defining STAR params
