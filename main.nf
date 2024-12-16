@@ -11,9 +11,9 @@ include { readStarParams } from './lib/utils.groovy'
 workflow {
     if (params.star_params){
         // User-provided selected STAR parameters
-       ch_fastq = readStarParams(params.star_params)
+        ch_fastq = readStarParams(params.star_params)
     } else {
-        // Obtain the STAR parameters 
+        // Determine the STAR parameters
         if (params.accessions){
             // Download reads
             DOWNLOAD_WF()

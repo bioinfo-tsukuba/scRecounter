@@ -6,11 +6,11 @@ import re
 import sys
 import argparse
 import asyncio
+import subprocess
 from typing import List, Dict, Any, Tuple, Annotated
 ## 3rd party
 from dotenv import load_dotenv
 import pandas as pd
-from Bio import Entrez
 from SRAgent.record_db import db_connect, db_get_unprocessed_records
 
 # argparse
@@ -48,7 +48,6 @@ def parse_args():
     parser.add_argument('--quiet', action='store_true', default=False,
                         help='Suppress output')
     return parser.parse_args()
-
 
 async def check_command_status(process: asyncio.subprocess.Process,
                                sleep_time: int=30) -> None:

@@ -24,7 +24,7 @@ def db_connect() -> connection:
         'user': os.environ["GCP_SQL_DB_USERNAME"],
         'password': get_secret("GCP_SQL_DB_PASSWORD_TEST"),
         'port': '5432',
-        'connect_timeout': 10 
+        'connect_timeout': 30 
     }
     return psycopg2.connect(**db_params)
 

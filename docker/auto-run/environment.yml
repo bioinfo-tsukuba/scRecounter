@@ -1,0 +1,11 @@
+name: auto-run
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pandas=2.2
+  - psycopg2-binary=2.9
+  - pypika=0.48
+  - python-dotenv=1.0
+  - google-cloud-secret-manager=2.22
