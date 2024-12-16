@@ -30,9 +30,17 @@ RUN micromamba create -n auto-run -f /tmp/environment.yml \
     && micromamba clean --all --yes \
     && micromamba run -n auto-run pip install git+https://${GITHUB_PAT}@github.com/ArcInstitute/SRAgent.git 
 
+# Install the auto-run script
+COPY --chown=$MAMBA_USER:$MAMBA_USER auto-run.py /usr/bin/auto-run.py
+
 # Activate the environment by default
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 ENV ENV_NAME=auto-run
 
-# entrypoint
-CMD ["SRAgent", "--help"]
+
+# Copy the entrypoint script
+COPY entrypoint.sh /usr/bin/entrypoint.sh
+RUN chmod +x /usr/bin/entrypoint.sh
+
+# Set the entrypoint script
+CMD ["bash", "/usr/bin/entrypoint.sh"]

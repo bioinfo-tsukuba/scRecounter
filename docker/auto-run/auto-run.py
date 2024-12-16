@@ -11,6 +11,9 @@ from typing import List, Dict, Any, Tuple, Annotated
 ## 3rd party
 from dotenv import load_dotenv
 import pandas as pd
+from pypika import Query, Table, Field, Column, Criterion
+from psycopg2.extras import execute_values
+from psycopg2.extensions import connection
 from SRAgent.record_db import db_connect, db_get_unprocessed_records
 
 # argparse
@@ -48,6 +51,41 @@ def parse_args():
     parser.add_argument('--quiet', action='store_true', default=False,
                         help='Suppress output')
     return parser.parse_args()
+
+def db_get_unprocessed_records(conn: connection, database: str="sra", max_records: int=3) -> pd.DataFrame:
+    """
+    Get all suitable unprocessed SRX records
+    Args:
+        conn: Connection to the database.
+        database: Name of the database to query.
+    Returns:
+        Table of unprocessed SRX records.
+    """
+    srx_metadata = Table("srx_metadata")
+    srx_srr = Table("srx_srr")
+
+    stmt = Query \
+        .from_(srx_metadata) \
+        .inner_join(srx_srr) \
+        .on(srx_metadata.srx_accession == srx_srr.srx_accession) \
+        .where(Criterion.all([
+            srx_metadata.database == database,
+            srx_metadata.is_illumina == "yes",
+            srx_metadata.is_single_cell == "yes",
+            srx_metadata.is_paired_end == "yes",
+            ~srx_metadata.tech_10x.isin(["other", "not_applicable"])
+        ])) \
+        .select(
+            srx_metadata.srx_accession.as_("sample"),
+            srx_srr.srr_accession.as_("accession"),
+            srx_metadata.entrez_id.as_("entrez_id"),
+            srx_metadata.tech_10x.as_("lib_prep_method"),
+            srx_metadata.organism.as_("organism")
+        ) \
+        .limit(max_records)
+        
+    # fetch as pandas dataframe
+    return pd.read_sql(str(stmt), conn)
 
 async def check_command_status(process: asyncio.subprocess.Process,
                                sleep_time: int=30) -> None:
@@ -177,6 +215,7 @@ def main(args):
     with db_connect() as conn:
         records = db_get_unprocessed_records(conn, max_records=args.max_records)
     print(f"No. of records: {records.shape[0]}")
+    exit();
 
     # for each record, call pipeline
     for i,record in records.iterrows():

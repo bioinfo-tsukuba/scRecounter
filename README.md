@@ -415,7 +415,9 @@ docker run -it --rm \
   -v ${PWD}:/data \
   -v ${HOME}/.gcp/:/.gcp \
   --env GOOGLE_APPLICATION_CREDENTIALS="/.gcp/c-tc-429521-6f6f5b8ccd93.json" \
+  --env GCP_PROJECT_ID="c-tc-429521" \
   --env OPENAI_API_KEY=${OPENAI_API_KEY} \
+  --env PY_CONFIG_ACTIVE="TEST" \
   --platform linux/amd64 \
   ${IMG_NAME}:${IMG_VERSION}
 ```
