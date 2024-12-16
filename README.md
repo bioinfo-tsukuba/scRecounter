@@ -216,8 +216,6 @@ cloud-sql-proxy ${PROXY_NAME} \
   --credentials-file ${HOME}/.gcp/${SERVICE_ACCOUNT_JSON}
 ```
 
-
-
 ## Run
 
 #### Local, defining STAR params
@@ -394,6 +392,35 @@ To stop the VM:
 ```bash
 gcloud compute instances stop sc-recounter-vm --zone=us-east1-b
 ```
+
+## Docker
+
+Build 
+
+```bash
+IMG_NAME=auto-run
+IMG_VERSION=0.1.0
+docker build \
+  --build-arg GITHUB_PAT=${GITHUB_PAT} \
+  --platform linux/amd64 \
+  --tag ${IMG_NAME}:${IMG_VERSION} \
+  docker/${IMG_NAME}
+```
+
+Run
+
+```bash
+docker run -it --rm \
+  -u $(id -u):$(id -g) \
+  -v ${PWD}:/data \
+  -v ${HOME}/.gcp/:/.gcp \
+  --env GOOGLE_APPLICATION_CREDENTIALS="/.gcp/c-tc-429521-6f6f5b8ccd93.json" \
+  --env OPENAI_API_KEY=${OPENAI_API_KEY} \
+  --platform linux/amd64 \
+  ${IMG_NAME}:${IMG_VERSION}
+```
+
+
 
 ## Resources
 

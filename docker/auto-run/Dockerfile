@@ -9,23 +9,10 @@ USER root
 
 # Install OS-level packages
 RUN apt-get update -y \
-    && apt-get install -y build-essential procps curl \
+    && apt-get install -y build-essential procps curl git \
     && apt-get clean \
     && apt-get purge \
     && rm -rf /var/lib/apt/lists/* /tmp/*
-
-# Copy environment file
-COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/environment.yml
-
-# Install the environment using micromamba
-RUN micromamba create -f /tmp/environment.yml \
-    && micromamba clean --all --yes
-
-# COPY SRAgent package
-COPY --chown=$MAMBA_USER:$MAMBA_USER SRAgent /tmp/SRAgent
-
-# Install SRAgent package
-RUN cd /tmp/SRAgent && pip install .
 
 # Install cloud_sql_proxy
 ARG PROXY_URL="https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.2/cloud-sql-proxy.linux.amd64"
@@ -34,6 +21,18 @@ RUN curl $PROXY_URL -o /usr/bin/cloud_sql_proxy \
     && mkdir -p /cloudsql \
     && chmod 777 /cloudsql
 
+# Copy environment file
+COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/environment.yml
+
+# Install the environment using micromamba
+ARG GITHUB_PAT
+RUN micromamba create -n auto-run -f /tmp/environment.yml \
+    && micromamba clean --all --yes \
+    && micromamba run -n auto-run pip install git+https://${GITHUB_PAT}@github.com/ArcInstitute/SRAgent.git 
+
 # Activate the environment by default
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
-ENV ENV_NAME=download
+ENV ENV_NAME=auto-run
+
+# entrypoint
+CMD ["SRAgent", "--help"]
