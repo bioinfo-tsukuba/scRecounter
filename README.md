@@ -3,6 +3,7 @@ scRecouter
 
 Nextflow pipeline to re-process public single-cell RNA-seq data.
 
+
 # Workflow
 
 * User provides either:
@@ -395,16 +396,20 @@ gcloud compute instances stop sc-recounter-vm --zone=us-east1-b
 
 ## Docker
 
-Build 
+
+
+### sc-recounter-download
+
+Build
 
 ```bash
-IMG_NAME=auto-run
+IMG_NAME=sc-recounter-download
 IMG_VERSION=0.1.0
 docker build \
-  --build-arg GITHUB_PAT=${GITHUB_PAT} \
+  --file docker/${IMG_NAME}/Dockerfile \
   --platform linux/amd64 \
   --tag ${IMG_NAME}:${IMG_VERSION} \
-  docker/${IMG_NAME}
+  .
 ```
 
 Run
@@ -416,10 +421,18 @@ docker run -it --rm \
   -v ${HOME}/.gcp/:/.gcp \
   --env GOOGLE_APPLICATION_CREDENTIALS="/.gcp/c-tc-429521-6f6f5b8ccd93.json" \
   --env GCP_PROJECT_ID="c-tc-429521" \
-  --env OPENAI_API_KEY=${OPENAI_API_KEY} \
-  --env PY_CONFIG_ACTIVE="TEST" \
   --platform linux/amd64 \
   ${IMG_NAME}:${IMG_VERSION}
+```
+
+Push
+
+```bash
+REGION=us-east1
+PROJECT=c-tc-429521
+docker tag ${IMG_NAME}:${IMG_VERSION} \
+  ${REGION}-docker.pkg.dev/${PROJECT}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
+  && docker push ${REGION}-docker.pkg.dev/${PROJECT}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION}
 ```
 
 

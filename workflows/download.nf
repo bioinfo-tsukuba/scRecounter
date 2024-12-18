@@ -25,7 +25,10 @@ workflow DOWNLOAD_WF {
     FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
     
     // Join R1 and R2 channels, which will filter out empty R2 records
-    ch_fastq = ch_fqdump.R1.join(ch_fqdump.R2, by: [0,1])
+    ch_fastq = ch_fqdump.R1
+        .join(ch_fqdump.R2, by: [0,1])
+        .join(ch_accessions, by: [0,1])
+    ch_fastq.view()   
  
     emit:
     fastq = ch_fastq
