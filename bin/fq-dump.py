@@ -12,7 +12,6 @@ from time import sleep
 from shutil import which
 from subprocess import Popen, PIPE
 
-
 # logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
 
@@ -98,6 +97,8 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     read_files = []
     for file_ext in ['fastq', 'fastq.gz', 'fq', 'fq.gz']:
         read_files += glob(os.path.join(outdir, accession + "*." + file_ext))
+    if not read_files:
+        return False,"No read files found"
 
     # determine which read files are the read 1 and read 2
     read_lens = {}
@@ -112,7 +113,11 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
         else:
             # delete the read file
             os.remove(k)
-    
+
+    # if no read files pass the filter, return warning
+    if not read_lens_filt:
+        return False,"No reads passed the read length filter"
+
     # make the shorter read the R1
     read_files_filt = {}
     for i,x in enumerate(sorted(read_lens_filt.items(), key=lambda x: x[1]), 1):
