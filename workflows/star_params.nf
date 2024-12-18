@@ -1,3 +1,4 @@
+include { joinReads } from '../lib/download.groovy'
 include { makeParamSets; validateRequiredColumns; loadBarcodes; loadStarIndices; expandStarParams } from '../lib/star_params.groovy'
 
 // Workflow to run STAR alignment on scRNA-seq data
@@ -12,7 +13,8 @@ workflow STAR_PARAMS_WF{
     // Subsample reads 
     SUBSAMPLE_R1(ch_fastq)
     SUBSAMPLE_R2(ch_fastq)
-    ch_fastq_sub = SUBSAMPLE_R1.out.join(SUBSAMPLE_R2.out, by: [0,1])
+    //ch_fastq_sub = SUBSAMPLE_R1.out.join(SUBSAMPLE_R2.out, by: [0,1])
+    ch_fastq_sub = joinReads(SUBSAMPLE_R1.out, SUBSAMPLE_R2.out)
 
     // Get read lengths
     SEQKIT_STATS(ch_fastq_sub)
@@ -25,7 +27,9 @@ workflow STAR_PARAMS_WF{
 
     // Pairwise combine samples with barcodes, strand, and star index
     ch_params = makeParamSets(ch_fastq_sub, ch_barcodes, ch_star_indices)
+    ch_params.view()
 
+    /*
     // Run STAR on subsampled reads, for all pairwise parameter combinations
     STAR_PARAM_SEARCH(ch_params)
 
@@ -53,6 +57,7 @@ workflow STAR_PARAMS_WF{
 
     emit:
     fastq = ch_fastq
+    */
 }
 
 process STAR_SELECT_PARAMS_REPORT {
@@ -114,12 +119,12 @@ process STAR_SELECT_PARAMS {
     conda "envs/star.yml"
 
     input:
-    tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats), path(sra_stats)
+    tuple val(sample), val(accession), val(metadata), path("star_params*.csv"), path(read_stats), path(sra_stats)
 
     output:
-    tuple val(sample), val(accession), path("results/merged_star_params.csv"),    emit: csv
-    tuple val(sample), val(accession), path("results/selected_star_params.json"), emit: json
-    path "results/select-star-params_log.csv",                                    emit: "log"
+    tuple val(sample), val(accession), val(metadata), path("results/merged_star_params.csv"),    emit: csv
+    tuple val(sample), val(accession), val(metadata), path("results/selected_star_params.json"), emit: json
+    path "results/select-star-params_log.csv",    emit: "log"
     
     script:
     """
@@ -137,10 +142,10 @@ process STAR_FORMAT_PARAMS {
     conda "envs/star.yml"
 
     input:
-    tuple val(sample), val(accession), val(params), path(star_summary) 
+    tuple val(sample), val(accession), val(metadata), val(params), path(star_summary) 
 
     output:
-    tuple val(sample), val(accession), path("star_params.csv")
+    tuple val(sample), val(accession), val(metadata), path("star_params.csv")
 
     script:
     """
@@ -171,10 +176,10 @@ process STAR_PARAM_SEARCH {
     label "process_medium"
 
     input:
-    tuple val(sample), val(accession), path(fastq_1), path(fastq_2), path(barcodes_file), path(star_index), val(params)
+    tuple val(sample), val(accession), val(metadata), path(fastq_1), path(fastq_2), path(barcodes_file), path(star_index), val(params)
 
     output:
-    tuple val(sample), val(accession), val(params), path("star_summary.csv")
+    tuple val(sample), val(accession), val(metadata), val(params), path("star_summary.csv")
 
     script:
     """
@@ -217,10 +222,10 @@ process SEQKIT_STATS {
     label "process_low"
 
     input:
-    tuple val(sample), val(accession), path(fastq_1), path(fastq_2)
+    tuple val(sample), val(accession), val(metadata), path(fastq_1), path(fastq_2)
 
     output:
-    tuple val(sample), val(accession), path("${sample}_${accession}_stats.tsv")
+    tuple val(sample), val(accession), val(metadata), path("${sample}_${accession}_stats.tsv")
 
     script:
     """
@@ -240,10 +245,10 @@ process SUBSAMPLE_R2 {
     label "process_low"
 
     input:
-    tuple val(sample), val(accession), path("input_R1.fq"), path("input_R2.fq")
+    tuple val(sample), val(accession), val(metadata), path("input_R1.fq"), path("input_R2.fq")
 
     output:
-    tuple val(sample), val(accession), path("${sample}_${accession}_R2.fq")
+    tuple val(sample), val(accession), val(metadata), path("${sample}_${accession}_R2.fq")
 
     script: 
     """
@@ -262,10 +267,10 @@ process SUBSAMPLE_R1 {
     label "process_low"
 
     input:
-    tuple val(sample), val(accession), path("input_R1.fq"), path("input_R2.fq")
+    tuple val(sample), val(accession), val(metadata), path("input_R1.fq"), path("input_R2.fq")
 
     output:
-    tuple val(sample), val(accession), path("${sample}_${accession}_R1.fq")
+    tuple val(sample), val(accession), val(metadata), path("${sample}_${accession}_R1.fq")
 
     script: 
     """

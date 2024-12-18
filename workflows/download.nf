@@ -25,11 +25,9 @@ workflow DOWNLOAD_WF {
     FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
     
     // Join R1 and R2 channels, which will filter out empty R2 records
-    ch_fastq = ch_fqdump.R1
-        .join(ch_fqdump.R2, by: [0,1])
-        .join(ch_accessions, by: [0,1])
-    ch_fastq.view()   
- 
+    ch_fastq = joinReads(ch_fqdump.R1, ch_fqdump.R2)
+    ch_fastq.view()
+
     emit:
     fastq = ch_fastq
     sra_stat = SRA_STAT.out
@@ -67,11 +65,11 @@ process FASTERQ_DUMP {
     maxRetries 2
 
     input:
-    tuple val(sample), val(accession), path(sra_file) 
+    tuple val(sample), val(accession), val(metadata), path(sra_file) 
 
     output:
-    tuple val(sample), val(accession), path("reads/${accession}_1.fastq"), emit: "R1"
-    tuple val(sample), val(accession), path("reads/${accession}_2.fastq"), emit: "R2", optional: true
+    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
+    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
     path "reads/fq-dump_log.csv", emit: "log"
 
     script:
@@ -83,6 +81,7 @@ process FASTERQ_DUMP {
       --curcache 50MB \\
       --mem 5GB \\
       --temp TMP_FILES \\
+      --min-read-length ${params.min_read_len} \\
       --maxSpotId ${params.max_spots} \\
       --outdir reads \\
       ${sra_file}
@@ -103,11 +102,11 @@ process FASTQ_DUMP {
     conda "envs/download.yml"
 
     input:
-    tuple val(sample), val(accession)
+    tuple val(sample), val(accession), val(metadata)
 
     output:
-    tuple val(sample), val(accession), path("reads/${accession}_1.fastq"), emit: "R1"
-    tuple val(sample), val(accession), path("reads/${accession}_2.fastq"), emit: "R2", optional: true
+    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
+    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
     path "reads/fq-dump_log.csv", emit: "log"
 
     script:
@@ -119,6 +118,7 @@ process FASTQ_DUMP {
       --curcache 50MB \\
       --mem 5GB \\
       --temp TMP_FILES \\
+      --min-read-length ${params.min_read_len} \\
       --maxSpotId ${params.max_spots} \\
       --outdir reads \\
       ${accession}
@@ -162,11 +162,11 @@ process PREFETCH {
     label "process_long"
 
     input:
-    tuple val(sample), val(accession)
+    tuple val(sample), val(accession), val(metadata)
     val vdb_config
 
     output:
-    tuple val(sample), val(accession), path("prefetch_out/${accession}/${accession}.sra"), emit: sra, optional: true
+    tuple val(sample), val(accession), val(metadata), path("prefetch_out/${accession}/${accession}.sra"), emit: sra, optional: true
     path "prefetch_out/prefetch_log.csv",  emit: log
 
     script:
@@ -211,11 +211,11 @@ process SRA_STAT {
     conda "envs/download.yml"
 
     input:
-    tuple val(sample), val(accession)
+    tuple val(sample), val(accession), val(metadata)
     val vdb_config
 
     output:
-    tuple val(sample), val(accession), path("sra-stat.csv")
+    tuple val(sample), val(accession), val(metadata), path("sra-stat.csv")
 
     script:
     """

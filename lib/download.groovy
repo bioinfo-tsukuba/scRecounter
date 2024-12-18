@@ -22,6 +22,25 @@ def readAccessions(accessions_file){
 }
 
 def joinReads(ch_read1, ch_read2){
+    ch_metadata = ch_read1.map{ sample,accession,metadata,fastq -> [sample,accession,metadata] }
+
+    return ch_read1
+        .map{ sample,accession,metadata,fastq -> [sample,accession,fastq] }
+        .join(
+            ch_read2.map{ sample,accession,metadata,fastq -> [sample,accession,fastq] }, 
+            by: [0,1]
+        )
+        .join(
+            ch_metadata, by: [0,1]
+        )
+        .map{ 
+            sample,accession,fastq1,fastq2,metadata -> [sample,accession,metadata,fastq1,fastq2] 
+        }
+}
+
+
+/*
+def joinReads(ch_read1, ch_read2){
     return ch_read1.join(ch_read2, by: [0, 1], remainder: true)
         .filter { sample, accession, r1, r2 -> 
             if(r2 == null) {
@@ -34,3 +53,4 @@ def joinReads(ch_read1, ch_read2){
             return [sample, fastq_1.flatten(), fastq_2.flatten()]
         }
 }
+*/
