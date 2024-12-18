@@ -125,7 +125,8 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> bool:
     if size < min_size:
         return False,f'File size too small: {size} < {min_size}'
     ## format
-    if 'fastq' not in data['FMT'].lower():
+    fmt = data['FMT'].lower()
+    if 'fastq' not in fmt and fmt not in ['sharq', 'sralite', 'sra']:
         return False,f'Invalid format: {data["FMT"]}'
     ## platform
     if 'illumina' not in data['platf'].lower():

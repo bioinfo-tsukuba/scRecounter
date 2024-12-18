@@ -4,8 +4,10 @@ from __future__ import print_function
 import os
 import re
 import sys
+import gzip
 import argparse
 import logging
+from glob import glob
 from time import sleep
 from shutil import which
 from subprocess import Popen, PIPE
@@ -42,6 +44,8 @@ parser.add_argument('--sample', type=str, default="",
                     help='Sample name')
 parser.add_argument('--outdir', type=str, default='prefetch_out',
                     help='Output directory')
+parser.add_argument('--min-read-length', type=int, default=28,
+                    help='Minimum read length')  
 
 # functions
 def run_cmd(cmd: str) -> tuple:
@@ -58,60 +62,72 @@ def run_cmd(cmd: str) -> tuple:
     output, err = p.communicate()
     return p.returncode, output, err
 
-def get_read_lens(fastq_file: str) -> int:
+def get_read_lengths(fastq_file: str, num_lines: int) -> float:
     """
-    Get read lengths from a fastq file.
+    Read a fastq file and return the first num_lines.
     Args:
         fastq_file: Fastq file
+        num_lines: Number of lines to read
     Returns:
-        list: List of read lengths
+        average read length
     """
+    _open = gzip.open if fastq_file.endswith('.gz') else open
+
     # get read lengths
     read_lens = []
-    with open(fastq_file) as f:
+    with _open(fastq_file) as f:
         for i, line in enumerate(f):
+            if fastq_file.endswith('.gz'):
+                line = line.decode()   
             if i % 4 == 1:
                 read_lens.append(len(line.strip()))
-            if i >= 400:
+            if i >= num_lines:
                 break
     # return average read length
-    return int(sum(read_lens) / len(read_lens))
+    return sum(read_lens) / len(read_lens)
 
-def check_output(sra_file: str, outdir: str) -> None:
+def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     """
     Check the output of fastq-dump.
+    Args:
+        sra_file: SRA file
+        outdir: Output directory
     """
     accession = os.path.splitext(os.path.basename(sra_file))[0]
-    read_files = {
-        "R1" : os.path.join(outdir, accession + "_1.fastq"), 
-        "R2" : os.path.join(outdir, accession + "_2.fastq")
-    }
-    # get read lengths
+    # list output files
+    read_files = []
+    for file_ext in ['fastq', 'fastq.gz', 'fq', 'fq.gz']:
+        read_files += glob(os.path.join(outdir, accession + "*." + file_ext))
+
+    # determine which read files are the read 1 and read 2
     read_lens = {}
-    for read_type,file_path in read_files.items():
-        if not os.path.exists(file_path):
-            logging.warning(f'Output file not found: {file_path}')
-            read_lens[read_type] = None
+    for read_file in read_files:
+        read_lens[read_file] = get_read_lengths(read_file, 400)
+    
+    # filter read files by length
+    read_lens_filt = {}
+    for k,v in read_lens.items():
+        if v >= min_read_length:
+            read_lens_filt[k] = v
         else:
-            read_lens[read_type] = get_read_lens(file_path)
+            # delete the read file
+            os.remove(k)
+    
+    # make the shorter read the R1
+    read_files_filt = {}
+    for i,x in enumerate(sorted(read_lens_filt.items(), key=lambda x: x[1]), 1):
+        # rename
+        new_name = os.path.join(outdir, f"read_{i}.fastq")
+        os.rename(x[0], new_name)
+        read_files_filt[f"R{i}"] = new_name
     
     # if no R1 or R2, return warning
-    if not read_lens["R1"]:
-        return False,'Read 1 not found'
-    if not read_lens["R2"]:
-        return False,'Read 2 not found'
+    if not read_files_filt["R1"]:
+        return False,"Read 1 not found"
+    if not read_files_filt["R2"]:
+        return False,"Read 2 not found"
 
-    # if R1 is longer than R2, swap names
-    ## R2 should be cDNA read, while R1 is the barcode (cell+UMI)
-    msg = 'Checks passed'
-    if read_lens["R1"] and read_lens["R2"] and read_lens["R1"] > read_lens["R2"]:
-        logging.warning('Read 1 is longer than Read 2; swapping reads')
-        # rename files
-        os.rename(read_files["R1"], "tmp_R1.fastq")
-        os.rename(read_files["R2"], read_files["R1"])
-        os.rename("tmp_R1.fastq", read_files["R2"])
-        msg += "; Swapped R1 and R2"
-    return True,msg
+    return True,"Dump successful"
 
 def write_log(logF, sample: str, accession: str, step: str, success: bool, msg: str) -> None:
     """
@@ -165,7 +181,7 @@ def main(args, logF):
         sys.exit(1)
     
     # Check the output
-    success,msg = check_output(args.sra_file, args.outdir)
+    success,msg = check_output(args.sra_file, args.outdir, args.min_read_length)
     write_log(logF, args.sample, accession, 'check_output', success, msg)
 
 ## script main
