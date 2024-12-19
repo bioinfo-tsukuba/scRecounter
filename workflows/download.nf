@@ -170,6 +170,12 @@ process PREFETCH {
 
     script:
     """
+    export GCP_PROJECT_ID="${params.gcp_project_id}"
+    export GCP_SQL_DB_TENANT="${params.db_tenant}"
+    export GCP_SQL_DB_HOST="${params.db_host}"
+    export GCP_SQL_DB_NAME="${params.db_name}"
+    export GCP_SQL_DB_USERNAME="${params.db_user}"
+
     prefetch.py \\
       --sample ${sample} \\
       --max-size 5000 \\

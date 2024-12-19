@@ -169,14 +169,14 @@ Local run:
 
 ```bash
 nextflow run main.nf \
-  -profile docker,vm,vm_dev,dev_acc
+  -profile docker,vm,vm_dev,dev,acc_dev
 ```
 
 GCP run:
 
 ```bash
 nextflow run main.nf \
-  -profile docker,gcp,gcp_dev,dev_acc
+  -profile docker,gcp,gcp_dev,dev,acc_dev
 ```
 
 ### Characterize datasets
@@ -220,11 +220,12 @@ cloud-sql-proxy ${PROXY_NAME} \
 
 ## Run
 
+
 #### Local, defining STAR params
 
 ```bash
 nextflow run main.nf \
-  -profile conda,vm,vm_dev,dev_acc \
+  -profile conda,vm,vm_dev,acc_dev \
   -resume \
   --define true
 ```
@@ -244,7 +245,7 @@ nextflow run main.nf \
 #### Local, with accessions
 
 ```bash
-nextflow run main.nf -profile conda,vm,vm_dev,dev_acc
+nextflow run main.nf -profile conda,vm,vm_dev,acc_dev
 ```
 
 #### SLURM, with accessions
@@ -386,7 +387,7 @@ gcloud projects add-iam-policy-binding $GCP_PROJECT \
 Run the pipeline
 
 ```bash
-nextflow run main.nf -profile docker,gcp,dev_acc
+nextflow run main.nf -profile docker,gcp,acc_dev
 ```
 
 To stop the VM:

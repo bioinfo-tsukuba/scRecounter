@@ -9,7 +9,6 @@ import pandas as pd
 from pypika import Query, Table, Field, Column, Criterion
 from psycopg2.extras import execute_values
 from psycopg2.extensions import connection
-from google.cloud import secretmanager
 
 # Suppress the specific warning
 warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable")
@@ -17,14 +16,14 @@ warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy conne
 # functions
 def db_connect() -> connection:
     """Connect to the sql database"""
-    host = os.path.join(os.path.expanduser("~"), "cloudsql", os.environ["GCP_SQL_DB_HOST"])
+    PSWD_VAR_NAME = f"GCP_SQL_DB_PASSWORD_{os.environ['GCP_SQL_DB_TENANT']}"
     db_params = {
-        'host': host,
+        'host': os.environ["GCP_SQL_DB_HOST"],
         'database': os.environ["GCP_SQL_DB_NAME"],
         'user': os.environ["GCP_SQL_DB_USERNAME"],
-        'password': get_secret("GCP_SQL_DB_PASSWORD_TEST"),
+        'password': os.getenv(PSWD_VAR_NAME, get_secret(PSWD_VAR_NAME)),
         'port': '5432',
-        'connect_timeout': 30 
+        'connect_timeout': 30
     }
     return psycopg2.connect(**db_params)
 
@@ -37,7 +36,13 @@ def get_secret(secret_id: str) -> str:
     Returns:
         The secret value
     """
+    from google.auth import default
+    from google.cloud import secretmanager
+
+    _, project_id = default()  # Use default credentials; project_id is inferred
+    if not project_id:
+        project_id = os.environ["GCP_PROJECT_ID"]
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
     client = secretmanager.SecretManagerServiceClient()
-    name = f"projects/{os.environ['GCP_PROJECT_ID']}/secrets/{secret_id}/versions/latest"
     response = client.access_secret_version(request={"name": name})
     return response.payload.data.decode('UTF-8')
