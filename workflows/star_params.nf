@@ -33,7 +33,7 @@ workflow STAR_PARAMS_WF{
 
     // Format the STAR parameters
     STAR_FORMAT_PARAMS(STAR_PARAM_SEARCH.out)
-
+    
     // Get best parameters
     ch_params_all = STAR_FORMAT_PARAMS.out
         .groupTuple(by: [0,1])
