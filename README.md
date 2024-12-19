@@ -104,11 +104,12 @@ Lists the samples and their associated SRA experiment accessions.
 
 Example:
 
-| sample      | accession   |
-|-------------|-------------|
-| SRX22716300 | SRR27024456 |
-| SRX25994842 | SRR30571763 |
+| sample      | accession   | organism |
+|-------------|-------------|----------|
+| SRX22716300 | SRR27024456 | human    |
+| SRX25994842 | SRR30571763 | mouse    |
 
+> `organism` is optional. It will determine the STAR index to use for mapping. Otherwise all indexes will be used for parameter selection.
 
 ### Reads table
 

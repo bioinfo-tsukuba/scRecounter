@@ -127,9 +127,9 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
         read_files_filt[f"R{i}"] = new_name
     
     # if no R1 or R2, return warning
-    if not read_files_filt["R1"]:
+    if not read_files_filt.get("R1"):
         return False,"Read 1 not found"
-    if not read_files_filt["R2"]:
+    if not read_files_filt.get("R2"):
         return False,"Read 2 not found"
 
     return True,"Dump successful"

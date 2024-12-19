@@ -24,7 +24,7 @@ process STAR_FULL {
     label "process_high"
 
     input:
-    tuple val(sample), val(accession), 
+    tuple val(sample), val(accession), val(metadata),
           path("input*_R1.fastq"), path("input*_R2.fastq"), 
           path(barcodes_file), path(star_index),
           val(cell_barcode_length), val(umi_length), val(strand)

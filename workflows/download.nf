@@ -26,7 +26,6 @@ workflow DOWNLOAD_WF {
     
     // Join R1 and R2 channels, which will filter out empty R2 records
     ch_fastq = joinReads(ch_fqdump.R1, ch_fqdump.R2)
-    ch_fastq.view()
 
     emit:
     fastq = ch_fastq
@@ -185,27 +184,6 @@ process PREFETCH {
     """
 }
 
-process SRA_STAT_MERGE{
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/download.yml"
-
-    input:
-    tuple val(sample), path("sra-stat_*.csv")
-
-    output:
-    tuple val(sample), path("sra-stat-merged.csv")
-
-    script:
-    """
-    csv-merge.py --sample $sample --outfile sra-stat-merged.csv sra-stat_*.csv
-    """
-
-    stub:
-    """
-    touch sra-stat-merged.csv
-    """
-}
-
 process SRA_STAT {
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
@@ -215,7 +193,7 @@ process SRA_STAT {
     val vdb_config
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("sra-stat.csv")
+    tuple val(sample), val(accession), path("sra-stat.csv")
 
     script:
     """

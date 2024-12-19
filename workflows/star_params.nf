@@ -27,9 +27,7 @@ workflow STAR_PARAMS_WF{
 
     // Pairwise combine samples with barcodes, strand, and star index
     ch_params = makeParamSets(ch_fastq_sub, ch_barcodes, ch_star_indices)
-    ch_params.view()
 
-    /*
     // Run STAR on subsampled reads, for all pairwise parameter combinations
     STAR_PARAM_SEARCH(ch_params)
 
@@ -57,7 +55,6 @@ workflow STAR_PARAMS_WF{
 
     emit:
     fastq = ch_fastq
-    */
 }
 
 process STAR_SELECT_PARAMS_REPORT {
@@ -119,11 +116,11 @@ process STAR_SELECT_PARAMS {
     conda "envs/star.yml"
 
     input:
-    tuple val(sample), val(accession), val(metadata), path("star_params*.csv"), path(read_stats), path(sra_stats)
+    tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats), path(sra_stats)
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("results/merged_star_params.csv"),    emit: csv
-    tuple val(sample), val(accession), val(metadata), path("results/selected_star_params.json"), emit: json
+    tuple val(sample), val(accession), path("results/merged_star_params.csv"),    emit: csv
+    tuple val(sample), val(accession), path("results/selected_star_params.json"), emit: json
     path "results/select-star-params_log.csv",    emit: "log"
     
     script:
@@ -145,7 +142,7 @@ process STAR_FORMAT_PARAMS {
     tuple val(sample), val(accession), val(metadata), val(params), path(star_summary) 
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("star_params.csv")
+    tuple val(sample), val(accession), path("star_params.csv")
 
     script:
     """
@@ -225,7 +222,7 @@ process SEQKIT_STATS {
     tuple val(sample), val(accession), val(metadata), path(fastq_1), path(fastq_2)
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("${sample}_${accession}_stats.tsv")
+    tuple val(sample), val(accession), path("${sample}_${accession}_stats.tsv")
 
     script:
     """
