@@ -205,19 +205,6 @@ export GCP_PROJECT_ID="c-tc-429521"
 export GOOGLE_APPLICATION_CREDENTIALS="${HOME}/.gcp/c-tc-429521-6f6f5b8ccd93.json"
 ```
 
-## GCP SQL setup
-
-### Run proxy
-
-```bash
-SERVICE_ACCOUNT_JSON="c-tc-429521-6f6f5b8ccd93.json"
-PROXY_NAME="c-tc-429521:us-east1:sragent"
-rm -rf ${HOME}/cloudsql/${PROXY_NAME}
-cloud-sql-proxy ${PROXY_NAME} \
-  --unix-socket ${HOME}/cloudsql \
-  --credentials-file ${HOME}/.gcp/${SERVICE_ACCOUNT_JSON}
-```
-
 ## Run
 
 
@@ -477,3 +464,22 @@ docker tag ${IMG_NAME}:${IMG_VERSION} \
 * Map to reference
   * STARsolo
   * See https://github.com/ArcInstitute/scRecount/blob/chris/chris_scripts/dsub_solution/process_srr.sh
+
+
+
+***
+
+# OLD
+
+## GCP SQL setup
+
+### Run proxy
+
+```bash
+SERVICE_ACCOUNT_JSON="c-tc-429521-6f6f5b8ccd93.json"
+PROXY_NAME="c-tc-429521:us-east1:sragent"
+rm -rf ${HOME}/cloudsql/${PROXY_NAME}
+cloud-sql-proxy ${PROXY_NAME} \
+  --unix-socket ${HOME}/cloudsql \
+  --credentials-file ${HOME}/.gcp/${SERVICE_ACCOUNT_JSON}
+```
