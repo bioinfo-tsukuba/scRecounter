@@ -149,7 +149,7 @@ def main(args, log_df):
     # set pandas display optionqs
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 300)
-    step = "Select Star Params"
+    process = "select STAR params"
 
     # set output file paths
     outfile_selected = os.path.join(args.outdir, "selected_star_params.json")
@@ -166,7 +166,7 @@ def main(args, log_df):
         msg = "No valid barcodes found in the STAR summary table"
         logging.warning(msg)
         #write_log(logF, sample, "Valid barcode check", False, msg)
-        add_to_log(log_df, args.sample, args.accession, step, "Check raw params", "Failure", msg)
+        add_to_log(log_df, args.sample, args.accession, process, "Check raw params", "Failure", msg)
         # write empty json file
         write_data(None, data_all, outfile_selected, outfile_merged)
         return None
@@ -181,7 +181,7 @@ def main(args, log_df):
     if data.shape[0] == 0:
         msg = "No valid barcodes found in the STAR summary table after accounting for read lengths"
         logging.error(msg)
-        add_to_log(log_df, args.sample, args.accession, step, "Read length filter", "Failure", msg)
+        add_to_log(log_df, args.sample, args.accession, process, "Read length filter", "Failure", msg)
         write_data(None, data_all, outfile_selected, outfile_merged)
         return None
     data.drop(columns="CHECK", inplace=True)
@@ -193,11 +193,10 @@ def main(args, log_df):
     write_data(data, data_all, outfile_selected, outfile_merged)
 
     # Write log
-    add_to_log(log_df, args.sample, args.accession, step, "Final", "Success", "Best parameters selected")
+    add_to_log(log_df, args.sample, args.accession, process, "Final", "Success", "Best parameters selected")
 
 ## script main
 if __name__ == '__main__':
-    exit();
     # arg parse
     args = parser.parse_args()
 
