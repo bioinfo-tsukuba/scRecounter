@@ -13,7 +13,6 @@ workflow STAR_PARAMS_WF{
     // Subsample reads 
     SUBSAMPLE_R1(ch_fastq)
     SUBSAMPLE_R2(ch_fastq)
-    //ch_fastq_sub = SUBSAMPLE_R1.out.join(SUBSAMPLE_R2.out, by: [0,1])
     ch_fastq_sub = joinReads(SUBSAMPLE_R1.out, SUBSAMPLE_R2.out)
 
     // Get read lengths
@@ -121,11 +120,14 @@ process STAR_SELECT_PARAMS {
     output:
     tuple val(sample), val(accession), path("results/merged_star_params.csv"),    emit: csv
     tuple val(sample), val(accession), path("results/selected_star_params.json"), emit: json
-    path "results/select-star-params_log.csv",    emit: "log"
+    path "results/select-star-params_log.csv",  emit: "log"
     
     script:
     """
-    select-star-params.py $read_stats $sra_stats star_params*.csv
+    select-star-params.py \\
+      --sample ${sample} \\
+      --accession ${accession} \\
+      $read_stats $sra_stats star_params*.csv
     """
 
     stub:

@@ -3,12 +3,12 @@
 ## batteries
 from __future__ import print_function
 import os
-import re
 import sys
 import argparse
 import logging
 from typing import List, Dict, Any, Tuple
 import pandas as pd
+from db_utils import db_connect, db_upsert, add_to_log
 
 # logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
@@ -34,7 +34,11 @@ parser.add_argument('star_params_csv', type=str, nargs='+',
                     help='Path to the STAR parameters CSV file')
 parser.add_argument('--outdir', type=str, default="results",
                     help='Path to the output JSON file')
-                    
+parser.add_argument('--sample', type=str, default="",
+                    help='Sample name')
+parser.add_argument('--accession', type=str, default="",
+                    help='SRA accession')
+
 # functions
 def read_seqkit_stats(stats_file: str) -> pd.DataFrame:
     """
@@ -72,21 +76,6 @@ def read_params(params_file: str) -> pd.DataFrame:
     # read in as pandas dataframe
     DF = pd.read_csv(params_file)
     return DF
-
-def write_log(logF, sample: str, step: str, success: bool, msg: str) -> None:
-    """
-    Write skip reason to file.
-    Args:
-        logF: Log file handle
-        sample: Sample name
-        accession: SRA accession
-        step: Step name
-        success: Success status
-        msg: Message
-    """
-    if len(msg) > 100:
-        msg = msg[:100] + '...'
-    logF.write(','.join([sample, step, str(success), msg]) + '\n')
 
 def load_info(sra_stats_csv, star_params_csv, read_stats_tsv) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -156,10 +145,11 @@ def write_data(data, data_all, outfile_selected, outfile_merged):
     # write merged data as CSV
     write_all_data(data_all, outfile_merged)
 
-def main(args, logF):
+def main(args, log_df):
     # set pandas display optionqs
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 300)
+    step = "Select Star Params"
 
     # set output file paths
     outfile_selected = os.path.join(args.outdir, "selected_star_params.json")
@@ -175,7 +165,8 @@ def main(args, logF):
     if data.shape[0] == 0:
         msg = "No valid barcodes found in the STAR summary table"
         logging.warning(msg)
-        write_log(logF, sample, "Valid barcode check", False, msg)
+        #write_log(logF, sample, "Valid barcode check", False, msg)
+        add_to_log(log_df, args.sample, args.accession, step, "Check raw params", "Failure", msg)
         # write empty json file
         write_data(None, data_all, outfile_selected, outfile_merged)
         return None
@@ -190,7 +181,7 @@ def main(args, logF):
     if data.shape[0] == 0:
         msg = "No valid barcodes found in the STAR summary table after accounting for read lengths"
         logging.error(msg)
-        write_log(logF, sample, "Valid barcode check", False, msg)
+        add_to_log(log_df, args.sample, args.accession, step, "Read length filter", "Failure", msg)
         write_data(None, data_all, outfile_selected, outfile_merged)
         return None
     data.drop(columns="CHECK", inplace=True)
@@ -202,13 +193,28 @@ def main(args, logF):
     write_data(data, data_all, outfile_selected, outfile_merged)
 
     # Write log
-    write_log(logF, sample, "Parameter selection", True, "Best parameters selected")
+    add_to_log(log_df, args.sample, args.accession, step, "Final", "Success", "Best parameters selected")
 
 ## script main
 if __name__ == '__main__':
+    exit();
+    # arg parse
     args = parser.parse_args()
+
+    # setup
     os.makedirs(args.outdir, exist_ok=True)
-    logfile = os.path.join(args.outdir, 'select-star-params_log.csv')
-    with open(logfile, 'w') as logF:
-        logF.write('sample,step,success,message\n')
-        main(args, logF)
+    log_df = pd.DataFrame(
+        columns=["sample", "accession", "process", "step", "status", "message"]
+    )
+
+    # run main
+    main(args, log_df)
+
+    # write log
+    log_file = os.path.join(args.outdir, "select-star-params_log.csv")
+    log_df.to_csv(log_file, index=False)
+    logging.info(f'Log written to: {log_file}')
+    
+    # upsert log to database
+    with db_connect() as conn:
+        db_upsert(log_df, "screcounter_log", conn)

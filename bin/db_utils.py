@@ -55,6 +55,8 @@ def add_to_log(
     Returns:
         pd.DataFrame: Updated log dataframe
     """
+    if len(msg) > 200:
+        msg = str(msg[:(200-3)]) + '...'
     df.loc[len(df)] = [sample, accession, process, step, status, msg]
 
 def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:

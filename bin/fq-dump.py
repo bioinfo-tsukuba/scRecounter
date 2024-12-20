@@ -184,14 +184,14 @@ def main(args, log_df):
         msg = '; '.join(output.decode().split('\n'))
     else:
         msg = '; '.join(err.decode().split('\n'))
-    #write_log(logF, args.sample, accession, cmd[0], returncode == 0, msg)
+    ## add to log
     status = "Success" if returncode == 0 else "Failure"
     add_to_log(log_df, args.sample, args.accession, "fq-dump", cmd[0], status, msg)
     if returncode != 0:
         logging.error(err)
         sys.exit(1)
     
-    # Check the output
+    # Check the f-dump output
     success,msg = check_output(args.sra_file, args.outdir, args.min_read_length)
     add_to_log(log_df, args.sample, args.accession, "fq-dump", "check_output", success, msg)
 
