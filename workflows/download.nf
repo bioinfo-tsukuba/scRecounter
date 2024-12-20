@@ -5,11 +5,8 @@ workflow DOWNLOAD_WF {
     // Load accessions from file
     ch_accessions = readAccessions(params.accessions)
 
-    // Set up vdb-config with GCP credentials, if provided
-    VDB_CONFIG()
-
     // Run sra-stat
-    SRA_STAT(ch_accessions, VDB_CONFIG.out)
+    SRA_STAT(ch_accessions)
 
     // Run prefetch & fast(er)q-dump
     if ( params.max_spots > 0 ){
@@ -17,7 +14,7 @@ workflow DOWNLOAD_WF {
         ch_fqdump = FASTQ_DUMP(ch_accessions)
     } else {
         // Download all reads
-        PREFETCH(ch_accessions, VDB_CONFIG.out)
+        PREFETCH(ch_accessions)
         PREFETCH_LOG_MERGE(PREFETCH.out.log.collect())
         ch_fqdump = FASTERQ_DUMP(PREFETCH.out.sra)
     }
@@ -65,6 +62,7 @@ process FASTERQ_DUMP {
 
     input:
     tuple val(sample), val(accession), val(metadata), path(sra_file) 
+   // each path(vdb_config)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
@@ -75,6 +73,7 @@ process FASTERQ_DUMP {
     """
     fq-dump.py \\
       --sample ${sample} \\
+      --accession ${accession} \\
       --threads ${task.cpus} \\
       --bufsize 10MB \\
       --curcache 50MB \\
@@ -102,6 +101,7 @@ process FASTQ_DUMP {
 
     input:
     tuple val(sample), val(accession), val(metadata)
+    //each path(vdb_config)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
@@ -112,6 +112,7 @@ process FASTQ_DUMP {
     """
     fq-dump.py \\
       --sample ${sample} \\
+      --accession ${accession} \\
       --threads ${task.cpus} \\
       --bufsize 10MB \\
       --curcache 50MB \\
@@ -162,7 +163,7 @@ process PREFETCH {
 
     input:
     tuple val(sample), val(accession), val(metadata)
-    val vdb_config
+   // each path(vdb_config)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("prefetch_out/${accession}/${accession}.sra"), emit: sra, optional: true
@@ -170,12 +171,6 @@ process PREFETCH {
 
     script:
     """
-    export GCP_PROJECT_ID="${params.gcp_project_id}"
-    export GCP_SQL_DB_TENANT="${params.db_tenant}"
-    export GCP_SQL_DB_HOST="${params.db_host}"
-    export GCP_SQL_DB_NAME="${params.db_name}"
-    export GCP_SQL_DB_USERNAME="${params.db_user}"
-
     prefetch.py \\
       --sample ${sample} \\
       --max-size 5000 \\
@@ -196,7 +191,7 @@ process SRA_STAT {
 
     input:
     tuple val(sample), val(accession), val(metadata)
-    val vdb_config
+    //each path(vdb_config)
 
     output:
     tuple val(sample), val(accession), path("sra-stat.csv")
@@ -212,17 +207,36 @@ process SRA_STAT {
     """
 }
 
+/*
 process VDB_CONFIG {
     container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
     conda "envs/download.yml"
 
     output:
-    val true
+    path "config.mkfg"
 
     script:
     """
-    if [[ -f "${params.gcp_json}" ]] && [[ ! -z "${params.gcp_json}" ]]; then
-        vdb-config set storage.gcs.service-account-file ${params.gcp_json}
+    if [[ "${params.executor}" == "google-batch" ]]; then
+        vdb-config --root \\
+          --accept-gcp-charges \\
+          > config.mkfg
+    else
+        vdb-config > config.mkfg
     fi
     """
 }
+*/
+
+/*
+vdb-config --report-cloud-identity yes
+
+
+        vdb-config --root \
+          -s /repository/remote/main/GCP/public/root="gs://sra-pub-caching" \
+          -s /repository/remote/protected/GCP/root="gs://sra-pub-caching" 
+
+
+ vdb-config --root --accept-gcp-charges yes > config.mkfg
+
+ */

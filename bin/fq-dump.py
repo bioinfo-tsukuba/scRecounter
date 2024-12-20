@@ -11,6 +11,8 @@ from glob import glob
 from time import sleep
 from shutil import which
 from subprocess import Popen, PIPE
+import pandas as pd
+from db_utils import db_connect, db_upsert, add_to_log
 
 # logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
@@ -27,6 +29,10 @@ Run sra-tools prefetch with handling of errors
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
 parser.add_argument('sra_file', type=str, help='SRA file or accession')
+parser.add_argument('--sample', type=str, default="",
+                    help='Sample name')
+parser.add_argument('--accession', type=str, default="",
+                    help='SRA accession')
 parser.add_argument('--threads', type=int, default=4,
                     help='Number of threads')
 parser.add_argument('--bufsize', type=str, default='5MB',
@@ -39,8 +45,6 @@ parser.add_argument('--temp', type=str, default='TMP_FILES',
                     help='Temporary directory')
 parser.add_argument('--maxSpotId', type=int, default=None,
                     help='Maximum reads to write')
-parser.add_argument('--sample', type=str, default="",
-                    help='Sample name')
 parser.add_argument('--outdir', type=str, default='prefetch_out',
                     help='Output directory')
 parser.add_argument('--min-read-length', type=int, default=28,
@@ -149,7 +153,7 @@ def write_log(logF, sample: str, accession: str, step: str, success: bool, msg: 
         msg = msg[:100] + '...'
     logF.write(','.join([sample, accession, step, str(success), msg]) + '\n')
 
-def main(args, logF):
+def main(args, log_df):
     # check for fastq-dump and fasterq-dump
     for exe in ['fastq-dump', 'fasterq-dump']:
         if not which(exe):
@@ -180,20 +184,35 @@ def main(args, logF):
         msg = '; '.join(output.decode().split('\n'))
     else:
         msg = '; '.join(err.decode().split('\n'))
-    write_log(logF, args.sample, accession, cmd[0], returncode == 0, msg)
+    #write_log(logF, args.sample, accession, cmd[0], returncode == 0, msg)
+    status = "Success" if returncode == 0 else "Failure"
+    add_to_log(log_df, args.sample, args.accession, "fq-dump", cmd[0], status, msg)
     if returncode != 0:
         logging.error(err)
         sys.exit(1)
     
     # Check the output
     success,msg = check_output(args.sra_file, args.outdir, args.min_read_length)
-    write_log(logF, args.sample, accession, 'check_output', success, msg)
+    add_to_log(log_df, args.sample, args.accession, "fq-dump", "check_output", success, msg)
 
 ## script main
 if __name__ == '__main__':
     args = parser.parse_args()
+    
+    # setup
     os.makedirs(args.outdir, exist_ok=True)
-    logfile = os.path.join(args.outdir, 'fq-dump_log.csv')
-    with open(logfile, 'w') as logF:
-        logF.write('sample,accession,step,success,message\n')
-        main(args, logF)
+    log_df = pd.DataFrame(
+        columns=["sample", "accession", "process", "step", "status", "message"]
+    )
+
+    # run main
+    main(args, log_df)
+
+    # write log
+    log_file = os.path.join(args.outdir, "fq-dump_log.csv")
+    log_df.to_csv(log_file, index=False)
+    logging.info(f'Log written to: {log_file}')
+    
+    # upsert log to database
+    with db_connect() as conn:
+        db_upsert(log_df, "screcounter_log", conn)

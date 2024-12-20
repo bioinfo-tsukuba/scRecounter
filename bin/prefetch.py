@@ -10,7 +10,7 @@ from time import sleep
 from shutil import which
 from subprocess import Popen, PIPE
 import pandas as pd
-from db_utils import db_connect, db_upsert
+from db_utils import db_connect, db_upsert, add_to_log
 
 # logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
@@ -60,8 +60,7 @@ def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> bool:
         bool: True if successful, False otherwise
     """
     logging.info(f'Downloading {accession}')
-    #cmd = f'prefetch --max-size {max_size}G --output-directory {outdir} {accession}'
-    cmd = 'prefetch -h'
+    cmd = f'prefetch --max-size {max_size}G --output-directory {outdir} {accession}'
     err = ""
     for i in range(tries):
         logging.info(f'Attempt: {i+1}/{tries}')
@@ -88,6 +87,23 @@ def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> bool:
     err = err.replace('\n', ' ')
     return "Failure",f"Failed to download and validate: {err}"
     
+def run_vdb_config() -> bool:
+    """
+    Run vdb-dump with error handling.
+    Args:
+        sra_file: SRA file
+        outdir: Output directory
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    cmd = f"vdb-config --report-cloud-identity yes"
+    rc,output,err = run_cmd(cmd)
+    if rc != 0:
+        logging.error('vdb-config failed')
+        logging.error(err)
+        return "Failure",f'vdb-config failed: {err}'
+    return "Success","vdb-config successful"
+
 def run_vdb_dump(accession: str, min_size: int=1e6) -> bool:
     """
     Run vdb-dump with error handling.
@@ -97,12 +113,12 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> bool:
     Returns:
         bool: True if successful, False otherwise
     """
-    cmd = f'vdb-dump --info {accession}'
+    cmd = f"vdb-dump --info {accession}"
     rc,output,err = run_cmd(cmd)
     if rc != 0:
         logging.error('Dump failed')
         logging.error(err)
-        return False
+        return "Failure",f'vdb-dump failed: {err}'
 
     # parse the output
     regex = re.compile(r' *: ')
@@ -149,23 +165,7 @@ def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
         msg = msg[:100] + '...'
     logF.write(','.join([sample, accession, step, msg]) + '\n')
 
-def add_to_log(
-        df, sample: str, accession: str, process: str, step: str, status: str, msg: str
-        ) -> pd.DataFrame:
-    """
-    Add log entry to dataframe.
-    Args:
-        log_df: Log dataframe
-        sample: Sample name
-        accession: SRA accession
-        process: Process name
-        step: Step name
-        status: Status
-        msg: Message
-    Returns:
-        pd.DataFrame: Updated log dataframe
-    """
-    df.loc[len(df)] = [sample, accession, process, step, status, msg]
+
 
 def main(args, log_df):
     # check for prefetch in path
@@ -173,6 +173,10 @@ def main(args, log_df):
         if not which(exe):
             logging.error(f'{exe} not found in PATH')
             sys.exit(1)
+
+    # run vdb-config
+    status,msg = run_vdb_config()
+    add_to_log(log_df, args.sample, args.accession, "prefetch", "vdb-config", status, msg)
 
     # run vdb-dump
     status,msg = run_vdb_dump(args.accession)
@@ -194,16 +198,22 @@ def main(args, log_df):
 if __name__ == '__main__':
     # arg parse
     args = parser.parse_args()
+
     # setup
     os.makedirs(args.outdir, exist_ok=True)
     log_df = pd.DataFrame(
         columns=["sample", "accession", "process", "step", "status", "message"]
     )
+
     # run main
     main(args, log_df)
+
     # write log
-    log_df.to_csv("prefetch_log.csv", index=False)
+    log_file = os.path.join(args.outdir, "prefetch_log.csv")
+    log_df.to_csv(log_file, index=False)
+    logging.info(f'Log written to: {log_file}')
+    
     # upsert log to database
     with db_connect() as conn:
-        db_upsert(log_df, "screcounter", conn)
+        db_upsert(log_df, "screcounter_log", conn)
     
