@@ -21,13 +21,6 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/environment.yml
 RUN micromamba create -f /tmp/environment.yml \
     && micromamba clean --all --yes
 
-# Install cloud_sql_proxy
-ARG PROXY_URL="https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.2/cloud-sql-proxy.linux.amd64"
-RUN curl $PROXY_URL -o /usr/bin/cloud_sql_proxy \
-    && chmod +x /usr/bin/cloud_sql_proxy \
-    && mkdir -p /cloudsql \
-    && chmod 777 /cloudsql
-
 # Activate the environment by default
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 ENV ENV_NAME=download
