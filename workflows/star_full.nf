@@ -31,16 +31,18 @@ process STAR_FULL_SUMMARY {
     tuple val(sample), val(accession), path("velocyto_summary.csv")
 
     output:
-    tuple val(sample), val(accession), path("STAR_summary.csv")
+    tuple val(sample), val(accession), path("Summary.csv")
 
     script:
     """
-    # summarize the STAR results
     star-summary.py \\
       --sample ${sample} \\
       --accession ${accession} \\
-      gene_summary.csv gene_full_summary.csv gene_ex50_summary.csv gene_ex_int_summary.csv velocyto_summary.csv \\
-      > STAR_summary.csv
+      gene_summary.csv \\
+      gene_full_summary.csv \\
+      gene_ex50_summary.csv \\
+      gene_ex_int_summary.csv \\
+      velocyto_summary.csv 
     """
 }
 
@@ -48,7 +50,11 @@ process STAR_FULL_SUMMARY {
 def saveAsSTAR(sample, accession, filename) {
     if (filename.endsWith(".mtx") || filename.endsWith(".tsv") || filename.endsWith(".csv")) {
         def parts = filename.tokenize("/")
-        return "STAR/${sample}/${accession}/" + parts[1..-1].join('/')
+        if (parts.size() > 1) {
+            return "STAR/${sample}/${accession}/" + parts[1..-1].join('/')
+        } else {
+            return "STAR/${sample}/${accession}/" + parts[0]
+        }
     } 
     return null
 }

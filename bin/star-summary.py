@@ -30,7 +30,9 @@ parser.add_argument('--sample', type=str, default="",
                     help='Sample name')
 parser.add_argument('--accession', type=str, default="",
                     help='Accession number')
-                    
+parser.add_argument('--outfile', type=str, default="Summary.csv",
+                    help='Output file')
+         
 # functions
 def main(args):
     # set pandas display optionqs
@@ -83,6 +85,12 @@ def main(args):
     # upsert results to database
     with db_connect() as conn:
         db_upsert(df, "screcounter_star", conn)
+
+    # write output table
+    outdir = os.path.dirname(args.outfile)
+    if outdir != "":
+        os.makedirs(outdir, exist_ok=True)
+    df.to_csv(args.outfile, index=False)
 
 ## script main
 if __name__ == '__main__':
