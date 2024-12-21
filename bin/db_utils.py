@@ -78,6 +78,9 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
         except Exception as e:
             raise Exception(f"Error converting input to DataFrame: {str(e)}")
 
+    # filter to overlapping target columns
+    df = df[list(set(get_table_columns(table_name, conn)).intersection(df.columns))]
+
     # Get DataFrame columns
     columns = list(df.columns)
     
@@ -90,7 +93,7 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
         columns.remove("id")
 
     # Drop duplicate records based on unique columns
-    df.drop_duplicates(subset=unique_columns, keep='first', inplace=True)
+    df.drop_duplicates(subset=unique_columns, keep='first').copy()
 
     # Convert DataFrame to list of tuples
     values = [tuple(x) for x in df.to_numpy()]
@@ -118,6 +121,25 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
         conn.rollback()
         raise Exception(f"Error uploading data to {table_name}: {str(e)}")
 
+def get_table_columns(table: str, conn: connection) -> List[str]:
+    """
+    Get column names for a table from the database schema.
+    Args:
+        table: Name of the table
+        conn: Database connection 
+    Returns:
+        List of column names
+    """
+    query = """
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_name = %s;
+    """
+    
+    with conn.cursor() as cur:
+        cur.execute(query, (table,))
+        columns = cur.fetchall()
+    return [col[0] for col in columns]
 
 def get_unique_columns(table: str, conn: connection) -> List[str]:
     """

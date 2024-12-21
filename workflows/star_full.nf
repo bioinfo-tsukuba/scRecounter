@@ -6,6 +6,42 @@ workflow STAR_FULL_WF{
     main:
     //-- Run STAR with the selected parameters --//
     STAR_FULL(ch_fastq)
+
+    // summarize the results
+    STAR_FULL_SUMMARY(
+        STAR_FULL.out.gene_summary, 
+        STAR_FULL.out.gene_full_summary, 
+        STAR_FULL.out.gene_ex50_summary, 
+        STAR_FULL.out.gene_ex_int_summary,
+        STAR_FULL.out.velocyto_summary
+    )
+}
+
+process STAR_FULL_SUMMARY {
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, accession, filename) }
+    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
+    conda "envs/star.yml"
+    label "process_high"
+
+    input:
+    tuple val(sample), val(accession), path("gene_summary.csv")
+    tuple val(sample), val(accession), path("gene_full_summary.csv")
+    tuple val(sample), val(accession), path("gene_ex50_summary.csv")
+    tuple val(sample), val(accession), path("gene_ex_int_summary.csv")
+    tuple val(sample), val(accession), path("velocyto_summary.csv")
+
+    output:
+    tuple val(sample), val(accession), path("STAR_summary.csv")
+
+    script:
+    """
+    # summarize the STAR results
+    star-summary.py \\
+      --sample ${sample} \\
+      --accession ${accession} \\
+      gene_summary.csv gene_full_summary.csv gene_ex50_summary.csv gene_ex_int_summary.csv velocyto_summary.csv \\
+      > STAR_summary.csv
+    """
 }
 
 // STAR alignment with all reads and selected parameters
@@ -30,21 +66,21 @@ process STAR_FULL {
           val(cell_barcode_length), val(umi_length), val(strand)
 
     output:
-    tuple val(sample), path("resultsSolo.out/Gene/raw/*"),                          emit: gene_raw
-    tuple val(sample), path("resultsSolo.out/Gene/filtered/*"),                     emit: gene_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/Gene/Summary.csv"),                    emit: gene_summary
-    tuple val(sample), path("resultsSolo.out/GeneFull/raw/*"),                      emit: gene_full_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull/filtered/*"),                 emit: gene_full_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/GeneFull/Summary.csv"),                emit: gene_full_summary
-    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/raw/*"),              emit: gene_ex50_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/filtered/*"),         emit: gene_ex50_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/Summary.csv"),        emit: gene_ex50_summary
-    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/raw/*"),       emit: gene_ex_int_raw
-    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/filtered/*"),  emit: gene_ex_int_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/Summary.csv"), emit: gene_ex_int_summary
-    tuple val(sample), path("resultsSolo.out/Velocyto/raw/*"),                      emit: velocyto_raw
-    tuple val(sample), path("resultsSolo.out/Velocyto/filtered/*"),                 emit: velocyto_filt, optional: true
-    tuple val(sample), path("resultsSolo.out/Velocyto/Summary.csv"),                emit: velocyto_summary
+    tuple val(sample), val(accession), path("resultsSolo.out/Gene/raw/*"),                          emit: gene_raw
+    tuple val(sample), val(accession), path("resultsSolo.out/Gene/filtered/*"),                     emit: gene_filt, optional: true
+    tuple val(sample), val(accession), path("resultsSolo.out/Gene/Summary.csv"),                    emit: gene_summary
+    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull/raw/*"),                      emit: gene_full_raw
+    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull/filtered/*"),                 emit: gene_full_filt, optional: true
+    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull/Summary.csv"),                emit: gene_full_summary
+    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_Ex50pAS/raw/*"),              emit: gene_ex50_raw
+    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_Ex50pAS/filtered/*"),         emit: gene_ex50_filt, optional: true
+    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_Ex50pAS/Summary.csv"),        emit: gene_ex50_summary
+    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_ExonOverIntron/raw/*"),       emit: gene_ex_int_raw
+    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_ExonOverIntron/filtered/*"),  emit: gene_ex_int_filt, optional: true
+    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_ExonOverIntron/Summary.csv"), emit: gene_ex_int_summary
+    tuple val(sample), val(accession), path("resultsSolo.out/Velocyto/raw/*"),                      emit: velocyto_raw
+    tuple val(sample), val(accession), path("resultsSolo.out/Velocyto/filtered/*"),                 emit: velocyto_filt, optional: true
+    tuple val(sample), val(accession), path("resultsSolo.out/Velocyto/Summary.csv"),                emit: velocyto_summary
 
     script:
     """
