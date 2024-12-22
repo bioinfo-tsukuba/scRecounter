@@ -20,11 +20,12 @@ def db_connect() -> connection:
     """
     # get certs
     certs = get_db_certs()
+    database = "sragent-test" if os.environ["GCP_SQL_DB_TENANT"].upper() == "TEST" else "sragent"
     # connect
     db_params = {
-        'host': os.environ["GCP_SQL_DB_HOST"],
-        'database': os.environ["GCP_SQL_DB_NAME"],
-        'user': os.environ["GCP_SQL_DB_USERNAME"],
+        'host': "35.243.133.29", #os.environ["GCP_SQL_DB_HOST"],
+        'database': database, # os.environ["GCP_SQL_DB_NAME"],
+        'user': "postgres", #os.environ["GCP_SQL_DB_USERNAME"],
         'password': os.getenv("GCP_SQL_DB_PASSWORD", get_secret("GCP_SQL_DB_PASSWORD")),
         'sslmode': 'verify-ca',
         'sslrootcert': certs["server-ca.pem"],

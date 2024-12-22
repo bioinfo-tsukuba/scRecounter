@@ -15,11 +15,13 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/* /tmp/*
 
 # Copy environment file
-COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/environment.yml
+ARG CONDA_ENV_YAML
+COPY --chown=$MAMBA_USER:$MAMBA_USER ${CONDA_ENV_YAML} /tmp/environment.yml
 
 # Install the environment using micromamba
 RUN micromamba create -f /tmp/environment.yml \
-    && micromamba clean --all --yes
+    && micromamba clean --all --yes \
+    && rm -rf /opt/conda/pkgs/*
 
 # Activate the environment by default
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
