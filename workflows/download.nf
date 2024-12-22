@@ -31,8 +31,7 @@ workflow DOWNLOAD_WF {
 
 process FQDUMP_LOG_MERGE {
     publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/download.yml"
+    label "download_env"
 
     input:
     path "*_log.csv"
@@ -52,8 +51,7 @@ process FQDUMP_LOG_MERGE {
 }
 
 process FASTERQ_DUMP {
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/download.yml"
+    label "download_env"
     scratch { sra_file.size() < 200.GB ? "ram-disk" : false }
     memory { sra_file.size() < 200.GB ? (sra_file.size() / 1e9).GB * (task.attempt + 1) + 6.GB : 32.GB * task.attempt }
     time { sra_file.size() < 200.GB ? 24.h * task.attempt : 48.h + 12.h * task.attempt }
@@ -62,7 +60,6 @@ process FASTERQ_DUMP {
 
     input:
     tuple val(sample), val(accession), val(metadata), path(sra_file) 
-   // each path(vdb_config)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
@@ -96,12 +93,10 @@ process FASTERQ_DUMP {
 }
 
 process FASTQ_DUMP {
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/download.yml"
+    label "download_env"
 
     input:
     tuple val(sample), val(accession), val(metadata)
-    //each path(vdb_config)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
@@ -110,6 +105,8 @@ process FASTQ_DUMP {
 
     script:
     """
+    export GCP_SQL_DB_TENANT="${params.db_tenant}"
+
     fq-dump.py \\
       --sample ${sample} \\
       --accession ${accession} \\
@@ -136,8 +133,7 @@ process FASTQ_DUMP {
 
 process PREFETCH_LOG_MERGE{
     publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/download.yml"
+    label "download_env"
 
     input:
     path "*_log.csv"
@@ -157,13 +153,11 @@ process PREFETCH_LOG_MERGE{
 }
 
 process PREFETCH {
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/download.yml"
+    label "download_env"
     label "process_long"
 
     input:
     tuple val(sample), val(accession), val(metadata)
-   // each path(vdb_config)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("prefetch_out/${accession}/${accession}.sra"), emit: sra, optional: true
@@ -186,12 +180,12 @@ process PREFETCH {
 }
 
 process SRA_STAT {
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/download.yml"
+    //container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
+    //conda "envs/download.yml"
+    label "download_env"
 
     input:
     tuple val(sample), val(accession), val(metadata)
-    //each path(vdb_config)
 
     output:
     tuple val(sample), val(accession), path("sra-stat.csv")

@@ -19,8 +19,7 @@ workflow STAR_FULL_WF{
 
 process STAR_FULL_SUMMARY {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, accession, filename) }
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
-    conda "envs/star.yml"
+    label "star_env"
     label "process_high"
 
     input:
@@ -35,6 +34,8 @@ process STAR_FULL_SUMMARY {
 
     script:
     """
+    export GCP_SQL_DB_TENANT="${params.db_tenant}"
+    
     star-summary.py \\
       --sample ${sample} \\
       --accession ${accession} \\
@@ -46,23 +47,9 @@ process STAR_FULL_SUMMARY {
     """
 }
 
-// STAR alignment with all reads and selected parameters
-def saveAsSTAR(sample, accession, filename) {
-    if (filename.endsWith(".mtx") || filename.endsWith(".tsv") || filename.endsWith(".csv")) {
-        def parts = filename.tokenize("/")
-        if (parts.size() > 1) {
-            return "STAR/${sample}/${accession}/" + parts[1..-1].join('/')
-        } else {
-            return "STAR/${sample}/${accession}/" + parts[0]
-        }
-    } 
-    return null
-}
-
 process STAR_FULL {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, accession, filename) }
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
-    conda "envs/star.yml"
+    label "star_env"
     label "process_high"
 
     input:
@@ -116,4 +103,16 @@ process STAR_FULL {
       --soloBarcodeReadLength 0 \\
       --outFileNamePrefix results
     """
+}
+
+def saveAsSTAR(sample, accession, filename) {
+    if (filename.endsWith(".mtx") || filename.endsWith(".tsv") || filename.endsWith(".csv")) {
+        def parts = filename.tokenize("/")
+        if (parts.size() > 1) {
+            return "STAR/${sample}/${accession}/" + parts[1..-1].join('/')
+        } else {
+            return "STAR/${sample}/${accession}/" + parts[0]
+        }
+    } 
+    return null
 }

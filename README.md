@@ -169,6 +169,7 @@ Local run:
 
 ```bash
 nextflow run main.nf \
+  -work-dir tmp/work \
   -profile docker,vm,vm_dev,dev,acc_dev
 ```
 
@@ -201,7 +202,7 @@ nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
 ## set env variables
 
 ```bash
-export GCP_PROJECT_ID="c-tc-429521"
+# export GCP_PROJECT_ID="c-tc-429521"
 export GOOGLE_APPLICATION_CREDENTIALS="${HOME}/.gcp/c-tc-429521-6f6f5b8ccd93.json"
 ```
 

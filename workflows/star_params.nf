@@ -58,8 +58,7 @@ workflow STAR_PARAMS_WF{
 
 process STAR_SELECT_PARAMS_REPORT {
     publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
-    conda "envs/star.yml"
+    label "star_env"
 
     input:
     path "star_params_*.json"
@@ -80,8 +79,7 @@ process STAR_SELECT_PARAMS_REPORT {
 
 process STAR_MERGE_PARAMS {
     publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
-    conda "envs/star.yml"
+    label "star_env"
 
     input:
     path "star_params_*.csv"
@@ -111,8 +109,7 @@ def saveAsParams(sample, accession, filename) {
 
 process STAR_SELECT_PARAMS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, accession, filename) }
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
-    conda "envs/star.yml"
+    label "star_env"
 
     input:
     tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats), path(sra_stats)
@@ -124,6 +121,8 @@ process STAR_SELECT_PARAMS {
     
     script:
     """
+    export GCP_SQL_DB_TENANT="${params.db_tenant}"
+    
     select-star-params.py \\
       --sample ${sample} \\
       --accession ${accession} \\
@@ -137,8 +136,7 @@ process STAR_SELECT_PARAMS {
 }
 
 process STAR_FORMAT_PARAMS {
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
-    conda "envs/star.yml"
+    label "star_env"
 
     input:
     tuple val(sample), val(accession), val(metadata), val(params), path(star_summary) 
@@ -170,8 +168,7 @@ def saveAsValid(sample, filename) {
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_PARAM_SEARCH {
     //publishDir file(params.output_dir) / "${sample}"" /  "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-star/sc-recounter-star:0.1.0"
-    conda "envs/star.yml"
+    label "star_env"
     label "process_medium"
 
     input:
@@ -216,8 +213,7 @@ process STAR_PARAM_SEARCH {
 
 // Get read lengths via `seqkit stats`
 process SEQKIT_STATS {
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/read_qc.yml"
+    label "download_env"
     label "process_low"
 
     input:
@@ -239,8 +235,7 @@ process SEQKIT_STATS {
 
 // Subsample reads
 process SUBSAMPLE_R2 {
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/read_qc.yml"
+    label "download_env"
     label "process_low"
 
     input:
@@ -261,8 +256,7 @@ process SUBSAMPLE_R2 {
 }
 
 process SUBSAMPLE_R1 {
-    container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    conda "envs/read_qc.yml"
+    label "download_env"
     label "process_low"
 
     input:
