@@ -1,12 +1,19 @@
 ### sc-recounter-star
 
+Env vars
+
+```bash
+IMG_NAME=sc-recounter-download
+IMG_VERSION=0.1.0
+REGION="us-east1"
+PROJECT="c-tc-429521"
+```
+
 Build
 
 > from the base directory of the repository
 
 ```bash
-IMG_NAME=sc-recounter-star
-IMG_VERSION=0.1.0
 docker build \
   --file docker/${IMG_NAME}/Dockerfile \
   --build-arg CONDA_ENV_YAML=envs/star.yml \
@@ -18,8 +25,6 @@ docker build \
 Push
 
 ```bash
-REGION="us-east1"
-PROJECT="c-tc-429521"
 docker tag ${IMG_NAME}:${IMG_VERSION} \
   ${REGION}-docker.pkg.dev/${PROJECT}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
   && docker push ${REGION}-docker.pkg.dev/${PROJECT}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION}
