@@ -68,6 +68,10 @@ process FASTERQ_DUMP {
 
     script:
     """
+    export GCP_SQL_DB_HOST="${params.db_host}"
+    export GCP_SQL_DB_NAME="${params.db_name}"
+    export GCP_SQL_DB_USERNAME="${params.db_username}"
+
     fq-dump.py \\
       --sample ${sample} \\
       --accession ${accession} \\
@@ -105,7 +109,9 @@ process FASTQ_DUMP {
 
     script:
     """
-    export GCP_SQL_DB_TENANT="${params.db_tenant}"
+    export GCP_SQL_DB_HOST="${params.db_host}"
+    export GCP_SQL_DB_NAME="${params.db_name}"
+    export GCP_SQL_DB_USERNAME="${params.db_username}"
 
     fq-dump.py \\
       --sample ${sample} \\
@@ -165,6 +171,10 @@ process PREFETCH {
 
     script:
     """
+    export GCP_SQL_DB_HOST="${params.db_host}"
+    export GCP_SQL_DB_NAME="${params.db_name}"
+    export GCP_SQL_DB_USERNAME="${params.db_username}"
+
     prefetch.py \\
       --sample ${sample} \\
       --max-size 5000 \\

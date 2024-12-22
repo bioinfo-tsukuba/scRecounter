@@ -34,8 +34,10 @@ process STAR_FULL_SUMMARY {
 
     script:
     """
-    export GCP_SQL_DB_TENANT="${params.db_tenant}"
-    
+    export GCP_SQL_DB_HOST="${params.db_host}"
+    export GCP_SQL_DB_NAME="${params.db_name}"
+    export GCP_SQL_DB_USERNAME="${params.db_username}"
+
     star-summary.py \\
       --sample ${sample} \\
       --accession ${accession} \\
