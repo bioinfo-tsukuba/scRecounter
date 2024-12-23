@@ -181,8 +181,7 @@ def main(args, log_df):
     ## run command
     returncode, output, err = run_cmd(cmd)
     if returncode == 0:
-        msg = output.decode().split('\n')
-        msg = '; '.join([x for x in msg if x.startswith('Read') or x.startswith('Written')])
+        msg = '; '.join(output.decode().split('\n'))
     else:
         msg = '; '.join(err.decode().split('\n'))
     ## add to log

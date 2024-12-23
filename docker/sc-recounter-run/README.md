@@ -1,6 +1,4 @@
-### auto-run
-
-### sc-recounter-download
+## sc-recounter-run
 
 Env vars
 
@@ -12,6 +10,8 @@ GCP_PROJECT_ID="c-tc-429521"
 SERVICE_ACCOUNT_EMAIL="nick-nextflow@c-tc-429521.iam.gserviceaccount.com"
 SERVICE_ACCOUNT_JSON="c-tc-429521-6f6f5b8ccd93.json"
 ```
+
+### Docker
 
 Build
 
@@ -26,7 +26,7 @@ docker build \
   .
 ```
 
-Run the image
+Run the image (`-help`)
 
 ```bash
 docker run -it --rm \
@@ -39,6 +39,8 @@ docker run -it --rm \
   -help
 ```
 
+Run the image (`-profile`)
+
 ```bash
 docker run -it --rm \
   -u $(id -u):$(id -g) \
@@ -50,6 +52,9 @@ docker run -it --rm \
   -profile docker,gcp,gcp_dev,dev,no_acc_dev
 ```
 
+> Working accessions: `ERX9427763`
+
+### GCP Artifact Registry
 
 Create
 
@@ -71,6 +76,8 @@ docker tag ${IMG_NAME}:${IMG_VERSION} \
   && docker push ${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION}
 ```
 
+### GCP Cloud Run Jobs
+
 Create/update the job
 
 ```bash
@@ -81,8 +88,8 @@ gcloud run jobs create ${JOB_NAME} \
   --region=${REGION} \
   --image=${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
   --set-env-vars=TZ=America/Los_Angeles \
-  --task-timeout=7200m \
+  --task-timeout=2880m \
   --cpu=2 \
   --memory=4Gi \
-  --args=""
+  --args="-profile docker,gcp"
 ```
