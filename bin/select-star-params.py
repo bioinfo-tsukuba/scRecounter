@@ -192,7 +192,7 @@ def main(args, log_df):
     # Write output
     write_data(data, data_all, outfile_selected, outfile_merged)
 
-    # Write log
+    # Add to log table
     add_to_log(log_df, args.sample, args.accession, process, "Final", "Success", "Best parameters selected")
 
 ## script main

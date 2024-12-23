@@ -102,7 +102,7 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     for file_ext in ['fastq', 'fastq.gz', 'fq', 'fq.gz']:
         read_files += glob(os.path.join(outdir, accession + "*." + file_ext))
     if not read_files:
-        return False,"No read files found"
+        return "Failure","No read files found"
 
     # determine which read files are the read 1 and read 2
     read_lens = {}
@@ -120,7 +120,7 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
 
     # if no read files pass the filter, return warning
     if not read_lens_filt:
-        return False,"No reads passed the read length filter"
+        return "Failure","No reads passed the read length filter"
 
     # make the shorter read the R1
     read_files_filt = {}
@@ -132,11 +132,11 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     
     # if no R1 or R2, return warning
     if not read_files_filt.get("R1"):
-        return False,"Read 1 not found"
+        return "Failure","Read 1 not found"
     if not read_files_filt.get("R2"):
-        return False,"Read 2 not found"
+        return "Failure","Read 2 not found"
 
-    return True,"Dump successful"
+    return "Success","Dump successful"
 
 def write_log(logF, sample: str, accession: str, step: str, success: bool, msg: str) -> None:
     """
@@ -192,8 +192,8 @@ def main(args, log_df):
         sys.exit(1)
     
     # Check the f-dump output
-    success,msg = check_output(args.sra_file, args.outdir, args.min_read_length)
-    add_to_log(log_df, args.sample, args.accession, "fq-dump", "check_output", success, msg)
+    status,msg = check_output(args.sra_file, args.outdir, args.min_read_length)
+    add_to_log(log_df, args.sample, args.accession, "fq-dump", "check_output", status, msg)
 
 ## script main
 if __name__ == '__main__':

@@ -1,6 +1,5 @@
-def readAccessions(accessions_file){
-    return Channel
-        .fromPath(accessions_file, checkIfExists: true)
+def readAccessions(accessions_input){
+    return accessions_input
         .splitCsv(header: true, sep: ",")
         .map { row ->
             def req_columns = ["sample", "accession"]

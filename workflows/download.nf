@@ -1,9 +1,12 @@
 include { readAccessions; joinReads } from '../lib/download.groovy'
 
 workflow DOWNLOAD_WF {
+    take:
+    ch_accessions
+
     main:
-    // Load accessions from file
-    ch_accessions = readAccessions(params.accessions)
+    // read accessions
+    ch_accessions = readAccessions(ch_accessions)
 
     // Run sra-stat
     SRA_STAT(ch_accessions)

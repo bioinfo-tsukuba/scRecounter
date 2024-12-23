@@ -173,11 +173,28 @@ nextflow run main.nf \
   -profile docker,vm,vm_dev,dev,acc_dev
 ```
 
+With conda, accessions pulled from scRecounter database:
+
+```bash
+nextflow run main.nf \
+  -work-dir tmp/work \
+  -profile conda,vm,vm_dev,dev,acc_dev \
+  --accessions ""
+```
+
 GCP run:
 
 ```bash
 nextflow run main.nf \
   -profile docker,gcp,gcp_dev,dev,acc_dev
+```
+
+GCP run with accessions pulled from scRecounter database:
+
+```bash
+nextflow run main.nf \
+  -profile docker,gcp,gcp_dev,dev,acc_dev \
+  --accessions ""
 ```
 
 ### Characterize datasets

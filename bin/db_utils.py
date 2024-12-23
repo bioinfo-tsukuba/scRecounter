@@ -186,14 +186,19 @@ def get_secret(secret_id: str) -> str:
     Returns:
         The secret value
     """
-    from google.auth import default
+    from google.auth import default, load_credentials_from_file
     from google.cloud import secretmanager
-
-    _, project_id = default()  # Use default credentials; project_id is inferred
+    # Load credentials
+    try:
+        credentials, project_id = load_credentials_from_file(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
+    except KeyError:
+        credentials, project_id = default()
+    # if project_id is not provided, use the environment variable
     if not project_id:
         project_id = os.environ["GCP_PROJECT_ID"]
+    # Access secret
     name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-    client = secretmanager.SecretManagerServiceClient()
+    client = secretmanager.SecretManagerServiceClient(credentials=credentials)
     response = client.access_secret_version(request={"name": name})
     return response.payload.data.decode('UTF-8')
 
