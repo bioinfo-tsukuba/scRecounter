@@ -82,14 +82,16 @@ Create/update the job
 
 ```bash
 JOB_NAME="${IMG_NAME}"
-gcloud run jobs create ${JOB_NAME} \
+gcloud run jobs update ${JOB_NAME} \
   --service-account=${SERVICE_ACCOUNT_EMAIL} \
   --project=${GCP_PROJECT_ID} \
   --region=${REGION} \
   --image=${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
   --set-env-vars=TZ=America/Los_Angeles \
-  --task-timeout=2880m \
+  --task-timeout=1440m \
   --cpu=2 \
-  --memory=4Gi \
-  --args="-profile docker,gcp"
+  --memory=6Gi \
+  --args=""
 ```
+
+`--args="-profile docker,gcp,report,trace"`
