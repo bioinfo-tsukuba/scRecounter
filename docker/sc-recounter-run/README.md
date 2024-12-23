@@ -8,7 +8,9 @@ Env vars
 IMG_NAME=sc-recounter-run
 IMG_VERSION=0.1.0
 REGION="us-east1"
-PROJECT="c-tc-429521"
+GCP_PROJECT_ID="c-tc-429521"
+SERVICE_ACCOUNT_EMAIL="nick-nextflow@c-tc-429521.iam.gserviceaccount.com"
+SERVICE_ACCOUNT_JSON="c-tc-429521-6f6f5b8ccd93.json"
 ```
 
 Build
@@ -31,18 +33,56 @@ docker run -it --rm \
   -u $(id -u):$(id -g) \
   -v ${PWD}:/data \
   -v ${HOME}/.gcp/:/.gcp \
-  --env GOOGLE_APPLICATION_CREDENTIALS=/.gcp/c-tc-429521-6f6f5b8ccd93.json \
+  --env GOOGLE_APPLICATION_CREDENTIALS=/.gcp/${SERVICE_ACCOUNT_JSON} \
   --platform linux/amd64 \
   ${IMG_NAME}:${IMG_VERSION} \
-  --help
+  -help
+```
+
+```bash
+docker run -it --rm \
+  -u $(id -u):$(id -g) \
+  -v ${PWD}:/data \
+  -v ${HOME}/.gcp/:/.gcp \
+  --env GOOGLE_APPLICATION_CREDENTIALS=/.gcp/${SERVICE_ACCOUNT_JSON} \
+  --platform linux/amd64 \
+  ${IMG_NAME}:${IMG_VERSION} \
+  -profile docker,gcp,gcp_dev,dev,no_acc_dev
+```
+
+
+Create
+
+```bash
+DESCRIPTION="Run the scRecounter nextflow pipeline"
+gcloud artifacts repositories create ${IMG_NAME} \
+  --repository-format=docker \
+  --project=${GCP_PROJECT_ID} \
+  --location=${REGION} \
+  --description="${DESCRIPTION}" \
+  --async
 ```
 
 Push
 
 ```bash
 docker tag ${IMG_NAME}:${IMG_VERSION} \
-  ${REGION}-docker.pkg.dev/${PROJECT}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
-  && docker push ${REGION}-docker.pkg.dev/${PROJECT}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION}
+  ${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
+  && docker push ${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION}
 ```
 
+Create/update the job
 
+```bash
+JOB_NAME="${IMG_NAME}"
+gcloud run jobs create ${JOB_NAME} \
+  --service-account=${SERVICE_ACCOUNT_EMAIL} \
+  --project=${GCP_PROJECT_ID} \
+  --region=${REGION} \
+  --image=${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
+  --set-env-vars=TZ=America/Los_Angeles \
+  --task-timeout=7200m \
+  --cpu=2 \
+  --memory=4Gi \
+  --args=""
+```

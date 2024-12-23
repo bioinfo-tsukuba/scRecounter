@@ -9,25 +9,25 @@ include { STAR_FULL_WF } from './workflows/star_full.nf'
 include { readStarParams } from './lib/utils.groovy'
 
 // Main workflow
-workflow {    
+workflow { 
     if (params.star_params){
         // User-provided selected STAR parameters
-        println("Using provided STAR parameters.")
+        println "Using provided STAR parameters."
         ch_fastq = readStarParams(params.star_params)
     } else {
         if (params.fastq){
             // Load existing reads
-            println("Using provided fastq files.")
+            println "Using provided fastq files."
             ch_fastq = READS_WF()
             ch_sra_stat = Channel.empty() // TODO: update
         } else {
             if (params.accessions == "" || params.accessions == true) {
                 // Obtain accessions from SRA
-                println("No accessions provided. Accessions will be obtained from SRA.")
+                println "No accessions provided. Accessions will be obtained from SRA."
                 ch_accessions = DB_ACC_WF()
             } else {
                 // Use the provided accessions
-                println("Using provided accessions.")
+                println "Using provided accessions."
                 ch_accessions = Channel.fromPath(params.accessions, checkIfExists: true)
             }
             // Download reads from SRA

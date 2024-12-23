@@ -8,8 +8,6 @@ workflow STAR_PARAMS_WF{
     ch_sra_stat
 
     main:
-    //-- for each sample (accession), run STAR on subset of reads with various parameters to determine which params produce the most valid barcodes --/
-    
     // Subsample reads 
     SUBSAMPLE_R1(ch_fastq)
     SUBSAMPLE_R2(ch_fastq)

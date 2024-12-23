@@ -15,4 +15,3 @@ def readStarParams(star_params_file){
                 row.cell_barcode_length, row.umi_length, row.strand]
     }
 }
-

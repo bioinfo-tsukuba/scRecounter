@@ -170,16 +170,19 @@ Local run:
 ```bash
 nextflow run main.nf \
   -work-dir tmp/work \
-  -profile docker,vm,vm_dev,dev,acc_dev
+  -profile conda,vm,vm_dev,dev,acc_dev
 ```
+
+nextflow run main.nf \
+  -work-dir tmp/work \
+  -profile conda,vm,dev,acc_dev
 
 With conda, accessions pulled from scRecounter database:
 
 ```bash
 nextflow run main.nf \
   -work-dir tmp/work \
-  -profile conda,vm,vm_dev,dev,acc_dev \
-  --accessions ""
+  -profile conda,vm,vm_dev,dev,no_acc_dev
 ```
 
 GCP run:
@@ -193,8 +196,7 @@ GCP run with accessions pulled from scRecounter database:
 
 ```bash
 nextflow run main.nf \
-  -profile docker,gcp,gcp_dev,dev,acc_dev \
-  --accessions ""
+  -profile docker,gcp,gcp_dev,dev,no_acc_dev
 ```
 
 ### Characterize datasets

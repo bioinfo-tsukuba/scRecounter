@@ -1,4 +1,5 @@
 #!/bin/bash
 
-# Activate the micromamba environment and forward arguments to the Python script
-micromamba run -n sc-recounter-run python sc-recounter-run.py "$@"
+# Activate the micromamba environment and run the pipeline
+micromamba run -n sc-recounter-run \
+  nextflow run main.nf "$@"
