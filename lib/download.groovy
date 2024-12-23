@@ -1,5 +1,5 @@
 def readAccessions(accessions_input){
-    return accessions_input
+    ch_acc = accessions_input
         .splitCsv(header: true, sep: ",")
         .map { row ->
             def req_columns = ["sample", "accession"]
@@ -18,6 +18,15 @@ def readAccessions(accessions_input){
             result << metadata
             return result
         }
+
+    // print srx values
+    ch_acc
+        .map{ sample, accession, metadata -> sample }
+        .collect() 
+        .map{ it.join(',') }
+        .view{ "SRX accessions: ${it}" } 
+
+    return ch_acc
 }
 
 def joinReads(ch_read1, ch_read2){
