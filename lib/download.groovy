@@ -22,6 +22,7 @@ def readAccessions(accessions_input){
     // print srx values
     ch_acc
         .map{ sample, accession, metadata -> sample }
+        .distinct()
         .collect() 
         .map{ it.join(',') }
         .view{ "SRX accessions: ${it}" } 
