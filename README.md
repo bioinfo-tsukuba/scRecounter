@@ -173,10 +173,6 @@ nextflow run main.nf \
   -profile conda,vm,vm_dev,dev,acc_dev
 ```
 
-nextflow run main.nf \
-  -work-dir tmp/work \
-  -profile conda,vm,dev,acc_dev
-
 With conda, accessions pulled from scRecounter database:
 
 ```bash

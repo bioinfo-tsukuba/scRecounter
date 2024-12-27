@@ -6,6 +6,8 @@ import re
 import sys
 import argparse
 import logging
+from glob import glob
+from typing import Tuple
 from time import sleep
 from shutil import which
 from subprocess import Popen, PIPE
@@ -35,66 +37,28 @@ parser.add_argument('--tries', type=int, default=5,
                     help='Number of tries to download')
 parser.add_argument('--sample', type=str, default="",
                     help='Sample name')
+parser.add_argument('--gcp-download', action='store_true', default=False,
+                    help='Obtain sequence data from SRA GCP mirror')
 
 # functions
-def run_cmd(cmd: str) -> tuple:
+def run_cmd(cmd: str) -> Tuple[int,bytes,bytes]:
     """
     Run sub-command and return returncode, output, and error.
     Args:
         cmd: Command to run
     Returns:
-        tuple: (returncode, output, error)
+        (returncode, output, error)
     """
     logging.info(f'Running: {cmd}')
     p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
     output, err = p.communicate()
     return p.returncode, output, err
 
-def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> bool:
+def run_vdb_config() -> Tuple[str,str]:
     """
-    Run prefetch with error handling.
-    Args:
-        accession: SRA accession
-        tries: Number of tries
+    Run vdb-config with error handling.
     Returns:
-        bool: True if successful, False otherwise
-    """
-    logging.info(f'Downloading {accession}')
-    cmd = f'prefetch --max-size {max_size}G --output-directory {outdir} {accession}'
-    err = ""
-    for i in range(tries):
-        logging.info(f'Attempt: {i+1}/{tries}')
-        rc,output,err = run_cmd(cmd)
-        if rc == 0:
-            logging.info('Download successful')
-            # run vdb-validate
-            sra_file = os.path.join(outdir, accession, accession + '.sra')
-            rc,output,err = run_cmd(f'vdb-validate {sra_file}')
-            if rc == 0:
-                logging.info('Validation successful')
-                return "Success","Download and validation successful"
-            else:
-                logging.error('Validation failed')
-                logging.error(err)
-        else:
-            logging.error('Download failed')
-            logging.error(err)
-        # sleep prior to next attempt
-        sleep_time = 10 * (i + 1)
-        logging.info(f'Sleeping for {sleep_time} seconds...')
-        sleep(sleep_time)
-    # assume failure
-    err = err.replace('\n', ' ')
-    return "Failure",f"Failed to download and validate: {err}"
-    
-def run_vdb_config() -> bool:
-    """
-    Run vdb-dump with error handling.
-    Args:
-        sra_file: SRA file
-        outdir: Output directory
-    Returns:
-        bool: True if successful, False otherwise
+        Status and message
     """
     cmd = f"vdb-config --report-cloud-identity yes"
     rc,output,err = run_cmd(cmd)
@@ -104,19 +68,58 @@ def run_vdb_config() -> bool:
         return "Failure",f'vdb-config failed: {err}'
     return "Success","vdb-config successful"
 
-def run_vdb_dump(accession: str, min_size: int=1e6) -> bool:
+def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> Tuple[str,str]:
+    """
+    Run prefetch with error handling.
+    Args:
+        accession: SRA accession
+        tries: Number of tries
+    Returns:
+        Status and message
+    """
+    logging.info(f"Downloading {accession}")
+    cmd = f"prefetch --max-size {max_size}G --output-directory {outdir} {accession}"
+    err = ""
+    for i in range(tries):
+        logging.info(f"Attempt: {i+1}/{tries}")
+        rc,output,err = run_cmd(cmd)
+        if rc == 0:
+            logging.info("Download successful")
+            # run vdb-validate
+            sra_file = glob(os.path.join(outdir, accession, accession + ".sra*"))[0]
+            if not sra_file:
+                sra_file = glob(os.path.join(outdir, accession, accession + ".sha*"))[0]
+            rc,output,err = run_cmd(f"vdb-validate {sra_file}")
+            if rc == 0:
+                logging.info("Validation successful")
+                return "Success","Download and validation successful"
+            else:
+                logging.error("Validation failed")
+                logging.error(err)
+        else:
+            logging.error("Download failed")
+            logging.error(err)
+        # sleep prior to next attempt
+        sleep_time = 10 * (i + 1)
+        logging.info(f"Sleeping for {sleep_time} seconds...")
+        sleep(sleep_time)
+    # assume failure
+    err = err.replace('\n', ' ')
+    return "Failure",f"Failed to download and validate: {err}"
+    
+def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str,str]:
     """
     Run vdb-dump with error handling.
     Args:
         sra_file: SRA file
         outdir: Output directory
     Returns:
-        bool: True if successful, False otherwise
+        Status and message
     """
     cmd = f"vdb-dump --info {accession}"
     rc,output,err = run_cmd(cmd)
     if rc != 0:
-        logging.error('Dump failed')
+        logging.error("Dump failed")
         logging.error(err)
         return "Failure",f'vdb-dump failed: {err}'
 
@@ -133,7 +136,7 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> bool:
     ## keys
     for x in ['acc', 'size', 'FMT', 'platf']:
         if x not in data:
-            return "Failure",'Missing key in vdb-dump output: {x}'
+            return "Failure","Missing key in vdb-dump output: {x}"
     ## accession
     if data['acc'] != accession:
         return "Failure",f'Accession mismatch: {data["acc"]} != {accession}'
@@ -165,9 +168,7 @@ def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
         msg = msg[:100] + '...'
     logF.write(','.join([sample, accession, step, msg]) + '\n')
 
-
-
-def main(args, log_df):
+def main(args, log_df: pd.DataFrame) -> None:
     # check for prefetch in path
     for exe in ['prefetch', 'vdb-dump']:
         if not which(exe):
@@ -175,8 +176,9 @@ def main(args, log_df):
             sys.exit(1)
 
     # run vdb-config
-    status,msg = run_vdb_config()
-    add_to_log(log_df, args.sample, args.accession, "prefetch", "vdb-config", status, msg)
+    if args.gcp_download:
+        status,msg = run_vdb_config()
+        add_to_log(log_df, args.sample, args.accession, "prefetch", "vdb-config", status, msg)
 
     # run vdb-dump
     status,msg = run_vdb_dump(args.accession)

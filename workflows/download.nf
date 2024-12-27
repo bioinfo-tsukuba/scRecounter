@@ -55,9 +55,21 @@ process FQDUMP_LOG_MERGE {
 
 process FASTERQ_DUMP {
     label "download_env"
-    scratch { sra_file.size() < 200.GB ? "ram-disk" : false }
-    memory { sra_file.size() < 200.GB ? (sra_file.size() / 1e9).GB * (task.attempt + 1) + 6.GB : 32.GB * task.attempt }
-    time { sra_file.size() < 200.GB ? 24.h * task.attempt : 48.h + 12.h * task.attempt }
+    memory { 
+        def baseMem = 16.GB
+        def additionalMem = sra_file.size() / 10e9
+        baseMem + (additionalMem * task.attempt).GB
+    }
+    time { 
+        def baseTime = 4.h
+        def additionalHours = sra_file.size() / 20e9
+        baseTime + (additionalHours * task.attempt).h
+    }
+    disk { 
+        def baseSize = 100.GB
+        def additionalSize = sra_file.size() * (5 + 5 * task.attempt)
+        additionalSize < baseSize ? baseSize : additionalSize
+    }
     cpus 8
     maxRetries 2
 
@@ -87,9 +99,6 @@ process FASTERQ_DUMP {
       --maxSpotId ${params.max_spots} \\
       --outdir reads \\
       ${sra_file}
-
-    # remove the temporary files
-    rm -rf TMP_FILES
     """
 
     stub:
@@ -169,16 +178,17 @@ process PREFETCH {
     tuple val(sample), val(accession), val(metadata)
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("prefetch_out/${accession}/${accession}.sra"), emit: sra, optional: true
+    tuple val(sample), val(accession), val(metadata), path("prefetch_out/${accession}/${accession}.{sra,sralite,sharq}"), emit: sra, optional: true
     path "prefetch_out/prefetch_log.csv",  emit: log
 
     script:
+    def gcp_download = params.executor == "google-batch" ? "--gcp-download" : ""
     """
     export GCP_SQL_DB_HOST="${params.db_host}"
     export GCP_SQL_DB_NAME="${params.db_name}"
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
-    prefetch.py \\
+    prefetch.py ${gcp_download} \\
       --sample ${sample} \\
       --max-size 5000 \\
       --outdir prefetch_out \\
@@ -193,8 +203,6 @@ process PREFETCH {
 }
 
 process SRA_STAT {
-    //container "us-east1-docker.pkg.dev/c-tc-429521/sc-recounter-download/sc-recounter-download:0.1.0"
-    //conda "envs/download.yml"
     label "download_env"
 
     input:
