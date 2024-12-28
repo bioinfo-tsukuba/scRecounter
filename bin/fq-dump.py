@@ -9,10 +9,11 @@ import argparse
 import logging
 from glob import glob
 from time import sleep
-from shutil import which
+from shutil import which, rmtree
 from subprocess import Popen, PIPE
 import pandas as pd
 from db_utils import db_connect, db_upsert, add_to_log
+from prefetch import prefetch_workflow
 
 # logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
@@ -24,7 +25,8 @@ class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
 
 desc = 'Run sra-tools prefetch'
 epi = """DESCRIPTION:
-Run sra-tools prefetch with handling of errors
+Run fastq-dump or fasterq-dump on an SRA file or accession.
+If the --maxSpotId option is >0, then fastq-dump is used; otherwise, prefetch + fasterq-dump is used.
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
@@ -49,6 +51,13 @@ parser.add_argument('--outdir', type=str, default='prefetch_out',
                     help='Output directory')
 parser.add_argument('--min-read-length', type=int, default=28,
                     help='Minimum read length')  
+# prefetch
+parser.add_argument('--max-size-gb', type=int, default=1000,
+                    help='Max file size in Gb')
+parser.add_argument('--tries', type=int, default=3,
+                    help='Number of tries to download')
+parser.add_argument('--gcp-download', action='store_true', default=False,
+                    help='Obtain sequence data from SRA GCP mirror')
 
 # functions
 def run_cmd(cmd: str) -> tuple:
@@ -155,7 +164,7 @@ def write_log(logF, sample: str, accession: str, step: str, success: bool, msg: 
 
 def main(args, log_df):
     # check for fastq-dump and fasterq-dump
-    for exe in ['fastq-dump', 'fasterq-dump']:
+    for exe in ['fastq-dump', 'fasterq-dump', 'prefetch', 'vdb-dump']:
         if not which(exe):
             logging.error(f'{exe} not found in PATH')
             sys.exit(1)
@@ -168,15 +177,34 @@ def main(args, log_df):
     if args.maxSpotId and args.maxSpotId > 0:
         # fastq-dump with maxSpotId
         cmd = [
-            "fastq-dump", "--outdir", args.outdir, "--split-files", 
-            "--maxSpotId", args.maxSpotId, args.sra_file
+            "fastq-dump", "--split-files",
+            "--outdir", args.outdir,  
+            "--maxSpotId", args.maxSpotId,
+            args.sra_file
         ]
     else:
+        # prefetch
+        prefetch_outdir = prefetch_workflow(
+            sample=args.sample, 
+            accession=args.accession, 
+            log_df=log_df,
+            max_size_gb=args.max_size_gb,
+            gcp_download=args.gcp_download,
+            tries=args.tries,
+            outdir=os.path.join(args.temp, "prefetch")
+        )
         # fasterq-dump
         cmd = [
-            "fasterq-dump", "--threads", args.threads, "--bufsize", args.bufsize, 
-            "--curcache", args.curcache, "--mem", args.mem, "--temp", args.temp,
-            "--outdir", args.outdir, "--split-files", "--force", args.sra_file
+            "fasterq-dump",  
+            "--split-files", "--force",
+            "--threads", args.threads, 
+            "--bufsize", args.bufsize, 
+            "--curcache", args.curcache, 
+            "--min-read-len", args.min_read_length,
+            "--mem", args.mem, 
+            "--temp", args.temp,
+            "--outdir", args.outdir,
+            prefetch_outdir
         ]
     ## run command
     returncode, output, err = run_cmd(cmd)
@@ -190,15 +218,18 @@ def main(args, log_df):
     if returncode != 0:
         logging.error(err)
         sys.exit(1)
-    
+
     # Check the f-dump output
     status,msg = check_output(args.sra_file, args.outdir, args.min_read_length)
     add_to_log(log_df, args.sample, args.accession, "fq-dump", "check_output", status, msg)
 
+    # unlink temp files
+    rmtree(args.temp, ignore_errors=True)
+
 ## script main
 if __name__ == '__main__':
     args = parser.parse_args()
-    
+
     # setup
     os.makedirs(args.outdir, exist_ok=True)
     log_df = pd.DataFrame(

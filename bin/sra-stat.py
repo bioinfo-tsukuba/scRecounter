@@ -104,6 +104,8 @@ def parse_sra_stats(xml_string: str) -> Dict:
             elif file_size_units == 'megabytes':
                 file_size = file_size / 1e3
             stats['file_size_gb'] = file_size
+    else:
+        stats['file_size_gb'] = 1  # defaulting to 1Gb
     
     # convert to pandas dataframe
     return pd.DataFrame(stats, index=[0])

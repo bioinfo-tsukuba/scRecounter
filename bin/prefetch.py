@@ -6,7 +6,6 @@ import re
 import sys
 import argparse
 import logging
-from glob import glob
 from typing import Tuple
 from time import sleep
 from shutil import which
@@ -86,10 +85,8 @@ def prefetch(accession: str, tries: int, max_size_gb: int, outdir: str) -> Tuple
         if rc == 0:
             logging.info("Download successful")
             # run vdb-validate
-            sra_file = glob(os.path.join(outdir, accession, accession + ".sra*"))[0]
-            if not sra_file:
-                sra_file = glob(os.path.join(outdir, accession, accession + ".sha*"))[0]
-            rc,output,err = run_cmd(f"vdb-validate {sra_file}")
+            sra_dir = os.path.join(outdir, accession)
+            rc,output,err = run_cmd(f"vdb-validate {sra_dir}")
             if rc == 0:
                 logging.info("Validation successful")
                 return "Success","Download and validation successful"
@@ -145,9 +142,9 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str,str]:
     if size < min_size:
         return "Failure",f'File size too small: {size} < {min_size}'
     ## format
-    fmt = data['FMT'].lower()
-    if 'fastq' not in fmt and fmt not in ['sharq', 'sralite', 'sra']:
-        return "Failure",f'Invalid format: {data["FMT"]}'
+    #fmt = data['FMT'].lower()
+    #if 'fastq' not in fmt and fmt not in ['sharq', 'sralite', 'sra']:
+    #    return "Failure",f'Invalid format: {data["FMT"]}'
     ## platform
     if 'illumina' not in data['platf'].lower():
         return "Failure",f'Invalid platform: {data["platf"]}'
@@ -168,7 +165,7 @@ def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
         msg = msg[:100] + '...'
     logF.write(','.join([sample, accession, step, msg]) + '\n')
 
-def main(args, log_df: pd.DataFrame) -> None:
+def prefetch_workflow(sample, accession, log_df: pd.DataFrame, outdir:str, gcp_download: bool=False, tries: int=3, max_size_gb: float=1000) -> None:
     # check for prefetch in path
     for exe in ['prefetch', 'vdb-dump']:
         if not which(exe):
@@ -176,25 +173,26 @@ def main(args, log_df: pd.DataFrame) -> None:
             sys.exit(1)
 
     # run vdb-config
-    if args.gcp_download:
+    if gcp_download:
         status,msg = run_vdb_config()
-        add_to_log(log_df, args.sample, args.accession, "prefetch", "vdb-config", status, msg)
+        add_to_log(log_df, sample, accession, "prefetch", "vdb-config", status, msg)
 
     # run vdb-dump
-    status,msg = run_vdb_dump(args.accession)
-    add_to_log(log_df, args.sample, args.accession, "prefetch", "vdb-dump", status, msg)
-        
-    #write_log(logF, args.sample, args.accession, "vdb-dump", msg)
+    status,msg = run_vdb_dump(accession)
+    add_to_log(log_df, sample, accession, "prefetch", "vdb-dump", status, msg)
     if status != "Success":
        logging.warning(f'vdb-dump validation failed: {msg}')
        return None
 
     # run prefetch
-    status,msg = prefetch(args.accession, args.tries, args.max_size_gb, args.outdir)
-    add_to_log(log_df, args.sample, args.accession, "prefetch", "prefetch", status, msg)
+    status,msg = prefetch(accession, tries, max_size_gb, outdir)
+    add_to_log(log_df, sample, accession, "prefetch", "prefetch", status, msg)
     if status != "Success":
         logging.warning(f'Failed to download: {msg}')
         return None
+
+    # return output file
+    return os.path.join(outdir, accession)
 
 ## script main
 if __name__ == '__main__':
@@ -207,8 +205,14 @@ if __name__ == '__main__':
         columns=["sample", "accession", "process", "step", "status", "message"]
     )
 
-    # run main
-    main(args, log_df)
+    # run workflow
+    prefetch_workflow(
+        args.sample, args.accession, log_df, 
+        outdir=args.outdir, 
+        gcp_download=args.gcp_download, 
+        tries=args.tries, 
+        max_size_db=args.max_size_gb
+    )
 
     # write log
     log_file = os.path.join(args.outdir, "prefetch_log.csv")
