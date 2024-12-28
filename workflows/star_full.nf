@@ -4,6 +4,8 @@ workflow STAR_FULL_WF{
     ch_fastq
 
     main:
+    ch_fqdump = FASTERQ_DUMP(ch_accessions)
+
     //-- Run STAR with the selected parameters --//
     STAR_FULL(ch_fastq)
 
@@ -117,4 +119,49 @@ def saveAsSTAR(sample, accession, filename) {
         }
     } 
     return null
+}
+
+
+process FASTERQ_DUMP {
+    label "download_env"
+    memory { (16.GB + Math.round(file_size_gb).GB) * task.attempt }
+    time { (4.h + (file_size_gb * 1.1).h) * task.attempt }
+    disk 750.GB, type: "local-disk"
+    cpus 8
+    maxRetries 2
+
+    input:
+    tuple val(sample), val(accession), val(metadata), val(file_size_gb)
+
+    output:
+    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
+    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
+    path "reads/fq-dump_log.csv", emit: "log"
+
+    script:
+    """
+    export GCP_SQL_DB_HOST="${params.db_host}"
+    export GCP_SQL_DB_NAME="${params.db_name}"
+    export GCP_SQL_DB_USERNAME="${params.db_username}"
+
+    fq-dump.py \\
+      --sample ${sample} \\
+      --accession ${accession} \\
+      --threads ${task.cpus} \\
+      --bufsize 200MB \\
+      --curcache 1GB \\
+      --mem 12GB \\
+      --temp TMP_FILES \\
+      --max-size-gb ${params.max_sra_size} \\
+      --min-read-length ${params.min_read_len} \\
+      --maxSpotId ${params.max_spots} \\
+      --outdir reads \\
+      ${accession}
+    """
+
+    stub:
+    """
+    mkdir -p reads
+    touch reads/${accession}_1.fastq reads/${accession}_2.fastq
+    """
 }

@@ -77,12 +77,11 @@ def read_params(params_file: str) -> pd.DataFrame:
     DF = pd.read_csv(params_file)
     return DF
 
-def load_info(sra_stats_csv, star_params_csv, read_stats_tsv) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_info(star_params_csv, read_stats_tsv) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Load the information from the sra_stats_csv, star_params_csv, and read_stats_tsv
     and return the best parameters.
     Args:
-        sra_stats_csv: Path to the sra_stats_csv file
         star_params_csv: Path to the star_params_csv file
         read_stats_tsv: Path to the read_stats_tsv file
         outdir: Path to the output directory
@@ -91,7 +90,7 @@ def load_info(sra_stats_csv, star_params_csv, read_stats_tsv) -> Tuple[pd.DataFr
         data_all: pandas dataframe of all parameters
     """
     # read in sra stats file
-    sra_stats = pd.read_csv(sra_stats_csv).drop("accession", axis=1)
+    #sra_stats = pd.read_csv(sra_stats_csv).drop("accession", axis=1)
 
     # read in seqkit stats file
     seqkit_stats = read_seqkit_stats(read_stats_tsv).drop("sample", axis=1)
@@ -100,7 +99,7 @@ def load_info(sra_stats_csv, star_params_csv, read_stats_tsv) -> Tuple[pd.DataFr
     params = pd.concat([pd.read_csv(x) for x in star_params_csv], axis=0)
 
     # merge on sample
-    data = pd.merge(params, seqkit_stats, how="cross").merge(sra_stats, how="cross")
+    data = pd.merge(params, seqkit_stats, how="cross")
 
     # Filter to the max `Fraction of Unique Reads in Cells` => best parameters
     data = data[data['Fraction of Unique Reads in Cells'] != float("inf")]
@@ -156,7 +155,7 @@ def main(args, log_df):
     outfile_merged = os.path.join(args.outdir, "merged_star_params.csv")
 
     # load the data
-    data,data_all = load_info(args.sra_stats_csv, args.star_params_csv, args.read_stats_tsv)
+    data,data_all = load_info(args.star_params_csv, args.read_stats_tsv)
 
     # get sample
     sample = data_all["sample"].unique()[0]
@@ -197,6 +196,8 @@ def main(args, log_df):
 
 ## script main
 if __name__ == '__main__':
+    exit(1);
+
     # arg parse
     args = parser.parse_args()
 

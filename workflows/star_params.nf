@@ -5,16 +5,19 @@ include { makeParamSets; validateRequiredColumns; loadBarcodes; loadStarIndices;
 workflow STAR_PARAMS_WF{
     take:
     ch_fastq
-    ch_sra_stat
+    //ch_sra_stat
 
     main:
     // Subsample reads 
-    SUBSAMPLE_R1(ch_fastq)
-    SUBSAMPLE_R2(ch_fastq)
-    ch_fastq_sub = joinReads(SUBSAMPLE_R1.out, SUBSAMPLE_R2.out)
+    //SUBSAMPLE_R1(ch_fastq)
+    //SUBSAMPLE_R2(ch_fastq)
+    //ch_fastq_sub = joinReads(SUBSAMPLE_R1.out, SUBSAMPLE_R2.out)
+
+    // Get SRA statistics
+    //ch_sra_stat = SRA_STAT(ch_accessions)
 
     // Get read lengths
-    SEQKIT_STATS(ch_fastq_sub)
+    SEQKIT_STATS(ch_fastq)
 
     // Load barcodes file
     ch_barcodes = loadBarcodes(params)
@@ -23,8 +26,8 @@ workflow STAR_PARAMS_WF{
     ch_star_indices = loadStarIndices(params)
 
     // Pairwise combine samples with barcodes, strand, and star index
-    ch_params = makeParamSets(ch_fastq_sub, ch_barcodes, ch_star_indices)
-
+    ch_params = makeParamSets(ch_fastq, ch_barcodes, ch_star_indices)
+    
     // Run STAR on subsampled reads, for all pairwise parameter combinations
     STAR_PARAM_SEARCH(ch_params)
 
@@ -35,7 +38,7 @@ workflow STAR_PARAMS_WF{
     ch_params_all = STAR_FORMAT_PARAMS.out
         .groupTuple(by: [0,1])
         .join(SEQKIT_STATS.out, by: [0,1])
-        .join(ch_sra_stat, by: [0,1])
+        //.join(ch_sra_stat, by: [0,1])
     STAR_SELECT_PARAMS(ch_params_all)
 
     // Filter empty params
@@ -46,6 +49,8 @@ workflow STAR_PARAMS_WF{
             }
             return json_file.size() > 5
         }
+
+    ch_star_params_json.view()
 
     // Extract selected parameters from the JSON files
     ch_fastq = expandStarParams(ch_fastq, ch_star_params_json)
@@ -110,7 +115,7 @@ process STAR_SELECT_PARAMS {
     label "star_env"
 
     input:
-    tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats), path(sra_stats)
+    tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats)
 
     output:
     tuple val(sample), val(accession), path("results/merged_star_params.csv"),    emit: csv
@@ -126,7 +131,7 @@ process STAR_SELECT_PARAMS {
     select-star-params.py \\
       --sample ${sample} \\
       --accession ${accession} \\
-      $read_stats $sra_stats star_params*.csv
+      $read_stats star_params*.csv
     """
 
     stub:
@@ -167,7 +172,6 @@ def saveAsValid(sample, filename) {
 
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_PARAM_SEARCH {
-    //publishDir file(params.output_dir) / "${sample}"" /  "STAR", mode: "copy", overwrite: true, saveAs: { filename -> saveAsValid(sample, filename) }
     label "star_env"
     label "process_medium"
 

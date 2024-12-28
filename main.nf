@@ -19,7 +19,7 @@ workflow {
             // Load existing reads
             println "Using provided fastq files."
             ch_fastq = READS_WF()
-            ch_sra_stat = Channel.empty() // TODO: update
+            //ch_sra_stat = Channel.empty() // TODO: update
         } else {
             if (params.accessions == "" || params.accessions == true) {
                 // Obtain accessions from SRA
@@ -33,15 +33,15 @@ workflow {
             // Download reads from SRA
             DOWNLOAD_WF(ch_accessions)
             ch_fastq = DOWNLOAD_WF.out.fastq
-            ch_sra_stat = DOWNLOAD_WF.out.sra_stat
+            //ch_sra_stat = DOWNLOAD_WF.out.sra_stat
         }
         // determine STAR parameters
-        ch_fastq = STAR_PARAMS_WF(ch_fastq, ch_sra_stat)
+        ch_fastq = STAR_PARAMS_WF(ch_fastq)
     } 
 
     // Run STAR on all reads with selected parameters
     if (! params.define){
-        STAR_FULL_WF(ch_fastq)
+        //STAR_FULL_WF(ch_accessions, ch_fastq)
     }
 }
 

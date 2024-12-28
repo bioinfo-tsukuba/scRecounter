@@ -15,14 +15,8 @@ workflow DOWNLOAD_WF {
     // filter out any accessions with max size greater than the specified size
     ch_accessions = ch_accessions.filter { it[3] <= params.max_sra_size }
     
-    // Run prefetch & fast(er)q-dump
-    if ( params.max_spots > 0 ){
-        // Subsample reads
-        ch_fqdump = FASTQ_DUMP(ch_accessions)
-    } else {
-        // Download all reads
-        ch_fqdump = FASTERQ_DUMP(ch_accessions)
-    }
+    // Run prefetch & fastq-dump
+    ch_fqdump = FASTQ_DUMP(ch_accessions)
 
     /// Merge logs
     FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
@@ -32,7 +26,6 @@ workflow DOWNLOAD_WF {
 
     emit:
     fastq = ch_fastq
-    sra_stat = SRA_STAT.out
 }
 
 process FQDUMP_LOG_MERGE {
@@ -56,55 +49,11 @@ process FQDUMP_LOG_MERGE {
     """
 }
 
-process FASTERQ_DUMP {
-    label "download_env"
-    memory { (16.GB + Math.round(file_size_gb).GB) * task.attempt }
-    time { (4.h + (file_size_gb * 1.1).h) * task.attempt }
-    disk 750.GB, type: "local-disk"
-    cpus 8
-    maxRetries 2
-
-    input:
-    tuple val(sample), val(accession), val(metadata), val(file_size_gb)
-
-    output:
-    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
-    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
-    path "reads/fq-dump_log.csv", emit: "log"
-
-    script:
-    """
-    export GCP_SQL_DB_HOST="${params.db_host}"
-    export GCP_SQL_DB_NAME="${params.db_name}"
-    export GCP_SQL_DB_USERNAME="${params.db_username}"
-
-    fq-dump.py \\
-      --sample ${sample} \\
-      --accession ${accession} \\
-      --threads ${task.cpus} \\
-      --bufsize 200MB \\
-      --curcache 1GB \\
-      --mem 12GB \\
-      --temp TMP_FILES \\
-      --max-size-gb ${params.max_sra_size} \\
-      --min-read-length ${params.min_read_len} \\
-      --maxSpotId ${params.max_spots} \\
-      --outdir reads \\
-      ${accession}
-    """
-
-    stub:
-    """
-    mkdir -p reads
-    touch reads/${accession}_1.fastq reads/${accession}_2.fastq
-    """
-}
-
 process FASTQ_DUMP {
     label "download_env"
 
     input:
-    tuple val(sample), val(accession), val(metadata)
+    tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
@@ -162,6 +111,8 @@ process PREFETCH_LOG_MERGE{
     """
 }
 
+
+
 process SRA_STAT {
     label "download_env"
 
@@ -181,4 +132,3 @@ process SRA_STAT {
     touch sra-stat.csv
     """
 }
-

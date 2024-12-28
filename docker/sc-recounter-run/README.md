@@ -88,8 +88,9 @@ gcloud run jobs update ${JOB_NAME} \
   --region=${REGION} \
   --image=${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
   --set-env-vars=TZ=America/Los_Angeles \
-  --task-timeout=1440m \
   --cpu=2 \
   --memory=6Gi \
   --args=""
 ```
+
+To change the timeout (but cannot be >1 day): `--task-timeout=1440m`
