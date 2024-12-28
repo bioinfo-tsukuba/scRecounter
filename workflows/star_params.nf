@@ -1,23 +1,29 @@
-include { joinReads } from '../lib/download.groovy'
+include { joinReads; } from '../lib/utils.groovy'
 include { makeParamSets; validateRequiredColumns; loadBarcodes; loadStarIndices; expandStarParams } from '../lib/star_params.groovy'
+
 
 // Workflow to run STAR alignment on scRNA-seq data
 workflow STAR_PARAMS_WF{
     take:
-    ch_fastq
-    //ch_sra_stat
+    ch_accessions
+    ch_sra_stat
 
     main:
-    // Subsample reads 
-    //SUBSAMPLE_R1(ch_fastq)
-    //SUBSAMPLE_R2(ch_fastq)
-    //ch_fastq_sub = joinReads(SUBSAMPLE_R1.out, SUBSAMPLE_R2.out)
+    //-- Download subset of reads reads --//
+    
+    // Run prefetch & fastq-dump
+    ch_fqdump = FASTQ_DUMP(ch_accessions)
 
-    // Get SRA statistics
-    //ch_sra_stat = SRA_STAT(ch_accessions)
+    // Merge dump logs
+    FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
+    
+    // Join R1 and R2 channels, which will filter out empty R2 records
+    ch_fastq = joinReads(ch_fqdump.R1, ch_fqdump.R2)
 
     // Get read lengths
     SEQKIT_STATS(ch_fastq)
+
+    //-- STAR param search on subsampled reads --//
 
     // Load barcodes file
     ch_barcodes = loadBarcodes(params)
@@ -38,7 +44,7 @@ workflow STAR_PARAMS_WF{
     ch_params_all = STAR_FORMAT_PARAMS.out
         .groupTuple(by: [0,1])
         .join(SEQKIT_STATS.out, by: [0,1])
-        //.join(ch_sra_stat, by: [0,1])
+        .join(ch_sra_stat, by: [0,1])
     STAR_SELECT_PARAMS(ch_params_all)
 
     // Filter empty params
@@ -50,13 +56,11 @@ workflow STAR_PARAMS_WF{
             return json_file.size() > 5
         }
 
-    ch_star_params_json.view()
-
     // Extract selected parameters from the JSON files
-    ch_fastq = expandStarParams(ch_fastq, ch_star_params_json)
+    ch_star_params = expandStarParams(ch_fastq, ch_star_params_json)
 
     emit:
-    fastq = ch_fastq
+    star_params = ch_star_params
 }
 
 process STAR_SELECT_PARAMS_REPORT {
@@ -115,7 +119,7 @@ process STAR_SELECT_PARAMS {
     label "star_env"
 
     input:
-    tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats)
+    tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats), path(sra_stats)
 
     output:
     tuple val(sample), val(accession), path("results/merged_star_params.csv"),    emit: csv
@@ -131,7 +135,7 @@ process STAR_SELECT_PARAMS {
     select-star-params.py \\
       --sample ${sample} \\
       --accession ${accession} \\
-      $read_stats star_params*.csv
+      $read_stats $sra_stats star_params*.csv
     """
 
     stub:
@@ -237,47 +241,85 @@ process SEQKIT_STATS {
     """
 }
 
-// Subsample reads
-process SUBSAMPLE_R2 {
+process FQDUMP_LOG_MERGE {
+    publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
     label "download_env"
-    label "process_low"
 
     input:
-    tuple val(sample), val(accession), val(metadata), path("input_R1.fq"), path("input_R2.fq")
+    path "*_log.csv"
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("${sample}_${accession}_R2.fq")
+    path "fq-dump.csv"
 
-    script: 
+    script:
     """
-    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_${accession}_R2.fq input_R2.fq
+    csv-merge.py --outfile fq-dump.csv *_log.csv
     """
-    
+
     stub:
     """
-    touch ${sample}_${accession}_R2.fq
+    touch fq-dump.csv 
     """
 }
 
-process SUBSAMPLE_R1 {
+process FASTQ_DUMP {
     label "download_env"
-    label "process_low"
 
     input:
-    tuple val(sample), val(accession), val(metadata), path("input_R1.fq"), path("input_R2.fq")
+    tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("${sample}_${accession}_R1.fq")
+    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
+    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
+    path "reads/fq-dump_log.csv", emit: "log"
 
-    script: 
+    script:
     """
-    subsample.py --num-seqs ${params.subsample} --out-file ${sample}_${accession}_R1.fq input_R1.fq
+    export GCP_SQL_DB_HOST="${params.db_host}"
+    export GCP_SQL_DB_NAME="${params.db_name}"
+    export GCP_SQL_DB_USERNAME="${params.db_username}"
+
+    fq-dump.py \\
+      --sample ${sample} \\
+      --accession ${accession} \\
+      --threads ${task.cpus} \\
+      --bufsize 10MB \\
+      --curcache 50MB \\
+      --mem 5GB \\
+      --temp TMP_FILES \\
+      --min-read-length ${params.min_read_len} \\
+      --maxSpotId ${params.max_spots} \\
+      --outdir reads \\
+      ${accession}
+
+    # remove the temporary files
+    rm -rf TMP_FILES
     """
-    
+
     stub:
     """
-    touch ${sample}_${accession}_R1.fq
+    mkdir -p reads
+    touch reads/${accession}_1.fastq reads/${accession}_2.fastq
     """
 }
 
+process PREFETCH_LOG_MERGE{
+    publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
+    label "download_env"
 
+    input:
+    path "*_log.csv"
+
+    output:
+    path "prefetch.csv"
+
+    script:
+    """
+    csv-merge.py --outfile prefetch.csv *_log.csv
+    """
+
+    stub:
+    """
+    touch prefetch.csv 
+    """
+}

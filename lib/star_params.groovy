@@ -9,15 +9,15 @@ def expandStarParams(ch_fastq, ch_star_params_json) {
             def cell_barcode_length = params.cell_barcode_length
             def umi_length = params.umi_length
             def strand = params.strand
-            return [sample, accession, metadata,
-                    read1, read2, barcodes_file, star_index, 
+            return [sample, accession,
+                    barcodes_file, star_index, 
                     cell_barcode_length, umi_length, strand]
         }
 
     // status on number of parameter combinations
     ch_params
         .ifEmpty("No valid parameter set selected")
-        .view{ sample,accession,metadata,r1,r2,barcodes_file,star_index,cb_len,umi_len,strand -> 
+        .view{ sample,accession,barcodes_file,star_index,cb_len,umi_len,strand -> 
             def barcodes_name = barcodes_file.tokenize("/").last().tokenize(".")[0]
             def star_index_name = star_index.tokenize("/").last().tokenize(".")[0]
             "Selected parameter set:\n - barcodes: ${barcodes_name}\n - STAR index: ${star_index_name}\n - Barcode length: ${cb_len}\n - UMI length: ${umi_len}\n - Strand: ${strand}\n"

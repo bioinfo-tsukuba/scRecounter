@@ -1,19 +1,11 @@
 include { readAccessions; joinReads; addStats } from '../lib/download.groovy'
+include { SRA_STAT } from '../lib/utils.nf'
 
 workflow DOWNLOAD_WF {
     take:
     ch_accessions
 
     main:
-    // read accessions
-    ch_accessions = readAccessions(ch_accessions)
-
-    // Run sra-stat
-    SRA_STAT(ch_accessions)
-    ch_accessions = addStats(ch_accessions, SRA_STAT.out)
-
-    // filter out any accessions with max size greater than the specified size
-    ch_accessions = ch_accessions.filter { it[3] <= params.max_sra_size }
     
     // Run prefetch & fastq-dump
     ch_fqdump = FASTQ_DUMP(ch_accessions)
@@ -108,27 +100,5 @@ process PREFETCH_LOG_MERGE{
     stub:
     """
     touch prefetch.csv 
-    """
-}
-
-
-
-process SRA_STAT {
-    label "download_env"
-
-    input:
-    tuple val(sample), val(accession), val(metadata)
-
-    output:
-    tuple val(sample), val(accession), path("sra-stat.csv")
-
-    script:
-    """
-    sra-stat.py ${accession}
-    """
-
-    stub:
-    """
-    touch sra-stat.csv
     """
 }

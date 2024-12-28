@@ -1,15 +1,27 @@
+include { joinReads; } from '../lib/utils.groovy'
+
 // Workflow to run STAR alignment on scRNA-seq data
 workflow STAR_FULL_WF{
     take:
-    ch_fastq
-
+    ch_accessions
+    ch_star_params
+    
     main:
-    ch_fqdump = FASTERQ_DUMP(ch_accessions)
+    //-- Download all reads --//
 
-    //-- Run STAR with the selected parameters --//
+    // fasterq-dump
+    ch_fastq = FASTERQ_DUMP(ch_accessions, ch_star_params.map{ [it[0], it[1]] })
+    ch_fastq = joinReads(ch_fastq.R1, ch_fastq.R2)
+
+    // combine reads and star params
+    ch_fastq = ch_fastq.join(ch_star_params, by: [0,1])
+
+    //-- Run STAR with the selected parameters on all reads --//
+
+    // run STAR
     STAR_FULL(ch_fastq)
 
-    // summarize the results
+    // summarize the STAR results
     STAR_FULL_SUMMARY(
         STAR_FULL.out.gene_summary, 
         STAR_FULL.out.gene_full_summary, 
@@ -121,17 +133,17 @@ def saveAsSTAR(sample, accession, filename) {
     return null
 }
 
-
 process FASTERQ_DUMP {
     label "download_env"
-    memory { (16.GB + Math.round(file_size_gb).GB) * task.attempt }
-    time { (4.h + (file_size_gb * 1.1).h) * task.attempt }
+    memory { (16.GB + Math.round(sra_file_size_gb).GB) * task.attempt }
+    time { (4.h + (sra_file_size_gb * 1.1).h) * task.attempt }
     disk 750.GB, type: "local-disk"
     cpus 8
     maxRetries 2
 
     input:
-    tuple val(sample), val(accession), val(metadata), val(file_size_gb)
+    tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
+    tuple val(sample), val(accession)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
