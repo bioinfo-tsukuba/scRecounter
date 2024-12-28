@@ -190,7 +190,7 @@ process PREFETCH {
 
     prefetch.py ${gcp_download} \\
       --sample ${sample} \\
-      --max-size 5000 \\
+      --max-size-gb 1000 \\
       --outdir prefetch_out \\
       ${accession}
     """

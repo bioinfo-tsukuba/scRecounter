@@ -31,9 +31,9 @@ parser = argparse.ArgumentParser(description=desc, epilog=epi,
 parser.add_argument('accession', type=str, help='SRA accession')
 parser.add_argument('--outdir', type=str, default='prefetch_out',
                     help='Output directory')
-parser.add_argument('--max-size', type=int, default=5000,
+parser.add_argument('--max-size-gb', type=int, default=1000,
                     help='Max file size in Gb')
-parser.add_argument('--tries', type=int, default=5,
+parser.add_argument('--tries', type=int, default=3,
                     help='Number of tries to download')
 parser.add_argument('--sample', type=str, default="",
                     help='Sample name')
@@ -63,12 +63,12 @@ def run_vdb_config() -> Tuple[str,str]:
     cmd = f"vdb-config --report-cloud-identity yes"
     rc,output,err = run_cmd(cmd)
     if rc != 0:
-        logging.error('vdb-config failed')
-        logging.error(err)
+        logging.warning('vdb-config failed')
+        logging.warning(err)
         return "Failure",f'vdb-config failed: {err}'
     return "Success","vdb-config successful"
 
-def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> Tuple[str,str]:
+def prefetch(accession: str, tries: int, max_size_gb: int, outdir: str) -> Tuple[str,str]:
     """
     Run prefetch with error handling.
     Args:
@@ -78,7 +78,7 @@ def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> Tuple[st
         Status and message
     """
     logging.info(f"Downloading {accession}")
-    cmd = f"prefetch --max-size {max_size}G --output-directory {outdir} {accession}"
+    cmd = f"prefetch --max-size {max_size_gb}G --output-directory {outdir} {accession}"
     err = ""
     for i in range(tries):
         logging.info(f"Attempt: {i+1}/{tries}")
@@ -94,13 +94,13 @@ def prefetch(accession: str, tries: int, max_size: int, outdir: str) -> Tuple[st
                 logging.info("Validation successful")
                 return "Success","Download and validation successful"
             else:
-                logging.error("Validation failed")
-                logging.error(err)
+                logging.warning("Validation failed")
+                logging.warning(err)
         else:
-            logging.error("Download failed")
-            logging.error(err)
+            logging.warning("Download failed")
+            logging.warning(err)
         # sleep prior to next attempt
-        sleep_time = 10 * (i + 1)
+        sleep_time = 20 * (i + 1)
         logging.info(f"Sleeping for {sleep_time} seconds...")
         sleep(sleep_time)
     # assume failure
@@ -119,8 +119,8 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str,str]:
     cmd = f"vdb-dump --info {accession}"
     rc,output,err = run_cmd(cmd)
     if rc != 0:
-        logging.error("Dump failed")
-        logging.error(err)
+        logging.warning("Dump failed")
+        logging.warning(err)
         return "Failure",f'vdb-dump failed: {err}'
 
     # parse the output
@@ -190,7 +190,7 @@ def main(args, log_df: pd.DataFrame) -> None:
        return None
 
     # run prefetch
-    status,msg = prefetch(args.accession, args.tries, args.max_size, args.outdir)
+    status,msg = prefetch(args.accession, args.tries, args.max_size_gb, args.outdir)
     add_to_log(log_df, args.sample, args.accession, "prefetch", "prefetch", status, msg)
     if status != "Success":
         logging.warning(f'Failed to download: {msg}')

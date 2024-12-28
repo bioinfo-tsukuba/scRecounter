@@ -214,6 +214,10 @@ nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
 
 # Dev
 
+## deploy new GCP Cloud Run batch revision
+
+See [./docker/sc-recounter/README.md](./docker/sc-recounter/README.md) for details.
+
 ## set env variables
 
 ```bash
@@ -221,10 +225,9 @@ nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
 export GOOGLE_APPLICATION_CREDENTIALS="${HOME}/.gcp/c-tc-429521-6f6f5b8ccd93.json"
 ```
 
-## Run
+## Run locally
 
-
-#### Local, defining STAR params
+### Just defining STAR params
 
 ```bash
 nextflow run main.nf \
@@ -233,7 +236,7 @@ nextflow run main.nf \
   --define true
 ```
 
-Problematic accessions
+Run with problematic accessions
 
 ```bash
 nextflow run main.nf \
@@ -245,13 +248,8 @@ nextflow run main.nf \
   -resume
 ```
 
-#### Local, with accessions
 
-```bash
-nextflow run main.nf -profile conda,vm,vm_dev,acc_dev
-```
-
-#### SLURM, with accessions
+## SLURM, with accessions
 
 A couple of small-data accessions
 
@@ -290,7 +288,7 @@ Pull the docker image (e.g., `ubuntu:latest`) and convert it to an Apptainer con
 apptainer pull ubuntu_latest.sif docker://ubuntu:latest
 ```
 
-## GCP
+## GCP VM setup
 
 Create VM
 
@@ -401,9 +399,6 @@ gcloud compute instances stop sc-recounter-vm --zone=us-east1-b
 
 
 
-
-
-
 ## Resources
 
 ### Software
@@ -444,20 +439,3 @@ gcloud compute instances stop sc-recounter-vm --zone=us-east1-b
   * See https://github.com/ArcInstitute/scRecount/blob/chris/chris_scripts/dsub_solution/process_srr.sh
 
 
-
-***
-
-# OLD
-
-## GCP SQL setup
-
-### Run proxy
-
-```bash
-SERVICE_ACCOUNT_JSON="c-tc-429521-6f6f5b8ccd93.json"
-PROXY_NAME="c-tc-429521:us-east1:sragent"
-rm -rf ${HOME}/cloudsql/${PROXY_NAME}
-cloud-sql-proxy ${PROXY_NAME} \
-  --unix-socket ${HOME}/cloudsql \
-  --credentials-file ${HOME}/.gcp/${SERVICE_ACCOUNT_JSON}
-```
