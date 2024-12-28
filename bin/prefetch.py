@@ -104,7 +104,7 @@ def prefetch(accession: str, tries: int, max_size_gb: int, outdir: str) -> Tuple
         logging.info(f"Sleeping for {sleep_time} seconds...")
         sleep(sleep_time)
     # assume failure
-    err = err.replace('\n', ' ')
+    err = err.decode().replace('\n', ' ')
     return "Failure",f"Failed to download and validate: {err}"
     
 def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str,str]:

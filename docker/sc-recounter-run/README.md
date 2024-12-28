@@ -93,5 +93,3 @@ gcloud run jobs update ${JOB_NAME} \
   --memory=6Gi \
   --args=""
 ```
-
-`--args="-profile docker,gcp,report,trace"`
