@@ -57,19 +57,3 @@ def joinReads(ch_read1, ch_read2){
         }
 }
 
-
-/*
-def joinReads(ch_read1, ch_read2){
-    return ch_read1.join(ch_read2, by: [0, 1], remainder: true)
-        .filter { sample, accession, r1, r2 -> 
-            if(r2 == null) {
-                println "Warning: Read 2 is empty for ${sample}; skipping"
-            }
-            return r2 != null
-        }
-        .groupTuple()
-        .map { sample, accession, fastq_1, fastq_2 ->
-            return [sample, fastq_1.flatten(), fastq_2.flatten()]
-        }
-}
-*/

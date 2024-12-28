@@ -20,7 +20,7 @@ def readAccessions(accessions_input){
     ch_acc = accessions_input
         .splitCsv(header: true, sep: ",")
         .map { row ->
-            def req_columns = ["sample", "accession", "organism"]
+            def req_columns = ["sample", "accession"]
             def miss_columns = req_columns.findAll { !row.containsKey(it) }
             if (miss_columns) {
                 error "Missing columns in the input CSV file: ${miss_columns}"

@@ -31,7 +31,7 @@ def makeParamSets(ch_subsample, ch_barcodes, ch_star_indices) {
         .combine(ch_barcodes)
         .combine(ch_star_indices)
         .map { sample, accession, metadata, r1, r2, strand, barcodes_name, cb_len, umi_len, barcodes_file, organism, star_index ->
-            if (metadata["organism"] != organism) {
+            if (metadata["organism"] != "" & metadata["organism"] != organism) {
                 return null
             }
             def params = [
