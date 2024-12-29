@@ -135,7 +135,7 @@ def saveAsSTAR(sample, accession, filename) {
 
 process FASTERQ_DUMP {
     label "download_env"
-    memory { (16.GB + Math.round(sra_file_size_gb).GB) * task.attempt }
+    memory { (16.GB + Math.round(sra_file_size_gb / 2).GB) * task.attempt }
     time { (4.h + (sra_file_size_gb * 1.1).h) * task.attempt }
     disk 750.GB, type: "local-ssd"
     cpus 8
