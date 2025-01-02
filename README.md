@@ -6,14 +6,12 @@ Nextflow pipeline to re-process public single-cell RNA-seq data.
 
 # Workflow
 
-* User provides either:
+* User provides:
   * A table of samples & associated accessions
-  * A table of samples & downloaded fastq files
+    * Alternatively, the pipeline can pull accessions from the scRecounter database
   * Associated files required:
-    * A table of input samples and associated fastq files
     * A table of barcodes to use for cell barcode and UMI identification
-    * A table of STAR index files to use for mapping
-  * The user can also provide a table of STAR parameters, if they have already been determined
+    * A table of STAR index directories to use for mapping
 * Pipeline:
   * Read file formatting and QC
     * includes assessing read length
@@ -92,15 +90,12 @@ account with the required permissions.
 
 ## Input
 
-Input can either be:
-
-1. `Accessions table` => A table of accessions per sample. The read data will be downloaded from the SRA.
-1. `Reads table` => A table of read files per sample. The read data has already been downloaded.
-
-
 ### Accessions table
 
 Lists the samples and their associated SRA experiment accessions.
+
+> This table is not required if the pipeline is pulling accessions from the scRecounter database.
+  To pull accessions from the database, do not provide `--accessions` via the command line.
 
 Example:
 
@@ -110,19 +105,6 @@ Example:
 | SRX25994842 | SRR30571763 | mouse    |
 
 > `organism` is optional. It will determine the STAR index to use for mapping. Otherwise all indexes will be used for parameter selection.
-
-### Reads table
-
-Lists the samples and their associated read (fastq) files.
-
-Example:
-
-
-| sample                  | fastq_1                                          | fastq_2                                          |
-|-------------------------|--------------------------------------------------|--------------------------------------------------|
-| SRX10188997_SRR13806043 | path/to/reads/SRX10188997_SRR13806043_1.fastq.gz | path/to/reads/SRX10188997_SRR13806043_2.fastq.gz |
-| SRX10188963_SRR13806077 | path/to/reads/SRX10188963_SRR13806077_1.fastq.gz | path/to/reads/SRX10188963_SRR13806077_2.fastq.gz |
-
 
 ### Barcode table
 
@@ -143,29 +125,19 @@ Lists the STAR index files that will be used to map the reads.
 
 Example:
 
-| Organism      | Star Index Path                                                                   |
-|---------------|-----------------------------------------------------------------------------------|
-| Homo sapiens  | /large_storage/goodarzilab/public/scRecount/genomes/star_refData_2020_hg38        |
-| Mus musculus  | /large_storage/goodarzilab/public/scRecount/genomes/star2.7.11_refData_2020_mm10  |
+| Organism | Star Index Path                                                                   |
+|----------|-----------------------------------------------------------------------------------|
+| human    | /large_storage/goodarzilab/public/scRecount/genomes/star_refData_2020_hg38        |
+| mouse    | /large_storage/goodarzilab/public/scRecount/genomes/star2.7.11_refData_2020_mm10  |
 
 
-### STAR params table 
-
-Useful if you have already determined the STAR parameters for each sample. 
-Provide via `--star_params`. 
-
-Example:
-
-| Sample    | Fastq_1              | Fastq_2              | Barcodes File         | Star Index                   | Cell Barcode Length | UMI Length | Strand |
-|-----------|----------------------|----------------------|-----------------------|------------------------------|---------------------|------------|--------|
-| Sample_1  | sample_1_R1.fastq.gz | sample_1_R2.fastq.gz | sample_1_barcodes.tsv | star_refData_2020_hg38       | 16                  | 10         | +      |
-| Sample_2  | sample_2_R1.fastq.gz | sample_2_R2.fastq.gz | sample_2_barcodes.tsv | star2.7.11_refData_2020_mm10 | 16                  | 10         | -      |
+> If `organism` is provided in the `Accessions` table, the STAR index will be selected based on the `organism` column.
 
 ## Nextflow run 
 
 ### Test runs
 
-Local run:
+Local run with provided accessions:
 
 ```bash
 nextflow run main.nf \
@@ -181,7 +153,7 @@ nextflow run main.nf \
   -profile conda,trace,report,vm,vm_dev,dev,no_acc_dev
 ```
 
-GCP run:
+GCP run with provided accessions:
 
 ```bash
 nextflow run main.nf \
@@ -221,19 +193,17 @@ See [./docker/sc-recounter/README.md](./docker/sc-recounter/README.md) for detai
 ## set env variables
 
 ```bash
-# export GCP_PROJECT_ID="c-tc-429521"
 export GOOGLE_APPLICATION_CREDENTIALS="${HOME}/.gcp/c-tc-429521-6f6f5b8ccd93.json"
 ```
 
 ## Run locally
 
-### Just defining STAR params
+Basic run:
 
 ```bash
 nextflow run main.nf \
   -profile conda,vm,dev,vm_dev,acc_dev \
-  -resume \
-  --define true
+  -resume 
 ```
 
 Run with problematic accessions
@@ -249,7 +219,7 @@ nextflow run main.nf \
 ```
 
 
-## SLURM, with accessions
+## SLURM, with defined accessions
 
 A couple of small-data accessions
 
@@ -397,7 +367,9 @@ To stop the VM:
 gcloud compute instances stop sc-recounter-vm --zone=us-east1-b
 ```
 
+### Deploy to GCP Cloud Run
 
+See [./docker/sc-recounter-run/README.md](./docker/sc-recounter-run/README.md) for details.
 
 ## Resources
 

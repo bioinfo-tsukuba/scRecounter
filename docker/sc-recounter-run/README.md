@@ -82,7 +82,7 @@ Create/update the job
 
 ```bash
 JOB_NAME="${IMG_NAME}"
-gcloud run jobs update ${JOB_NAME} \
+gcloud beta run jobs update ${JOB_NAME} \
   --service-account=${SERVICE_ACCOUNT_EMAIL} \
   --project=${GCP_PROJECT_ID} \
   --region=${REGION} \
@@ -90,7 +90,7 @@ gcloud run jobs update ${JOB_NAME} \
   --set-env-vars=TZ=America/Los_Angeles \
   --cpu=2 \
   --memory=6Gi \
+  --task-timeout=4320m \
   --args=""
 ```
 
-To change the timeout (but cannot be >1 day): `--task-timeout=1440m`
