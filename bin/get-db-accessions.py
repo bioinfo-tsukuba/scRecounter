@@ -45,7 +45,9 @@ parser.add_argument('--outfile', type=str, default="accessions.csv",
 
 # functions
 def db_get_unprocessed_records(
-    conn: connection, database: List[str], max_srx: int=3
+    conn: connection, 
+    database: List[str], 
+    max_srx: int=3
     ) -> pd.DataFrame:
     """
     Get all suitable unprocessed SRX records, limiting by unique srx_accession values.
@@ -56,6 +58,7 @@ def db_get_unprocessed_records(
     Returns:
         dataframe of unprocessed SRX records.
     """
+    # init tables
     srx_metadata = Table("srx_metadata")
     srx_srr = Table("srx_srr")
     scr_log = Table("screcounter_log")
@@ -113,7 +116,7 @@ def main(args):
     # get unprocessed records
     with db_connect() as conn:
         df = db_get_unprocessed_records(conn, args.database, args.max_srx)
-    # write out
+    ## write out records
     df.to_csv(args.outfile, index=False)
     
     # write to log table in scRecounter database

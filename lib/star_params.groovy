@@ -1,6 +1,7 @@
 import groovy.json.JsonSlurper
 
 def expandStarParams(ch_fastq, ch_star_params_json) {
+    // read the JSON file with the STAR parameters and join with the fastq channel
     ch_params = ch_fastq.join(ch_star_params_json, by: [0,1])
         .map{ sample, accession, metadata, read1, read2, json_file -> 
             def params = new JsonSlurper().parseText(json_file.text)
@@ -26,6 +27,7 @@ def expandStarParams(ch_fastq, ch_star_params_json) {
 }
 
 def makeParamSets(ch_subsample, ch_barcodes, ch_star_indices) {
+    // pairwise combine the subsample, barcodes and star indices channels
     ch_params = ch_subsample
         .combine(Channel.of("Forward", "Reverse"))
         .combine(ch_barcodes)
@@ -57,6 +59,7 @@ def makeParamSets(ch_subsample, ch_barcodes, ch_star_indices) {
 }
 
 def validateRequiredColumns(row, required) {
+    // check if all required columns are present in the input CSV file
     def missing = required.findAll { !row.containsKey(it) }
     if (missing) {
         error "Missing columns in the input CSV file: ${missing}"
@@ -64,6 +67,7 @@ def validateRequiredColumns(row, required) {
 }
 
 def loadBarcodes(params) {
+    // load the barcodes from the input CSV file
     ch_barcodes = Channel
         .fromPath(params.barcodes, checkIfExists: true)
         .splitCsv(header: true)
@@ -87,6 +91,7 @@ def loadBarcodes(params) {
 }
 
 def loadStarIndices(params) {
+    // load the STAR indices from the input CSV file
     ch_indices = Channel
         .fromPath(params.star_indices, checkIfExists: true)
         .splitCsv(header: true)

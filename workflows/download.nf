@@ -1,4 +1,5 @@
-include { readAccessions; joinReads; addStats } from '../lib/download.groovy'
+include { readAccessions; } from '../lib/download.groovy'
+include { joinReads; addStats; } from '../lib/utils.nf'
 include { SRA_STAT } from '../lib/utils.nf'
 
 workflow DOWNLOAD_WF {
@@ -6,7 +7,6 @@ workflow DOWNLOAD_WF {
     ch_accessions
 
     main:
-    
     // Run prefetch & fastq-dump
     ch_fqdump = FASTQ_DUMP(ch_accessions)
 
@@ -79,26 +79,5 @@ process FASTQ_DUMP {
     """
     mkdir -p reads
     touch reads/${accession}_1.fastq reads/${accession}_2.fastq
-    """
-}
-
-process PREFETCH_LOG_MERGE{
-    publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
-    label "download_env"
-
-    input:
-    path "*_log.csv"
-
-    output:
-    path "prefetch.csv"
-
-    script:
-    """
-    csv-merge.py --outfile prefetch.csv *_log.csv
-    """
-
-    stub:
-    """
-    touch prefetch.csv 
     """
 }

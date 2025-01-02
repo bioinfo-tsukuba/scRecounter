@@ -73,6 +73,8 @@ def prefetch(accession: str, tries: int, max_size_gb: int, outdir: str) -> Tuple
     Args:
         accession: SRA accession
         tries: Number of tries
+        max_size_gb: Max file size in Gb
+        outdir: Output directory
     Returns:
         Status and message
     """
@@ -153,7 +155,7 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str,str]:
 
 def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
     """
-    Write skip reason to file.
+    Write log to file.
     Args:
         logF: Log file handle
         sample: Sample name
@@ -165,7 +167,19 @@ def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
         msg = msg[:100] + '...'
     logF.write(','.join([sample, accession, step, msg]) + '\n')
 
-def prefetch_workflow(sample, accession, log_df: pd.DataFrame, outdir:str, gcp_download: bool=False, tries: int=3, max_size_gb: float=1000) -> None:
+def prefetch_workflow(sample: str, accession: str, log_df: pd.DataFrame, outdir:str, 
+                      gcp_download: bool=False, tries: int=3, max_size_gb: float=1000) -> None:
+    """
+    Run prefetch workflow.
+    Args:
+        sample: Sample name
+        accession: SRA accession
+        log_df: Log dataframe
+        outdir: Output directory
+        gcp_download: Use GCP mirror
+        tries: Number of tries
+        max_size_gb: Max file size in Gb
+    """
     # check for prefetch in path
     for exe in ['prefetch', 'vdb-dump']:
         if not which(exe):

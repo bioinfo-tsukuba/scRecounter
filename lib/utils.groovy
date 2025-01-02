@@ -1,4 +1,5 @@
 def readStarParams(star_params_file){
+    // read the input CSV file and check if all required columns are present
     return Channel
         .fromPath(star_params_file, checkIfExists: true)
         .splitCsv(header: true, sep: ',')
@@ -17,6 +18,7 @@ def readStarParams(star_params_file){
 }
 
 def readAccessions(accessions_input){
+    // read the input accessions CSV file and check if all required columns are present
     ch_acc = accessions_input
         .splitCsv(header: true, sep: ",")
         .map { row ->
@@ -49,6 +51,7 @@ def readAccessions(accessions_input){
 }
 
 def addStats(ch_accessions, ch_sra_stat){
+    // add file size information to the accessions
     ch_stats = ch_sra_stat
         .map{ sample,acc,csv -> csv }
         .splitCsv(header: true, sep: ",")

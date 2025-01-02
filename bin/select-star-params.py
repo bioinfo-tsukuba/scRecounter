@@ -45,8 +45,10 @@ def read_seqkit_stats(stats_file: str, sample: str, accession: str) -> pd.DataFr
     Read seqkit stats table and return as pandas dataframe.
     Args:
         stats_file: Path to seqkit stats file
+        sample: Sample name
+        accession: SRA accession
     Returns:
-        pandas dataframe
+        pandas dataframe of seqkit stats
     """
     # check if stats_file is None
     if stats_file is None:
@@ -71,13 +73,14 @@ def read_params(params_file: str) -> pd.DataFrame:
     Args:
         params_file: Path to STAR params file
     Returns:
-        pandas dataframe
+        pandas dataframe of STAR params
     """
     # read in as pandas dataframe
     DF = pd.read_csv(params_file)
     return DF
 
-def load_info(sra_stats_csv, star_params_csv, read_stats_tsv, sample, accession) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_info(sra_stats_csv: str, star_params_csv: str, read_stats_tsv: str, sample: str, accession: str
+             ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Load the information from the sra_stats_csv, star_params_csv, and read_stats_tsv
     and return the best parameters.
@@ -122,7 +125,15 @@ def write_all_data(data_all: pd.DataFrame, outfile_merged: str) -> None:
     data_all.to_csv(outfile_merged, index=False)
     logging.info(f"Output written to: {outfile_merged}")
 
-def write_data(data, data_all, outfile_selected, outfile_merged):
+def write_data(data: pd.DataFrame, data_all: pd.DataFrame, outfile_selected: str, outfile_merged: str) -> None:
+    """
+    Write the data as JSON and the merged data as CSV.
+    Args:
+        data: pandas dataframe of best parameters
+        data_all: pandas dataframe of all parameters
+        outfile_selected: Path to the selected parameters JSON file
+        outfile_merged: Path to the merged parameters CSV
+    """
     # write data as JSON
     if data is None:
          # write empty json file

@@ -104,6 +104,7 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     Args:
         sra_file: SRA file
         outdir: Output directory
+        min_read_length: Minimum read length
     """
     accession = os.path.splitext(os.path.basename(sra_file))[0]
     # list output files

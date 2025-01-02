@@ -1,4 +1,5 @@
 def readAccessions(accessions_input){
+    // Read the input CSV file with the sample names and SRA accessions
     ch_acc = accessions_input
         .splitCsv(header: true, sep: ",")
         .map { row ->
@@ -30,7 +31,9 @@ def readAccessions(accessions_input){
     return ch_acc
 }
 
+/*
 def addStats(ch_accessions, ch_sra_stat){
+    // Add sra-stats channel to the accessions channel
     ch_stats = ch_sra_stat
         .map{ sample,acc,csv -> csv }
         .splitCsv(header: true, sep: ",")
@@ -41,6 +44,7 @@ def addStats(ch_accessions, ch_sra_stat){
 }
 
 def joinReads(ch_read1, ch_read2){
+    // Join the read1 and read2 channels
     ch_metadata = ch_read1.map{ sample,accession,metadata,fastq -> [sample,accession,metadata] }
 
     return ch_read1
@@ -56,4 +60,4 @@ def joinReads(ch_read1, ch_read2){
             sample,accession,fastq1,fastq2,metadata -> [sample,accession,metadata,fastq1,fastq2] 
         }
 }
-
+*/
