@@ -23,9 +23,9 @@ workflow STAR_FULL_WF{
 
     // summarize the STAR results
     STAR_FULL_SUMMARY(
-        STAR_FULL.out.gene_summary, 
-        STAR_FULL.out.gene_full_summary, 
-        STAR_FULL.out.gene_ex50_summary, 
+        STAR_FULL.out.gene_summary,
+        STAR_FULL.out.gene_full_summary,
+        STAR_FULL.out.gene_ex50_summary,
         STAR_FULL.out.gene_ex_int_summary,
         STAR_FULL.out.velocyto_summary
     )
@@ -59,7 +59,7 @@ process STAR_FULL_SUMMARY {
       gene_full_summary.csv \\
       gene_ex50_summary.csv \\
       gene_ex_int_summary.csv \\
-      velocyto_summary.csv 
+      velocyto_summary.csv
     """
 }
 
@@ -74,22 +74,16 @@ process STAR_FULL {
           path(barcodes_file), path(star_index),
           val(cell_barcode_length), val(umi_length), val(strand)
 
-    output:
-    tuple val(sample), val(accession), path("resultsSolo.out/Gene/raw/*"),                          emit: gene_raw
-    tuple val(sample), val(accession), path("resultsSolo.out/Gene/filtered/*"),                     emit: gene_filt, optional: true
+    output: 
     tuple val(sample), val(accession), path("resultsSolo.out/Gene/Summary.csv"),                    emit: gene_summary
-    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull/raw/*"),                      emit: gene_full_raw
-    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull/filtered/*"),                 emit: gene_full_filt, optional: true
     tuple val(sample), val(accession), path("resultsSolo.out/GeneFull/Summary.csv"),                emit: gene_full_summary
-    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_Ex50pAS/raw/*"),              emit: gene_ex50_raw
-    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_Ex50pAS/filtered/*"),         emit: gene_ex50_filt, optional: true
     tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_Ex50pAS/Summary.csv"),        emit: gene_ex50_summary
-    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_ExonOverIntron/raw/*"),       emit: gene_ex_int_raw
-    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_ExonOverIntron/filtered/*"),  emit: gene_ex_int_filt, optional: true
     tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_ExonOverIntron/Summary.csv"), emit: gene_ex_int_summary
-    tuple val(sample), val(accession), path("resultsSolo.out/Velocyto/raw/*"),                      emit: velocyto_raw
-    tuple val(sample), val(accession), path("resultsSolo.out/Velocyto/filtered/*"),                 emit: velocyto_filt, optional: true
     tuple val(sample), val(accession), path("resultsSolo.out/Velocyto/Summary.csv"),                emit: velocyto_summary
+    tuple val(sample), val(accession), path("resultsSolo.out/*/raw/*"),                             emit: raw
+    tuple val(sample), val(accession), path("resultsSolo.out/*/filtered/*"),                        emit: filt, optional: true
+    tuple val(sample), val(accession), path("resultsSolo.out/*/*.stats.gz"),                        emit: stats, optional: true
+    tuple val(sample), val(accession), path("resultsSolo.out/*/*.txt.gz"),                          emit: txt, optional: true
 
     script:
     """
@@ -118,11 +112,22 @@ process STAR_FULL {
       --outSAMtype None \\
       --soloBarcodeReadLength 0 \\
       --outFileNamePrefix results
+
+    # gzip the results
+    find resultsSolo.out -type f -name "*.stats" | xargs -P ${task.cpus} gzip
+    find resultsSolo.out -type f -name "*.txt" | xargs -P ${task.cpus} gzip
+    find resultsSolo.out -type f -name "*.tsv" | xargs -P ${task.cpus} gzip
+    find resultsSolo.out -type f -name "*.mtx" | xargs -P ${task.cpus} gzip
     """
 }
 
 def saveAsSTAR(sample, accession, filename) {
-    if (filename.endsWith(".mtx") || filename.endsWith(".tsv") || filename.endsWith(".csv")) {
+    if (filename.endsWith(".mtx.gz") || 
+        filename.endsWith(".tsv.gz") || 
+        filename.endsWith(".txt.gz") || 
+        filename.endsWith(".stats.gz") || 
+        filename.endsWith(".csv")) {
+        println "Saving ${filename} as STAR/${sample}/${accession}/${filename}"
         def parts = filename.tokenize("/")
         if (parts.size() > 1) {
             return "STAR/${sample}/${accession}/" + parts[1..-1].join('/')
