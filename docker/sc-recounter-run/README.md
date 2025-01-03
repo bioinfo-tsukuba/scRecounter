@@ -4,7 +4,7 @@ Env vars
 
 ```bash
 IMG_NAME=sc-recounter-run
-IMG_VERSION=0.1.1
+IMG_VERSION=0.1.2
 REGION="us-east1"
 GCP_PROJECT_ID="c-tc-429521"
 SERVICE_ACCOUNT_EMAIL="nick-nextflow@c-tc-429521.iam.gserviceaccount.com"
@@ -56,7 +56,7 @@ docker run -it --rm \
 
 ### GCP Artifact Registry
 
-Create
+Create (if needed)
 
 ```bash
 DESCRIPTION="Run the scRecounter nextflow pipeline"
