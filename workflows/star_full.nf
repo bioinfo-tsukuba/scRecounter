@@ -114,6 +114,7 @@ process STAR_FULL {
       --outFileNamePrefix results
 
     # gzip the results
+    mkdir -p resultsSolo.out
     find resultsSolo.out -type f -name "*.stats" | xargs -P ${task.cpus} gzip
     find resultsSolo.out -type f -name "*.txt" | xargs -P ${task.cpus} gzip
     find resultsSolo.out -type f -name "*.tsv" | xargs -P ${task.cpus} gzip
