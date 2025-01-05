@@ -38,6 +38,8 @@ parser.add_argument('--sample', type=str, default="",
                     help='Sample name')
 parser.add_argument('--accession', type=str, default="",
                     help='SRA accession')
+parser.add_argument('--reads_with_barcodes_cutoff', type=float, default=0.3,
+                    help='Minimum fraction of reads with valid barcodes')
 
 # functions
 def read_seqkit_stats(stats_file: str, sample: str, accession: str) -> pd.DataFrame:
@@ -55,7 +57,7 @@ def read_seqkit_stats(stats_file: str, sample: str, accession: str) -> pd.DataFr
         return None
     # read in as pandas dataframe
     DF = pd.read_csv(stats_file, sep='\t')
-    DF["accession"] = sample
+    DF["accession"] = accession
     DF["read"] =  "read" + DF["file"].str.extract(r'read_([12]).fastq$') + "_length"
     DF = DF[["accession", "read", "avg_len"]]
     # convert avg_len to int
@@ -67,20 +69,9 @@ def read_seqkit_stats(stats_file: str, sample: str, accession: str) -> pd.DataFr
     DF["sample"] = sample
     return DF
 
-def read_params(params_file: str) -> pd.DataFrame:
-    """
-    Read STAR params file and return as pandas dataframe.
-    Args:
-        params_file: Path to STAR params file
-    Returns:
-        pandas dataframe of STAR params
-    """
-    # read in as pandas dataframe
-    DF = pd.read_csv(params_file)
-    return DF
-
-def load_info(sra_stats_csv: str, star_params_csv: str, read_stats_tsv: str, sample: str, accession: str
-             ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_info(
+    sra_stats_csv: str, star_params_csv: str, read_stats_tsv: str, sample: str, accession: str
+    ) -> pd.DataFrame:
     """
     Load the information from the sra_stats_csv, star_params_csv, and read_stats_tsv
     and return the best parameters.
@@ -88,31 +79,90 @@ def load_info(sra_stats_csv: str, star_params_csv: str, read_stats_tsv: str, sam
         sra_stats_csv: Path to the sra_stats_csv file
         star_params_csv: Path to the star_params_csv file
         read_stats_tsv: Path to the read_stats_tsv file
-        outdir: Path to the output directory
+        sample: Sample name
+        accession: SRA accession
     Returns:
-        data: pandas dataframe of best parameters
-        data_all: pandas dataframe of all parameters
+        pandas dataframe of parameter combinations
     """
     # read in sra stats file
-    sra_stats = pd.read_csv(sra_stats_csv).drop("accession", axis=1)
+    sra_stats = pd.read_csv(sra_stats_csv)
 
     # read in seqkit stats file
-    seqkit_stats = read_seqkit_stats(read_stats_tsv, sample, accession).drop("sample", axis=1)
+    seqkit_stats = read_seqkit_stats(read_stats_tsv, sample, accession)
 
     # read in param files
     params = pd.concat([pd.read_csv(x) for x in star_params_csv], axis=0)
 
-    # merge on sample
-    data = pd.merge(params, seqkit_stats, how="cross").merge(sra_stats, how="cross")
+    # merge on sample and accession, the add sra-stats to all records
+    df = pd.merge(params, seqkit_stats, on=["sample", "accession"])
+    return pd.merge(df, sra_stats, on=["accession"]) 
+
+
+def get_strand_label(group: pd.DataFrame) -> str:
+    """
+    Get the strand label based on the number of reads mapped to the gene.
+    Args:
+        group: pandas dataframe group
+    Returns:
+        strand label
+    """
+    target_col = "Reads Mapped to GeneFull: Unique+Multiple GeneFull"
+    # get the target column values for the strand
+    try:
+        fwd = group.loc[group["strand"]=="Forward",target_col].values[0]
+    except IndexError:
+        fwd = 0
+    try:
+        rev = group.loc[group["strand"]=="Reverse",target_col].values[0]
+    except IndexError:
+        rev = 0
+    # return the strand label
+    if fwd >= 2 * rev:
+        return "Forward"
+    elif rev >= 2 * fwd:
+        return "Reverse"
+    else:
+        return "Ambiguous"
+
+def get_best_params(
+    data: pd.DataFrame, 
+    reads_with_barcodes_cutoff: float=0.3
+    ) -> pd.DataFrame:
+    """
+    Filter the data based on various criteria to select the best parameters.
+    Args:
+        data: pandas dataframe of all parameters
+        reads_with_barcodes_cutoff: Minimum fraction of reads with valid barcodes
+    Returns:
+        pandas dataframe of best parameters
+    """
+    # group by
+    group_by = ["sample", "accession", "barcodes_name", "star_index", "cell_barcode_length", "umi_length", "organism"]
+    proper_strand = data.groupby(group_by).apply(get_strand_label, include_groups=False).reset_index(name="proper_strand")
+
+    # join proper_strand to data
+    data = pd.merge(data, proper_strand, on=group_by)
+
+    # filter to proper strand
+    data = data[data["strand"] == data["proper_strand"]].drop(columns="proper_strand")
+
+    # Filter on fraction of reads with valid barcode
+    target_col = "Reads With Valid Barcodes"
+    data = data[data[target_col] >= reads_with_barcodes_cutoff]
 
     # Filter to the max `Fraction of Unique Reads in Cells` => best parameters
-    data = data[data['Fraction of Unique Reads in Cells'] != float("inf")]
-    max_frac = data['Fraction of Unique Reads in Cells'].max()
-    data_all = data.copy()
-    data = data[data['Fraction of Unique Reads in Cells'] == max_frac]
-    return data,data_all
+    target_col = "Fraction of Unique Reads in Cells"
+    data = data[data[target_col] != float("inf")]
+    data = data[data[target_col] == data[target_col].max()]
+    return data
 
 def write_all_data(data_all: pd.DataFrame, outfile_merged: str) -> None:
+    """
+    Write the merged data as CSV.
+    Args:
+        data_all: pandas dataframe of all parameters
+        outfile_merged: Path to the merged parameters CSV
+    """
     #-- table of all parameters --#
     # Estimate the number of cells
     data_all["saturation"] = data_all["Number of Reads"] / data_all["Sequencing Saturation"]
@@ -156,7 +206,7 @@ def write_data(data: pd.DataFrame, data_all: pd.DataFrame, outfile_selected: str
 
 def main(args, log_df):
     # set pandas display optionqs
-    pd.set_option('display.max_columns', 30)
+    pd.set_option('display.max_columns', 40)
     pd.set_option('display.width', 300)
     process = "select STAR params"
 
@@ -165,16 +215,18 @@ def main(args, log_df):
     outfile_merged = os.path.join(args.outdir, "merged_star_params.csv")
 
     # load the data
-    data,data_all = load_info(
+    data_all = load_info(
         args.sra_stats_csv, args.star_params_csv, args.read_stats_tsv, 
         args.sample, args.accession
     )
 
-    # get sample
-    sample = data_all["sample"].unique()[0]
+    # Filter data for various criteria
+    data_filt = get_best_params(
+        data_all.copy(),  reads_with_barcodes_cutoff=args.reads_with_barcodes_cutoff
+    )
 
     # check if data is empty
-    if data.shape[0] == 0:
+    if data_filt.shape[0] == 0:
         msg = "No valid barcodes found in the STAR summary table"
         logging.warning(msg)
         #write_log(logF, sample, "Valid barcode check", False, msg)
@@ -185,24 +237,24 @@ def main(args, log_df):
 
     # Convert dtypes
     for x in ["cell_barcode_length", "umi_length", "read1_length", "read2_length"]:
-        data[x] = data[x].astype(int)
+        data_filt[x] = data_filt[x].astype(int)
 
     # Check that read lengths are >= CELL_BARCODE_LENGTH + UMI_LENGTH
-    data["CHECK"] = data["cell_barcode_length"] + data["umi_length"] - data["read1_length"]
-    data = data[data["CHECK"] <= 0]
-    if data.shape[0] == 0:
+    data_filt["CHECK"] = data_filt["cell_barcode_length"] + data_filt["umi_length"] - data_filt["read1_length"]
+    data_filt = data_filt[data_filt["CHECK"] <= 0]
+    if data_filt.shape[0] == 0:
         msg = "No valid barcodes found in the STAR summary table after accounting for read lengths"
         logging.error(msg)
         add_to_log(log_df, args.sample, args.accession, process, "Read length filter", "Failure", msg)
         write_data(None, data_all, outfile_selected, outfile_merged)
         return None
-    data.drop(columns="CHECK", inplace=True)
+    data_filt.drop(columns="CHECK", inplace=True)
 
     # If multiple rows, take the first after sorting by "READS_WITH_VALID_BARCODES"
-    data = data.sort_values("Reads With Valid Barcodes", ascending=False).iloc[0]
+    data_filt = data_filt.sort_values("Reads With Valid Barcodes", ascending=False).iloc[0]
 
     # Write output
-    write_data(data, data_all, outfile_selected, outfile_merged)
+    write_data(data_filt, data_all, outfile_selected, outfile_merged)
 
     # Add to log table
     add_to_log(log_df, args.sample, args.accession, process, "Final", "Success", "Best parameters selected")

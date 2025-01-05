@@ -1,7 +1,6 @@
 include { joinReads; } from '../lib/utils.groovy'
 include { makeParamSets; validateRequiredColumns; loadBarcodes; loadStarIndices; expandStarParams } from '../lib/star_params.groovy'
 
-
 // Workflow to run STAR alignment on scRNA-seq data
 workflow STAR_PARAMS_WF{
     take:
@@ -33,11 +32,11 @@ workflow STAR_PARAMS_WF{
 
     // Pairwise combine samples with barcodes, strand, and star index
     ch_params = makeParamSets(ch_fastq, ch_barcodes, ch_star_indices)
-    
+
     // Run STAR on subsampled reads, for all pairwise parameter combinations
     STAR_PARAM_SEARCH(ch_params)
 
-    // Format the STAR parameters
+    // Format the STAR parameters into a CSV file
     STAR_FORMAT_PARAMS(STAR_PARAM_SEARCH.out)
     
     // Get best parameters
@@ -59,16 +58,41 @@ workflow STAR_PARAMS_WF{
     // Extract selected parameters from the JSON files
     ch_star_params = expandStarParams(ch_fastq, ch_star_params_json)
 
+
+    // Merge STAR parameters to a single cell for each sample
+    def majorityRule = { list ->
+        list.groupBy { it }
+            .collectEntries { k, v -> [(k): v.size()] }
+            .max { it.value }
+            .key
+        }
+
+    ch_star_params = ch_star_params.groupTuple()
+        .map { sample, accession, barcodes, star_index, cell_barcode_length, umi_length, strand ->
+            barcodes = majorityRule(barcodes)
+            star_index = majorityRule(star_index)
+            cell_barcode_length = majorityRule(cell_barcode_length)
+            umi_length = majorityRule(umi_length)
+            strand = majorityRule(strand)
+            [sample, barcodes, star_index, cell_barcode_length, umi_length, strand]
+        }
+
+
     emit:
     star_params = ch_star_params
 }
 
-process STAR_SELECT_PARAMS_REPORT {
+
+
+process STAR_SELECT_FINAL_PARAMS {
     publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true
     label "star_env"
 
     input:
-    path "star_params_*.json"
+    tuple val(sample), val(accession), val(metadata),
+        path("input*_R1.fastq"), path("input*_R2.fastq"), 
+        path(barcodes_file), path(star_index),
+        val(cell_barcode_length), val(umi_length), val(strand)
 
     output:
     path "report.csv"

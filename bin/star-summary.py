@@ -33,8 +33,6 @@ parser.add_argument('summary_csv', type=str, nargs='+',
                     help='STAR summary csv file(s)')
 parser.add_argument('--sample', type=str, default="",
                     help='Sample name')
-parser.add_argument('--accession', type=str, default="",
-                    help='Accession number')
 parser.add_argument('--outfile', type=str, default="Summary.csv",
                     help='Output file')
          
@@ -45,7 +43,7 @@ def main(args):
     pd.set_option('display.max_rows', 100)
     pd.set_option('display.width', 300)
 
-    # read in all files and concatenate
+    # read in all summary csv files and concatenate
     df = []
     regex = re.compile(r"_summary.csv$")
     for infile in args.summary_csv:
@@ -66,9 +64,8 @@ def main(args):
     # format columns: no spaces and lowercase
     df.columns = [x.lower().replace(" ", "_") for x in df.columns]
     
-    # add sample and accession
+    # add sample 
     df["sample"] = args.sample
-    df["accession"] = args.accession
 
     # coerce columns to numeric
     cols_to_convert = [

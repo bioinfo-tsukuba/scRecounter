@@ -8,16 +8,25 @@ workflow STAR_FULL_WF{
     
     main:
     //-- Download all reads --//
+    // filter out samples that lack selected parameters
+    samples_to_keep = ch_star_params.map{ it[0] }.collect()
+    ch_accessions_filt = ch_accessions.filter{
+        samples_to_keep.val.contains(it[0])
+    }
 
     // fasterq-dump
-    ch_fastq = FASTERQ_DUMP(ch_accessions, ch_star_params.map{ [it[0], it[1]] })
+    ch_fastq = FASTERQ_DUMP(ch_accessions_filt)
     ch_fastq = joinReads(ch_fastq.R1, ch_fastq.R2)
 
+
     // combine reads and star params
-    ch_fastq = ch_fastq.join(ch_star_params, by: [0,1])
+    ch_fastq = ch_fastq.map{ sample, accession, metadata, R1, R2 ->
+            [sample, R1, R2]
+        }
+        .groupTuple()
+        .join(ch_star_params)
 
     //-- Run STAR with the selected parameters on all reads --//
-
     // run STAR
     STAR_FULL(ch_fastq)
 
@@ -37,14 +46,14 @@ process STAR_FULL_SUMMARY {
     label "process_high"
 
     input:
-    tuple val(sample), val(accession), path("gene_summary.csv")
-    tuple val(sample), val(accession), path("gene_full_summary.csv")
-    tuple val(sample), val(accession), path("gene_ex50_summary.csv")
-    tuple val(sample), val(accession), path("gene_ex_int_summary.csv")
-    tuple val(sample), val(accession), path("velocyto_summary.csv")
+    tuple val(sample), path("gene_summary.csv")
+    tuple val(sample), path("gene_full_summary.csv")
+    tuple val(sample), path("gene_ex50_summary.csv")
+    tuple val(sample), path("gene_ex_int_summary.csv")
+    tuple val(sample), path("velocyto_summary.csv")
 
     output:
-    tuple val(sample), val(accession), path("Summary.csv")
+    tuple val(sample), path("Summary.csv")
 
     script:
     """
@@ -54,7 +63,6 @@ process STAR_FULL_SUMMARY {
 
     star-summary.py \\
       --sample ${sample} \\
-      --accession ${accession} \\
       gene_summary.csv \\
       gene_full_summary.csv \\
       gene_ex50_summary.csv \\
@@ -69,21 +77,20 @@ process STAR_FULL {
     label "process_high"
 
     input:
-    tuple val(sample), val(accession), val(metadata),
-          path("input*_R1.fastq"), path("input*_R2.fastq"), 
+    tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), 
           path(barcodes_file), path(star_index),
           val(cell_barcode_length), val(umi_length), val(strand)
 
     output: 
-    tuple val(sample), val(accession), path("resultsSolo.out/Gene/Summary.csv"),                    emit: gene_summary
-    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull/Summary.csv"),                emit: gene_full_summary
-    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_Ex50pAS/Summary.csv"),        emit: gene_ex50_summary
-    tuple val(sample), val(accession), path("resultsSolo.out/GeneFull_ExonOverIntron/Summary.csv"), emit: gene_ex_int_summary
-    tuple val(sample), val(accession), path("resultsSolo.out/Velocyto/Summary.csv"),                emit: velocyto_summary
-    tuple val(sample), val(accession), path("resultsSolo.out/*/raw/*"),                             emit: raw
-    tuple val(sample), val(accession), path("resultsSolo.out/*/filtered/*"),                        emit: filt, optional: true
-    tuple val(sample), val(accession), path("resultsSolo.out/*/*.stats.gz"),                        emit: stats, optional: true
-    tuple val(sample), val(accession), path("resultsSolo.out/*/*.txt.gz"),                          emit: txt, optional: true
+    tuple val(sample), path("resultsSolo.out/Gene/Summary.csv"),                    emit: gene_summary
+    tuple val(sample), path("resultsSolo.out/GeneFull/Summary.csv"),                emit: gene_full_summary
+    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/Summary.csv"),        emit: gene_ex50_summary
+    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/Summary.csv"), emit: gene_ex_int_summary
+    tuple val(sample), path("resultsSolo.out/Velocyto/Summary.csv"),                emit: velocyto_summary
+    tuple val(sample), path("resultsSolo.out/*/raw/*"),                             emit: raw
+    tuple val(sample), path("resultsSolo.out/*/filtered/*"),                        emit: filt, optional: true
+    tuple val(sample), path("resultsSolo.out/*/*.stats.gz"),                        emit: stats, optional: true
+    tuple val(sample), path("resultsSolo.out/*/*.txt.gz"),                          emit: txt, optional: true
 
     script:
     """
@@ -149,7 +156,6 @@ process FASTERQ_DUMP {
 
     input:
     tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
-    tuple val(sample), val(accession)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
