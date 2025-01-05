@@ -86,7 +86,7 @@ def main(args):
 
     # upsert results to database
     with db_connect() as conn:
-        db_upsert(df, "screcounter_star", conn)
+        db_upsert(df, "screcounter_star_results", conn)
 
     # write output table
     outdir = os.path.dirname(args.outfile)

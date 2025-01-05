@@ -57,29 +57,66 @@ workflow STAR_PARAMS_WF{
     // Extract selected parameters from the JSON files
     ch_star_params = expandStarParams(ch_fastq, ch_star_params_json)
 
-
     // Merge STAR parameters to a single set for each sample
     def majorityRule = { list ->
         list.groupBy { it }
             .collectEntries { k, v -> [(k): v.size()] }
             .max { it.value }
             .key
-        }
+    }
 
     ch_star_params = ch_star_params.groupTuple()
-        .map { sample, accession, barcodes, star_index, cell_barcode_length, umi_length, strand ->
-            barcodes = majorityRule(barcodes)
-            star_index = majorityRule(star_index)
-            cell_barcode_length = majorityRule(cell_barcode_length)
-            umi_length = majorityRule(umi_length)
-            strand = majorityRule(strand)
-            [sample, barcodes, star_index, cell_barcode_length, umi_length, strand]
+        .map { sample, accessions, barcodes, star_indices, cell_barcode_lengths, umi_lengths, strands ->
+            def combined_params = [barcodes, star_indices, cell_barcode_lengths, umi_lengths, strands].transpose()
+            [sample] + majorityRule(combined_params)
         }
+
+    // Save the final STAR parameters to the database
+    STAR_SAVE_FINAL_PARAMS(ch_star_params)
 
     emit:
     star_params = ch_star_params
 }
 
+// Set STAR parameters based on valid barcodes
+def saveAsFinalParams(sample, filename) {
+    if (filename.endsWith(".csv") || filename.endsWith(".json")){
+        filename = filename.tokenize("/").last()
+        return "STAR/${sample}/${filename}"
+    }
+    return null
+}
+
+process STAR_SAVE_FINAL_PARAMS {
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsFinalParams(sample, filename) }
+    label "star_env"
+
+    input:
+    tuple val(sample), val(barcodes), val(star_index), val(cell_barcode_length), val(umi_length), val(strand)
+
+    output:
+    path "star_params.csv"
+
+    script:
+    """
+    export GCP_SQL_DB_HOST="${params.db_host}"
+    export GCP_SQL_DB_NAME="${params.db_name}"
+    export GCP_SQL_DB_USERNAME="${params.db_username}"
+
+    upload-final-star-params.py \\
+      --sample ${sample} \\
+      --barcodes ${barcodes} \\
+      --star-index ${star_index} \\
+      --cell-barcode-length ${cell_barcode_length} \\
+      --umi-length ${umi_length} \\
+      --strand ${strand}
+    """
+
+    stub:
+    """
+    touch star_params.json
+    """
+}
 
 
 process STAR_SELECT_FINAL_PARAMS {
