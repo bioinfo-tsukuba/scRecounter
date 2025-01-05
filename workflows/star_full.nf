@@ -130,12 +130,8 @@ process STAR_FULL {
 }
 
 def saveAsSTAR(sample, accession, filename) {
-    if (filename.endsWith(".mtx.gz") || 
-        filename.endsWith(".tsv.gz") || 
-        filename.endsWith(".txt.gz") || 
-        filename.endsWith(".stats.gz") || 
-        filename.endsWith(".csv")) {
-        println "Saving ${filename} as STAR/${sample}/${accession}/${filename}"
+    def extensions = [".mtx.gz", ".tsv.gz", ".txt.gz", ".stats.gz", ".csv"]
+    if (extensions.any { filename.endsWith(it) }) {
         def parts = filename.tokenize("/")
         if (parts.size() > 1) {
             return "STAR/${sample}/${accession}/" + parts[1..-1].join('/')

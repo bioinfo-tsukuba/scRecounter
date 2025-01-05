@@ -8,10 +8,9 @@ workflow STAR_PARAMS_WF{
     ch_sra_stat
 
     main:
-    //-- Download subset of reads reads --//
-    
+    //-- Download subset of reads reads --//    
     // Run prefetch & fastq-dump
-    ch_fqdump = FASTQ_DUMP(ch_accessions)
+    ch_fqdump = FASTQ_DUMP(ch_accessions.randomSample(params.max_accessions, 23482))
 
     // Merge dump logs
     FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
@@ -59,7 +58,7 @@ workflow STAR_PARAMS_WF{
     ch_star_params = expandStarParams(ch_fastq, ch_star_params_json)
 
 
-    // Merge STAR parameters to a single cell for each sample
+    // Merge STAR parameters to a single set for each sample
     def majorityRule = { list ->
         list.groupBy { it }
             .collectEntries { k, v -> [(k): v.size()] }
@@ -76,7 +75,6 @@ workflow STAR_PARAMS_WF{
             strand = majorityRule(strand)
             [sample, barcodes, star_index, cell_barcode_length, umi_length, strand]
         }
-
 
     emit:
     star_params = ch_star_params
