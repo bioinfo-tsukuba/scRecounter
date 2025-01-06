@@ -8,21 +8,18 @@ workflow STAR_FULL_WF{
     
     main:
     //-- Download all reads --//
-    // filter out samples that lack selected parameters
+    // filter out samples that lack a set of selected parameters
     samples_to_keep = ch_star_params.map{ it[0] }.collect()
     ch_accessions_filt = ch_accessions.filter{
         samples_to_keep.val.contains(it[0])
     }
 
-    // fasterq-dump
+    // fasterq-dump to download all reads
     ch_fastq = FASTERQ_DUMP(ch_accessions_filt)
     ch_fastq = joinReads(ch_fastq.R1, ch_fastq.R2)
 
-
     // combine reads and star params
-    ch_fastq = ch_fastq.map{ sample, accession, metadata, R1, R2 ->
-            [sample, R1, R2]
-        }
+    ch_fastq = ch_fastq.map{ sample, accession, metadata, R1, R2 -> [sample, R1, R2] }
         .groupTuple()
         .join(ch_star_params)
 
