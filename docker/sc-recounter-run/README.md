@@ -52,7 +52,18 @@ docker run -it --rm \
   -profile docker,gcp,gcp_dev,dev,no_acc_dev
 ```
 
-> Working accessions: `ERX9427763`
+Run with bash entrypoint
+
+```bash
+docker run -it --rm \
+  -u $(id -u):$(id -g) \
+  -v ${PWD}:/data \
+  -v ${HOME}/.gcp/:/.gcp \
+  --env GOOGLE_APPLICATION_CREDENTIALS=/.gcp/${SERVICE_ACCOUNT_JSON} \
+  --entrypoint /bin/bash \
+  --platform linux/amd64 \
+  ${IMG_NAME}:${IMG_VERSION}
+```
 
 ### GCP Artifact Registry
 
