@@ -9,10 +9,10 @@ workflow STAR_FULL_WF{
     main:
     //-- Download all reads --//
     // filter out samples that lack a set of selected parameters
-    samples_to_keep = ch_star_params.map{ it[0] }.collect()
-    ch_accessions_filt = ch_accessions.filter{
-        samples_to_keep.val.contains(it[0])
-    }
+    ch_accessions_filt = ch_accessions.combine(
+        ch_star_params.map{ it[0] }.unique(), by: 0
+    )
+    //ch_accessions_filt.view()
 
     // fasterq-dump to download all reads
     ch_fastq = FASTERQ_DUMP(ch_accessions_filt)
