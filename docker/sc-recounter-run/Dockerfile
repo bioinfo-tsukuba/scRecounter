@@ -40,8 +40,8 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER data/ ./data/
 COPY --chown=$MAMBA_USER:$MAMBA_USER lib/ ./lib/ 
 COPY --chown=$MAMBA_USER:$MAMBA_USER workflows/ ./workflows/
 
-# Copy entrypoint script
-COPY bin/db_utils.py ${BASE_DIR}/sc-recounter-run.py ${BASE_DIR}/entrypoint.sh ./
+# Copy runner scripts
+COPY bin/db_utils.py ${BASE_DIR}/entrypoint.sh ${BASE_DIR}/remove-empty-runs.py  ./
 
 # Create a directory for the mamba cache
 RUN mkdir -p /.cache/mamba/ /app/.nextflow/ /scratch/ \

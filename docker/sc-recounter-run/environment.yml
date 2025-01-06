@@ -9,4 +9,5 @@ dependencies:
   - pypika=0.48
   - python-dotenv=1.0
   - google-cloud-secret-manager=2.22
+  - google-cloud-storage=2.19.0
   - nextflow=24.10
