@@ -102,6 +102,7 @@ gcloud beta run jobs update ${JOB_NAME} \
   --cpu=2 \
   --memory=6Gi \
   --task-timeout=4320m \
+  --max-retries=0 \
   --args=""
 ```
 

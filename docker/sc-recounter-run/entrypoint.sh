@@ -13,4 +13,5 @@ micromamba run -n sc-recounter-run \
     -ansi-log false "$@"
 
 # Remove the work directory
-nextflow clean $RUN_NAME -force -quiet 
+micromamba run -n sc-recounter-run \
+  nextflow clean $RUN_NAME -force -quiet 
