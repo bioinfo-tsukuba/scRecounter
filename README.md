@@ -145,6 +145,14 @@ nextflow run main.nf \
   -profile conda,trace,report,vm,vm_dev,dev,acc_dev
 ```
 
+Local run with provided accessions (problematic datasets)
+
+```bash
+nextflow run main.nf \
+  -work-dir tmp/work \
+  -profile conda,trace,report,vm,vm_dev,dev,acc_dev_problems
+```
+
 With conda, accessions pulled from scRecounter database:
 
 ```bash
