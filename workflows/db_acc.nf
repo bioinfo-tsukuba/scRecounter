@@ -4,6 +4,7 @@ workflow DB_ACC_WF {
     main:
     // obtain accessions from the database
     ch_accessions = GET_DB_ACCESSIONS()
+    ch_accessions.ifEmpty { println 'No accessions found in the scRecounter database' }
 
     emit:
     ch_accessions
