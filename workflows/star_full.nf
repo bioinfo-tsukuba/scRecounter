@@ -12,7 +12,6 @@ workflow STAR_FULL_WF{
     ch_accessions_filt = ch_accessions.combine(
         ch_star_params.map{ it[0] }.unique(), by: 0
     )
-    //ch_accessions_filt.view()
 
     // fasterq-dump to download all reads
     ch_fastq = FASTERQ_DUMP(ch_accessions_filt)

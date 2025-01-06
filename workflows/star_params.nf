@@ -9,7 +9,7 @@ workflow STAR_PARAMS_WF{
 
     main:
     //-- Download subset of reads reads --//    
-    // Run prefetch & fastq-dump
+    // Run prefetch & fastq-dump; only testing on subset of SRR accessions, if many
     ch_fqdump = FASTQ_DUMP(ch_accessions.randomSample(params.max_accessions, 23482))
 
     // Merge dump logs
