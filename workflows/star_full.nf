@@ -38,7 +38,7 @@ workflow STAR_FULL_WF{
 }
 
 process STAR_FULL_SUMMARY {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, accession, filename) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
     label "star_env"
     label "process_high"
 
@@ -69,7 +69,7 @@ process STAR_FULL_SUMMARY {
 }
 
 process STAR_FULL {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, accession, filename) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
     label "star_env"
     label "process_high"
 
@@ -126,14 +126,14 @@ process STAR_FULL {
     """
 }
 
-def saveAsSTAR(sample, accession, filename) {
+def saveAsSTAR(sample, filename) {
     def extensions = [".mtx.gz", ".tsv.gz", ".txt.gz", ".stats.gz", ".csv"]
     if (extensions.any { filename.endsWith(it) }) {
         def parts = filename.tokenize("/")
         if (parts.size() > 1) {
-            return "STAR/${sample}/${accession}/" + parts[1..-1].join('/')
+            return "STAR/${sample}/" + parts[1..-1].join('/')
         } else {
-            return "STAR/${sample}/${accession}/" + parts[0]
+            return "STAR/${sample}/" + parts[0]
         }
     } 
     return null
