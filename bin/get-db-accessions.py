@@ -121,7 +121,7 @@ def main(args):
     
     # write to log table in scRecounter database
     ## convert df
-    df["process"] = "get database accessions"
+    df["process"] = "Get db accessions"
     df["step"] = "Final"
     df["status"] = "Success"
     df["message"] = "Obtained database accession for processing"

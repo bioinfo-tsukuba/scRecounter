@@ -97,6 +97,7 @@ def main(args):
     # update screcounter log
     log_df = pd.DataFrame({
         "sample": [args.sample],
+        "accession": [""],
         "process": ["STAR-full"],
         "step": ["Final"],
         "status": ["Success"],

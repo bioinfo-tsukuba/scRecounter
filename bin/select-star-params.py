@@ -208,7 +208,7 @@ def main(args, log_df):
     # set pandas display optionqs
     pd.set_option('display.max_columns', 40)
     pd.set_option('display.width', 300)
-    process = "select STAR params"
+    process = "Select STAR params"
 
     # set output file paths
     outfile_selected = os.path.join(args.outdir, "selected_star_params.json")
