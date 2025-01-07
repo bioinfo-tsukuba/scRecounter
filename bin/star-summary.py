@@ -94,6 +94,18 @@ def main(args):
         os.makedirs(outdir, exist_ok=True)
     df.to_csv(args.outfile, index=False)
 
+    # update screcounter log
+    log_df = pd.DataFrame({
+        "sample": [args.sample],
+        "process": ["STAR-full"],
+        "step": ["Final"],
+        "status": ["Success"],
+        "message": ["STAR summary table generated"]
+    })
+    with db_connect() as conn:
+        db_upsert(log_df, "screcounter_log", conn)
+
+
 ## script main
 if __name__ == '__main__':
     args = parser.parse_args()
