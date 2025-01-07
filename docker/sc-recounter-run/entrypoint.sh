@@ -12,10 +12,8 @@ micromamba run -n sc-recounter-run \
     --output_dir "gs://arc-ctc-screcounter/prod/${RUN_NAME}" \
     -ansi-log false "$@"
 
-# Clean up the working directory
-micromamba run -n sc-recounter-run \
-  nextflow clean $RUN_NAME -force -quiet 
-
 # Delete output directory if only nf-report and nf-trace
 micromamba run -n sc-recounter-run \
-  python remove-empty-runs.py "gs://arc-ctc-screcounter/prod/${RUN_NAME}"
+  python cleanup.py \
+    "gs://arc-ctc-nextflow/scRecounter/prod/work/${RUN_NAME}" \
+    "gs://arc-ctc-screcounter/prod/${RUN_NAME}"

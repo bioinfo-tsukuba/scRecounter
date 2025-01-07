@@ -8,15 +8,22 @@ class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
     pass
 
-desc = 'Remove empty runs from the GCP bucket'
+desc = 'Clean up after a scRecounter production run'
 epi = """DESCRIPTION:
 Examples:
-python docker/sc-recounter-run/remove-empty-runs.py gs://arc-ctc-screcounter/prod/SCRECOUNTER_2025-01-06_11-42-25/
+python cleanup.py gs://arc-ctc-nextflow/scRecounter/prod/work/SCRECOUNTER_2025-01-06_15-46-04/ gs://arc-ctc-screcounter/prod/SCRECOUNTER_2025-01-06_15-46-04/ 
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
-parser.add_argument('gcp_bucket_path', type=str, 
-                    help='GCP bucket path (e.g., gs://bucket-name/path/to/folder)')
+parser.add_argument(
+    'work_dir', type=str, 
+    help='GCP bucket path to work directory (e.g., gs://bucket-name/path/to/folder)'
+)
+parser.add_argument(
+    'output_dir', type=str, 
+    help='GCP bucket path to output directory (e.g., gs://bucket-name/path/to/folder)'
+)
+
 
 
 def list_directories(bucket_name, prefix):
@@ -45,9 +52,9 @@ def parse_gs_path(gs_path):
     prefix = parts[1] if len(parts) > 1 else ""
     return bucket_name, prefix.rstrip("/") + "/"
 
-def main(args):  
+def clean_output_dir(output_dir):
     # parse the bucket path  
-    bucket_name, path_prefix = parse_gs_path(args.gcp_bucket_path)
+    bucket_name, path_prefix = parse_gs_path(output_dir)
     
     # list directories in the bucket path
     directories = list_directories(bucket_name, path_prefix)
@@ -57,9 +64,25 @@ def main(args):
     if set(directories) == {"nf-report", "nf-trace"}:
         print("Only 'nf-report' and 'nf-trace' directories found. Deleting the bucket path...")
         delete_bucket_path(bucket_name, path_prefix)
-        print(f"Deleted path: {args.gcp_bucket_path}")
+        print(f"Deleted path: {output_dir}")
     else:
         print("Bucket path contains other directories. No deletion performed.")
+
+def clean_work_dir(work_dir):
+    """
+    Delete the contents of the work directory
+    """
+    # parse the bucket path  
+    bucket_name, path_prefix = parse_gs_path(work_dir)
+    
+    print("Deleting the contents of the working directory...")
+    delete_bucket_path(bucket_name, path_prefix)
+    print(f"Deleted path: {work_dir}")
+
+def main(args): 
+    clean_work_dir(args.work_dir)
+    clean_output_dir(args.output_dir)
+    
 
 if __name__ == "__main__":
     args = parser.parse_args()
