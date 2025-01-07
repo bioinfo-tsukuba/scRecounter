@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import argparse
+from typing import Tuple, List
 from google.cloud import storage
 
 # argparse
@@ -25,8 +26,16 @@ parser.add_argument(
 )
 
 
-
-def list_directories(bucket_name, prefix):
+# functions
+def list_directories(bucket_name: str, prefix: str) -> List[str]:
+    """
+    List directories in a GCP bucket path
+    Args:
+        bucket_name: GCP bucket name
+        prefix: GCP bucket prefix    
+    Returns:
+        List of directories in the bucket path
+    """
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blobs = bucket.list_blobs(prefix=prefix, delimiter='/')
@@ -36,7 +45,13 @@ def list_directories(bucket_name, prefix):
         directories.extend(page.prefixes)
     return [d.rstrip('/') for d in directories]
 
-def delete_bucket_path(bucket_name, path):
+def delete_bucket_path(bucket_name: str, path: str) -> None:
+    """
+    Delete all objects in a GCP bucket path
+    Args:
+        bucket_name: GCP bucket name
+    """
+
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blobs = bucket.list_blobs(prefix=path)
@@ -44,7 +59,14 @@ def delete_bucket_path(bucket_name, path):
     for blob in blobs:
         blob.delete()
 
-def parse_gs_path(gs_path):
+def parse_gs_path(gs_path: str) -> Tuple[str, str]:
+    """
+    Parse a GCP bucket path
+    Args:
+       gs_path: GCP bucket path
+    Returns:
+        Tuple of bucket name and prefix
+    """
     if not gs_path.startswith("gs://"):
         raise ValueError("Path must start with 'gs://'")
     parts = gs_path[5:].split("/", 1)
@@ -52,7 +74,13 @@ def parse_gs_path(gs_path):
     prefix = parts[1] if len(parts) > 1 else ""
     return bucket_name, prefix.rstrip("/") + "/"
 
-def clean_output_dir(output_dir):
+def clean_output_dir(output_dir: str) -> None:
+    """
+    Delete the contents of the output directory, 
+    if it only contains 'nf-report' and 'nf-trace' directories
+    Args:
+       output_dir: GCP bucket path to output directory
+    """
     # parse the bucket path  
     bucket_name, path_prefix = parse_gs_path(output_dir)
     
@@ -68,9 +96,11 @@ def clean_output_dir(output_dir):
     else:
         print("Bucket path contains other directories. No deletion performed.")
 
-def clean_work_dir(work_dir):
+def clean_work_dir(work_dir:  str) -> None:
     """
     Delete the contents of the work directory
+    Args:
+       work_dir: GCP bucket path to work directory
     """
     # parse the bucket path  
     bucket_name, path_prefix = parse_gs_path(work_dir)
