@@ -46,6 +46,7 @@ parser.add_argument('--outfile', type=str, default="accessions.csv",
 # functions
 def db_get_unprocessed_records(
     conn: connection, 
+    process: str,
     database: List[str], 
     max_srx: int=3
     ) -> pd.DataFrame:
@@ -69,7 +70,7 @@ def db_get_unprocessed_records(
         .from_(scr_log) \
         .select(scr_log.sample) \
         .where(Criterion.all([
-            scr_log.process == "get database accessions",
+            scr_log.process == process,
             scr_log.step == "Final",
             scr_log.status == "Success",
         ])) \
@@ -113,15 +114,18 @@ def db_get_unprocessed_records(
     return pd.read_sql(str(stmt), conn)
 
 def main(args):
+    # set process name
+    process = "Get db accessions"
+
     # get unprocessed records
     with db_connect() as conn:
-        df = db_get_unprocessed_records(conn, args.database, args.max_srx)
+        df = db_get_unprocessed_records(conn, process, args.database, max_srx=args.max_srx)
     ## write out records
     df.to_csv(args.outfile, index=False)
     
     # write to log table in scRecounter database
     ## convert df
-    df["process"] = "Get db accessions"
+    df["process"] = process
     df["step"] = "Final"
     df["status"] = "Success"
     df["message"] = "Obtained database accession for processing"
