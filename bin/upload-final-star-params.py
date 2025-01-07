@@ -49,7 +49,7 @@ def main(args):
     df = pd.DataFrame({
         'sample': [args.sample],
         'barcodes': [os.path.basename(args.barcodes)],
-        'star_index': [os.path.basename(args.star_index)],
+        'star_index': [os.path.basename(args.star_index.rstrip("/"))],
         'cell_barcode_length': [args.cell_barcode_length],
         'umi_length': [args.umi_length],
         'strand': [args.strand]
