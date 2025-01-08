@@ -65,7 +65,7 @@ def db_get_unprocessed_records(
     scr_log = Table("screcounter_log")
 
     # subquery to get srx_accessions
-    ## sc-recounter log
+    ## find already-processed records in sc-recounter log
     nontarget_srx = Query \
         .from_(scr_log) \
         .select(scr_log.sample) \
@@ -76,7 +76,7 @@ def db_get_unprocessed_records(
         ])) \
         .distinct()
 
-    ## filtering criteria
+    ## find unprocessed records
     target_srx = Query \
         .from_(srx_metadata) \
         .left_join(nontarget_srx) \
