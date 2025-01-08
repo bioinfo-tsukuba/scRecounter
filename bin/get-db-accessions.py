@@ -90,8 +90,7 @@ def db_get_unprocessed_records(
             srx_metadata.is_paired_end == "yes",
             ~srx_metadata.tech_10x.isin(["other", "not_applicable"])
         ])) \
-        .distinct() \
-        .limit(max_srx)
+        .distinct()
 
     # main query to obtain the SRR for each SRX and then format the output
     stmt = (
@@ -108,6 +107,7 @@ def db_get_unprocessed_records(
             srx_metadata.organism.as_("organism"),
             srx_metadata.tech_10x.as_("tech_10x"),
         )
+        .limit(max_srx)
     )
         
     # fetch as pandas dataframe
@@ -122,7 +122,7 @@ def main(args):
         df = db_get_unprocessed_records(conn, process, args.database, max_srx=args.max_srx)
     ## write out records
     df.to_csv(args.outfile, index=False)
-    
+
     # write to log table in scRecounter database
     ## convert df
     df["process"] = process
@@ -132,7 +132,7 @@ def main(args):
 
     ## filter columns
     df = df[["sample", "accession", "process", "step", "status", "message"]]
-    
+
     ## upsert log to database
     with db_connect() as conn:
         db_upsert(df, "screcounter_log", conn)
