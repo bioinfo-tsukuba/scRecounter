@@ -88,7 +88,8 @@ def db_get_unprocessed_records(
             srx_metadata.is_illumina == "yes",
             srx_metadata.is_single_cell == "yes",
             srx_metadata.is_paired_end == "yes",
-            ~srx_metadata.tech_10x.isin(["other", "not_applicable"])
+            srx_metadata.lib_prep == "10x_Genomics",
+            #~srx_metadata.tech_10x.isin(["other", "not_applicable"])
         ])) \
         .distinct()
 
