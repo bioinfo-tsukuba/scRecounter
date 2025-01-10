@@ -48,7 +48,8 @@ def db_get_unprocessed_records(
     conn: connection, 
     process: str,
     database: List[str], 
-    max_srx: int=3
+    max_srx: int=3,
+    organisms: List[str] = ["human", "mouse"]
     ) -> pd.DataFrame:
     """
     Get all suitable unprocessed SRX records, limiting by unique srx_accession values.
@@ -89,6 +90,7 @@ def db_get_unprocessed_records(
             srx_metadata.is_single_cell == "yes",
             srx_metadata.is_paired_end == "yes",
             srx_metadata.lib_prep == "10x_Genomics",
+            srx_metadata.organism.isin(organisms),
             #~srx_metadata.tech_10x.isin(["other", "not_applicable"])
         ])) \
         .distinct()
