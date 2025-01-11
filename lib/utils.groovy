@@ -62,8 +62,10 @@ def addStats(ch_accessions, ch_sra_stat){
 }
 
 def joinReads(ch_read1, ch_read2){
+    // extract metadata to prevent incorrect joining
     ch_metadata = ch_read1.map{ sample,accession,metadata,fastq -> [sample,accession,metadata] }
 
+    // join the read1 and read2 channels
     return ch_read1
         .map{ sample,accession,metadata,fastq -> [sample,accession,fastq] }
         .join(

@@ -103,7 +103,7 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
     df = df[list(set(get_table_columns(table_name, conn)).intersection(df.columns))]
 
     # Sanitize integer columns
-    df = sanitize_int_columns(df)
+    df = sanitize_int_columns(df.copy())
 
     # Get DataFrame columns
     columns = list(df.columns)
@@ -269,6 +269,5 @@ def get_srx_metadata_limit5(conn):
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
-    #print(get_db_certs())
     with db_connect() as conn:
         print(get_srx_metadata_limit5(conn))

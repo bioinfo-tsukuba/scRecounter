@@ -54,8 +54,7 @@ def main(args):
     df = pd.concat(df)
 
     # status
-    logging.info(f"Number of rows in row summary table: {df.shape[0]}")
-    print(df);
+    logging.info(f"Number of rows in the raw table: {df.shape[0]}")
 
     # format category
     for x in ["Gene", "GeneFull", "GeneFull_Ex50pAS", "GeneFull_ExonOverIntron", "Velocyto"]:
@@ -66,8 +65,7 @@ def main(args):
     df = df.pivot(index='feature', columns='category', values='value').reset_index()
     
     # format columns: no spaces and lowercase
-   # regex = re.compile(r"[^\W]+")
-    df.columns = df.columns.str.replace(r'\W', '_', regex=True).str.lower() #[regex.sub(x.lower(), "_") for x in df.columns]
+    df.columns = df.columns.str.replace(r'\W', '_', regex=True).str.lower() 
 
     # coerce columns to numeric
     for col in df.columns.to_list():
@@ -85,9 +83,9 @@ def main(args):
 
     # status
     logging.info(f"Number of rows after formattings: {df.shape[0]}")
-    print(df);
 
     # upsert results to database
+    logging.info("Updating screcounter_star_results...")
     with db_connect() as conn:
         db_upsert(df, "screcounter_star_results", conn)
 
@@ -98,6 +96,7 @@ def main(args):
     df.to_csv(args.outfile, index=False)
 
     # update screcounter log
+    logging.info("Updating screcounter_log...")
     log_df = pd.DataFrame({
         "sample": [args.sample],
         "accession": [""],

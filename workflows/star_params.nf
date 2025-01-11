@@ -179,7 +179,7 @@ process STAR_FORMAT_PARAMS {
     script:
     """
     BARCODES_FILE=\$(basename ${params.barcodes_file})
-    STAR_INDEX=\$(dirname ${params.star_index})
+    STAR_INDEX=\$(basename ${params.star_index})
 
     format-star-params.py \\
       --sample ${params.sample} \\
@@ -217,8 +217,8 @@ process STAR_PARAM_SEARCH {
 
     script:
     """
-    BARCODES_FILE=\$(basename ${params.barcodes_file})
-    STAR_INDEX=\$(dirname ${params.star_index})
+    BARCODES_FILE=\$(basename "${params.barcodes_file}")
+    STAR_INDEX=\$(basename "${params.star_index}")
 
     # run STAR
     STAR \\

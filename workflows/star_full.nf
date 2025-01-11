@@ -25,7 +25,6 @@ workflow STAR_FULL_WF{
     //-- Run STAR with the selected parameters on all reads --//
     // run STAR
     STAR_FULL(ch_fastq)
-    STAR_FULL.out.view() // TODO: remove this line
 
     // summarize the STAR results
     STAR_FULL_SUMMARY(

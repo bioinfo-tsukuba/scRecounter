@@ -201,8 +201,7 @@ def main(args, log_df):
     cmd = ["vdb-config", "--report-cloud-identity", "yes"]
     returncode, output, err = run_cmd(cmd)
     if returncode != 0:
-        logging.error(err)
-        sys.exit(1)
+        logging.warning(err)
 
     # run fast(er)q-dump
     cmd = []
@@ -250,7 +249,7 @@ def main(args, log_df):
     status = "Success" if returncode == 0 else "Failure"
     add_to_log(log_df, args.sample, args.accession, "fq-dump", cmd[0], status, msg)
     if returncode != 0:
-        logging.error(err)
+        logging.warning(err)
         return None
 
     # Check the fq-dump output
