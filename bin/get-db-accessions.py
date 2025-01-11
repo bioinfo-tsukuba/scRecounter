@@ -36,7 +36,7 @@ Write out the accessions csv table:
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
-parser.add_argument('--max-srx', type=int, default=1,
+parser.add_argument('--max-srx', type=int, default=5,
                     help='Max number of srx records to return')
 parser.add_argument('--database', type=str, default=["sra", "gds"], nargs="+",
                     help='Only return records from these databases')
@@ -123,6 +123,7 @@ def main(args):
     # get unprocessed records
     with db_connect() as conn:
         df = db_get_unprocessed_records(conn, process, args.database, max_srx=args.max_srx)
+
     ## write out records
     df.to_csv(args.outfile, index=False)
 

@@ -9,11 +9,11 @@ micromamba run -n sc-recounter-run \
     -profile docker,gcp,report,trace \
     -name $RUN_NAME \
     -work-dir "gs://arc-ctc-nextflow/scRecounter/prod/work/${RUN_NAME}" \
-    --output_dir "gs://arc-ctc-screcounter/prod/${RUN_NAME}" \
+    --output_dir "gs://arc-ctc-screcounter/prod2/${RUN_NAME}" \
     -ansi-log false "$@"
 
 # Delete output directory if only nf-report and nf-trace
 micromamba run -n sc-recounter-run \
   python cleanup.py \
     "gs://arc-ctc-nextflow/scRecounter/prod/work/${RUN_NAME}" \
-    "gs://arc-ctc-screcounter/prod/${RUN_NAME}"
+    "gs://arc-ctc-screcounter/prod2/${RUN_NAME}"

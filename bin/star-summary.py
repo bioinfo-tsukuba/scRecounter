@@ -66,21 +66,6 @@ def main(args):
     df.columns = df.columns.str.replace(r'\W', '_', regex=True).str.lower() #[regex.sub(x.lower(), "_") for x in df.columns]
 
     # coerce columns to numeric
-    # cols_to_convert = [
-    #     "fraction_of_unique_reads_in_cells", 
-    #     "mean_gene_per_cell",
-    #     "mean_umi_per_cell", 
-    #     "mean_feature_per_cell",
-    #     "median_gene_per_cell",
-    #     "median_umi_per_cell",
-    #     "median_feature_per_cell",
-    #     "sequencing_saturation",
-    #     "estimated_number_of_cells", 
-    #     "number_of_reads",
-    #     "reads_with_valid_barcodes",
-    #     "umis_in_cells"
-    # ]
-    
     for col in df.columns.to_list():
         if col != "feature":
             df[col] = pd.to_numeric(df[col], errors='coerce')
