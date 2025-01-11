@@ -151,14 +151,16 @@ process FASTERQ_DUMP {
     memory { (36.GB + Math.round(sra_file_size_gb).GB) * task.attempt }
     time { (16.h + (sra_file_size_gb * 0.8).h) * task.attempt }
     disk { 
-        def disk_size = 
+        def disk_size = 100.GB + (sra_file_size_gb * (8 + task.attempt * 2)).GB
+        [request: disk_size, type: 'local-ssd'] 
+    }
+    /*
+    def disk_size = 
             sra_file_size_gb > 200 ? 1200.GB :
             sra_file_size_gb > 100 ? 600.GB :
             sra_file_size_gb > 50 ? 450.GB :
             300.GB
-        [request: disk_size * task.attempt, type: 'local-ssd'] 
-    }
-    //def disk_size = 200.GB + (sra_file_size_gb * 7).GB
+    */
     
     input:
     tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
