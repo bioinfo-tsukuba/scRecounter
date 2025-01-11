@@ -150,17 +150,18 @@ process FASTERQ_DUMP {
     cpus 16
     memory { 16.GB * task.attempt }
     time { (16.h + (sra_file_size_gb * 0.8).h) * task.attempt }
+    disk { 300.GB + (sra_file_size_gb * (8 + task.attempt * 2)).GB }
+    /*
     disk { 
-        def disk_size = 300.GB + (sra_file_size_gb * (8 + task.attempt * 2)).GB
-        /*
         def disk_size = 
             sra_file_size_gb > 150 ? 1500.GB :
             sra_file_size_gb > 75 ? 1125.GB :
             sra_file_size_gb > 40 ? 750.GB :
             375.GB
-        */
-        [request: disk_size, type: 'pd-standard'] 
+        
+        [request: disk_size, type: 'local-ssd'] 
     }
+    */
     
     input:
     tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
@@ -176,6 +177,9 @@ process FASTERQ_DUMP {
     export GCP_SQL_DB_NAME="${params.db_name}"
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
+    echo "Downloading ${accession} for ${sample}" > ${task.process}.log
+    echo "sra-state file size: ${sra_file_size_gb} GB" >> ${task.process}.log
+
     fq-dump.py \\
       --sample ${sample} \\
       --accession ${accession} \\
@@ -188,7 +192,7 @@ process FASTERQ_DUMP {
       --min-read-length ${params.min_read_len} \\
       --outdir reads \\
       ${accession} \\
-      2>&1 | tee ${task.process}.log
+      2>&1 | tee -a ${task.process}.log
     """
 
     stub:
