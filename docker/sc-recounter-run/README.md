@@ -4,7 +4,7 @@ Env vars
 
 ```bash
 IMG_NAME=sc-recounter-run
-IMG_VERSION=0.1.2
+IMG_VERSION=0.1.3
 REGION="us-east1"
 GCP_PROJECT_ID="c-tc-429521"
 SERVICE_ACCOUNT_EMAIL="nick-nextflow@c-tc-429521.iam.gserviceaccount.com"
@@ -101,7 +101,7 @@ gcloud beta run jobs update ${JOB_NAME} \
   --set-env-vars=TZ=America/Los_Angeles \
   --cpu=2 \
   --memory=6Gi \
-  --task-timeout=4320m \
+  --task-timeout=10000m \
   --max-retries=0 \
   --args=""
 ```

@@ -110,9 +110,10 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     # list output files
     read_files = []
     for file_ext in ['fastq', 'fastq.gz', 'fq', 'fq.gz']:
-        read_files += glob(os.path.join(outdir, accession + "*." + file_ext))
+        read_files += glob(os.path.join(outdir, f"{accession}*.{file_ext}"))
     if not read_files:
-        return "Failure","No read files found"
+        files_present = ", ".join(glob(os.path.join(outdir, "*")) or ["None"])
+        return "Failure",f"No read files found; files present: {files_present}"
 
     # determine which read files are the read 1 and read 2
     read_lens = {}
@@ -141,10 +142,11 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
         read_files_filt[f"R{i}"] = new_name
     
     # if no R1 or R2, return warning
+    file_names = ",".join([os.path.basename(x) for x in read_files_filt.values()])
     if not read_files_filt.get("R1"):
-        return "Failure","Read 1 not found"
+        return "Failure",f"Read 1 not found; files found: {file_names}"
     if not read_files_filt.get("R2"):
-        return "Failure","Read 2 not found"
+        return "Failure",f"Read 2 not found; files found: {file_names}"
 
     return "Success","Dump successful"
 
@@ -173,12 +175,20 @@ def main(args, log_df):
     # get accession
     accession = os.path.splitext(os.path.basename(args.sra_file))[0]
 
+    # set vdb-config
+    cmd = ["vdb-config", "--report-cloud-identity", "yes"]
+    returncode, output, err = run_cmd(cmd)
+    if returncode != 0:
+        logging.error(err)
+        sys.exit(1)
+
     # run fast(er)q-dump
     cmd = []
     if args.maxSpotId and args.maxSpotId > 0:
         # fastq-dump with maxSpotId
         cmd = [
-            "fastq-dump", "--split-files",
+            "fastq-dump",
+            "--split-files",
             "--outdir", args.outdir,  
             "--maxSpotId", args.maxSpotId,
             args.sra_file
@@ -197,7 +207,8 @@ def main(args, log_df):
         # fasterq-dump
         cmd = [
             "fasterq-dump",  
-            "--split-files", "--force",
+            "--split-files", 
+            "--force",
             "--threads", args.threads, 
             "--bufsize", args.bufsize, 
             "--curcache", args.curcache, 
@@ -218,9 +229,9 @@ def main(args, log_df):
     add_to_log(log_df, args.sample, args.accession, "fq-dump", cmd[0], status, msg)
     if returncode != 0:
         logging.error(err)
-        sys.exit(1)
+        return None
 
-    # Check the f-dump output
+    # Check the fq-dump output
     status,msg = check_output(args.sra_file, args.outdir, args.min_read_length)
     add_to_log(log_df, args.sample, args.accession, "fq-dump", "check_output", status, msg)
 
@@ -241,9 +252,10 @@ if __name__ == '__main__':
     main(args, log_df)
 
     # write log
-    log_file = os.path.join(args.outdir, "fq-dump_log.csv")
-    log_df.to_csv(log_file, index=False)
-    logging.info(f'Log written to: {log_file}')
+    #log_file = os.path.join(args.outdir, "fq-dump_log.csv")
+    #log_df.to_csv(sys.stdout, index=False)
+    #log_df.to_csv(log_file, index=False)
+    #logging.info(f'Log written to: {log_file}')
     
     # upsert log to database
     with db_connect() as conn:
