@@ -77,7 +77,7 @@ def parse_gs_path(gs_path: str) -> Tuple[str, str]:
 def clean_output_dir(output_dir: str) -> None:
     """
     Delete the contents of the output directory, 
-    if it only contains 'nf-report' and 'nf-trace' directories
+    if it only contains 'nf-report', 'nf-trace', and optionally 'logs' directories
     Args:
        output_dir: GCP bucket path to output directory
     """
@@ -89,8 +89,9 @@ def clean_output_dir(output_dir: str) -> None:
     directories = [os.path.basename(d) for d in directories]
     print(f"Directories found: {', '.join(directories)}")
     
-    if set(directories) == {"nf-report", "nf-trace"}:
-        print("Only 'nf-report' and 'nf-trace' directories found. Deleting the bucket path...")
+    allowed_dirs = {"nf-report", "nf-trace", "logs"}
+    if set(directories).issubset(allowed_dirs):
+        print("No STAR results found. Deleting the bucket path...")
         delete_bucket_path(bucket_name, path_prefix)
         print(f"Deleted path: {output_dir}")
     else:
