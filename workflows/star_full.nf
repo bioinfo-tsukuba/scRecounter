@@ -65,7 +65,7 @@ process STAR_FULL_SUMMARY {
       gene_ex50_summary.csv \\
       gene_ex_int_summary.csv \\
       velocyto_summary.csv \\
-      2>&1 | ${task.process}.log
+      2>&1 | tee ${task.process}.log
     """
 }
 
@@ -119,7 +119,7 @@ process STAR_FULL {
       --outSAMtype None \\
       --soloBarcodeReadLength 0 \\
       --outFileNamePrefix results \\
-      2>&1 | ${task.process}.log
+      2>&1 | tee ${task.process}.log
 
 
     # gzip the results
@@ -166,7 +166,7 @@ process FASTERQ_DUMP {
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
     tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
-    path "${task.process}.log", emit: "log"
+    path "${task.process}.log",                                                   emit: "log"
 
     script:
     """
@@ -186,7 +186,7 @@ process FASTERQ_DUMP {
       --min-read-length ${params.min_read_len} \\
       --outdir reads \\
       ${accession} \\
-      2>&1 | ${task.process}.log
+      2>&1 | tee ${task.process}.log
     """
 
     stub:

@@ -115,7 +115,7 @@ process STAR_SAVE_FINAL_PARAMS {
       --cell-barcode-length ${cell_barcode_length} \\
       --umi-length ${umi_length} \\
       --strand ${strand} \\
-      2>&1 | ${task.process}.log
+      2>&1 | tee ${task.process}.log
     """
 
     stub:
@@ -124,9 +124,10 @@ process STAR_SAVE_FINAL_PARAMS {
     """
 }
 
-
+/*
 process STAR_SELECT_FINAL_PARAMS {
     publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
 
     input:
@@ -136,11 +137,12 @@ process STAR_SELECT_FINAL_PARAMS {
         val(cell_barcode_length), val(umi_length), val(strand)
 
     output:
-    path "report.csv"
+    path "report.csv"           emit: "csv"
+    path "${task.process}.log", emit: "log"
     
     script:
     """
-    create-star-params-report.py star_params_*.json
+    create-star-params-report.py star_params_*.json 2>&1 | ${task.process}.log
     """
 
     stub:
@@ -169,6 +171,7 @@ process STAR_MERGE_PARAMS {
     touch merged_star_params.csv
     """
 }
+*/
 
 // Set STAR parameters based on valid barcodes
 def saveAsParams(sample, accession, filename) {
@@ -202,7 +205,7 @@ process STAR_SELECT_PARAMS {
       --sample ${sample} \\
       --accession ${accession} \\
       $read_stats $sra_stats star_params*.csv \\
-      2>&1 | ${task.process}.log
+      2>&1 | tee ${task.process}.log
     """
 
     stub:
@@ -235,7 +238,7 @@ process STAR_FORMAT_PARAMS {
       --organism ${params.organism} \\
       --star-index ${params.star_index} \\
       $star_summary \\
-      2>&1 | ${task.process}.log
+      2>&1 | tee ${task.process}.log
     """
 }
 
@@ -305,7 +308,9 @@ process SEQKIT_STATS {
 
     script:
     """
-    seqkit -j $task.cpus stats -T $fastq_1 $fastq_2 > ${sample}_${accession}_stats.tsv
+    seqkit -j $task.cpus stats -T \\
+      $fastq_1 $fastq_2 \
+      > ${sample}_${accession}_stats.tsv
     """
 
     stub:
@@ -357,6 +362,7 @@ process FASTQ_DUMP {
     """
 }
 
+/*
 process PREFETCH_LOG_MERGE{
     publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
     label "download_env"
@@ -377,3 +383,4 @@ process PREFETCH_LOG_MERGE{
     touch prefetch.csv 
     """
 }
+*/
