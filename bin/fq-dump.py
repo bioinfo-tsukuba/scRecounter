@@ -130,7 +130,7 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     # determine which read files are the read 1 and read 2
     read_lens = {}
     for read_file in read_files:
-        read_lens[read_file] = get_read_lengths(read_file, 400)
+        read_lens[read_file] = get_read_lengths(read_file, 800)
         logging.info(f"Read length for {read_file}: {read_lens[read_file]}")
     
     # filter read files by length
