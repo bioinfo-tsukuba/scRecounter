@@ -13,7 +13,7 @@ workflow DB_ACC_WF {
 
 
 process GET_DB_ACCESSIONS {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename) }
     label "download_env"
 
     output:
