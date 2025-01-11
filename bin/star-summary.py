@@ -62,20 +62,27 @@ def main(args):
     df = df.pivot(index='feature', columns='category', values='value').reset_index()
     
     # format columns: no spaces and lowercase
-    df.columns = [x.lower().replace(" ", "_") for x in df.columns]
-    
-    # add sample 
-    df["sample"] = args.sample
+   # regex = re.compile(r"[^\W]+")
+    df.columns = df.columns.str.replace(r'\W', '_', regex=True).str.lower() #[regex.sub(x.lower(), "_") for x in df.columns]
 
     # coerce columns to numeric
-    cols_to_convert = [
-        "fraction_of_unique_reads_in_cells", "mean_gene_per_cell", "mean_umi_per_cell", 
-        "mean_feature_per_cell", "median_gene_per_cell", "median_umi_per_cell",
-        "median_feature_per_cell", "sequencing_saturation", "estimated_number_of_cells", 
-        "number_of_reads", "reads_with_valid_barcodes", "umis_in_cells"
-    ]
-    for col in cols_to_convert:
-        if col in df.columns:
+    # cols_to_convert = [
+    #     "fraction_of_unique_reads_in_cells", 
+    #     "mean_gene_per_cell",
+    #     "mean_umi_per_cell", 
+    #     "mean_feature_per_cell",
+    #     "median_gene_per_cell",
+    #     "median_umi_per_cell",
+    #     "median_feature_per_cell",
+    #     "sequencing_saturation",
+    #     "estimated_number_of_cells", 
+    #     "number_of_reads",
+    #     "reads_with_valid_barcodes",
+    #     "umis_in_cells"
+    # ]
+    
+    for col in df.columns.to_list():
+        if col != "feature":
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
     # float columns to integer
@@ -83,6 +90,9 @@ def main(args):
     for col in cols_to_convert:
         if col in df.columns:
             df[col] = df[col].fillna(0).replace([float('inf'), -float('inf')], 0).astype(int)
+
+    # add sample name
+    df["sample"] = args.sample
 
     # upsert results to database
     with db_connect() as conn:
