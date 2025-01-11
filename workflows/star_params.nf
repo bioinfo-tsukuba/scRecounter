@@ -124,55 +124,6 @@ process STAR_SAVE_FINAL_PARAMS {
     """
 }
 
-/*
-process STAR_SELECT_FINAL_PARAMS {
-    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
-    label "star_env"
-
-    input:
-    tuple val(sample), val(accession), val(metadata),
-        path("input*_R1.fastq"), path("input*_R2.fastq"), 
-        path(barcodes_file), path(star_index),
-        val(cell_barcode_length), val(umi_length), val(strand)
-
-    output:
-    path "report.csv"           emit: "csv"
-    path "${task.process}.log", emit: "log"
-    
-    script:
-    """
-    create-star-params-report.py star_params_*.json 2>&1 | ${task.process}.log
-    """
-
-    stub:
-    """
-    touch merged_star_params.csv
-    """
-}
-
-process STAR_MERGE_PARAMS {
-    publishDir file(params.output_dir) / "STAR", mode: "copy", overwrite: true
-    label "star_env"
-
-    input:
-    path "star_params_*.csv"
-
-    output:
-    path "merged_star_params.csv"
-    
-    script:
-    """
-    csv-merge.py --outfile merged_star_params.csv star_params_*.csv
-    """
-
-    stub:
-    """
-    touch merged_star_params.csv
-    """
-}
-*/
-
 // Set STAR parameters based on valid barcodes
 def saveAsParams(sample, accession, filename) {
     if (filename.endsWith(".csv") || filename.endsWith(".json")){
@@ -361,26 +312,3 @@ process FASTQ_DUMP {
     touch reads/${accession}_1.fastq reads/${accession}_2.fastq
     """
 }
-
-/*
-process PREFETCH_LOG_MERGE{
-    publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
-    label "download_env"
-
-    input:
-    path "*_log.csv"
-
-    output:
-    path "prefetch.csv"
-
-    script:
-    """
-    csv-merge.py --outfile prefetch.csv *_log.csv
-    """
-
-    stub:
-    """
-    touch prefetch.csv 
-    """
-}
-*/
