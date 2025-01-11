@@ -23,6 +23,6 @@ process GET_DB_ACCESSIONS {
     export GCP_SQL_DB_NAME="${params.db_name}"
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
-    get-db-accessions.py
+    get-db-accessions.py --max-srx ${params.max_samples}
     """
 }

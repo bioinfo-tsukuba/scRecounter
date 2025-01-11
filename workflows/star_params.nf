@@ -71,6 +71,12 @@ workflow STAR_PARAMS_WF{
             [sample] + majorityRule(combined_params)
         }
 
+    ch_star_params.view{ sample,barcodes_file,star_index,cb_len,umi_len,strand -> 
+        def barcodes_name = barcodes_file.tokenize("/").last().tokenize(".")[0]
+        def star_index_name = star_index.tokenize("/").last().tokenize(".")[0]
+        "Selected parameter set for ${sample}:\n - barcodes: ${barcodes_name}\n - STAR index: ${star_index_name}\n - Barcode length: ${cb_len}\n - UMI length: ${umi_len}\n - Strand: ${strand}\n"
+    }
+
     // Save the final STAR parameters to the database
     STAR_SAVE_FINAL_PARAMS(ch_star_params)
 

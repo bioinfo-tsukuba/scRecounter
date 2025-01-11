@@ -170,7 +170,6 @@ process FASTERQ_DUMP {
       --temp TMP_FILES \\
       --max-size-gb ${params.max_sra_size} \\
       --min-read-length ${params.min_read_len} \\
-      --maxSpotId ${params.max_spots} \\
       --outdir reads \\
       ${accession}
     """
