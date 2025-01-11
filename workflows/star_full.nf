@@ -151,7 +151,7 @@ process FASTERQ_DUMP {
     memory { (36.GB + Math.round(sra_file_size_gb).GB) * task.attempt }
     time { (16.h + (sra_file_size_gb * 0.8).h) * task.attempt }
     disk { 
-        def disk_size = 100.GB + (sra_file_size_gb * (8 + task.attempt * 2)).GB
+        def disk_size = 200.GB + (sra_file_size_gb * (8 + task.attempt * 2)).GB
         /*
         def disk_size = 
             sra_file_size_gb > 150 ? 1500.GB :
