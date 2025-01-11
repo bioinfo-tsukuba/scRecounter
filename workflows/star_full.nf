@@ -1,4 +1,4 @@
-include { joinReads; } from '../lib/utils.groovy'
+include { joinReads; saveAsLog; } from '../lib/utils.groovy'
 
 // Workflow to run STAR alignment on scRNA-seq data
 workflow STAR_FULL_WF{
@@ -38,6 +38,7 @@ workflow STAR_FULL_WF{
 
 process STAR_FULL_SUMMARY {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
 
     input:
@@ -48,7 +49,8 @@ process STAR_FULL_SUMMARY {
     tuple val(sample), path("velocyto_summary.csv")
 
     output:
-    tuple val(sample), path("Summary.csv")
+    tuple val(sample), path("Summary.csv"), emit: "csv"
+    path "${task.process}.log",             emit: "log"
 
     script:
     """
@@ -62,12 +64,14 @@ process STAR_FULL_SUMMARY {
       gene_full_summary.csv \\
       gene_ex50_summary.csv \\
       gene_ex_int_summary.csv \\
-      velocyto_summary.csv
+      velocyto_summary.csv \\
+      2>&1 | ${task.process}.log
     """
 }
 
 process STAR_FULL {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
     label "process_high"
 
@@ -86,6 +90,7 @@ process STAR_FULL {
     tuple val(sample), path("resultsSolo.out/*/filtered/*"),                        emit: filt, optional: true
     tuple val(sample), path("resultsSolo.out/*/*.stats.gz"),                        emit: stats, optional: true
     tuple val(sample), path("resultsSolo.out/*/*.txt.gz"),                          emit: txt, optional: true
+    path "${task.process}.log",                                                     emit: "log"
 
     script:
     """
@@ -113,7 +118,9 @@ process STAR_FULL {
       --soloMultiMappers EM Uniform \\
       --outSAMtype None \\
       --soloBarcodeReadLength 0 \\
-      --outFileNamePrefix results
+      --outFileNamePrefix results \\
+      2>&1 | ${task.process}.log
+
 
     # gzip the results
     mkdir -p resultsSolo.out
@@ -138,27 +145,28 @@ def saveAsSTAR(sample, filename) {
 }
 
 process FASTERQ_DUMP {
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "download_env"
+    cpus 16
     memory { (36.GB + Math.round(sra_file_size_gb).GB) * task.attempt }
-    time { (12.h + (sra_file_size_gb * 1.1).h) * task.attempt }
+    time { (16.h + (sra_file_size_gb * 0.8).h) * task.attempt }
     disk { 
         def disk_size = 
             sra_file_size_gb > 200 ? 1200.GB :
-            sra_file_size_gb > 100 ? 700.GB :
-            sra_file_size_gb > 50 ? 300.GB :
-            sra_file_size_gb > 10 ? 150.GB :
-            50.GB
+            sra_file_size_gb > 100 ? 600.GB :
+            sra_file_size_gb > 50 ? 450.GB :
+            300.GB
         [request: disk_size * task.attempt, type: 'local-ssd'] 
     }
-    cpus 8
-
+    //def disk_size = 75.GB + (sra_file_size_gb * 5.625).GB
+    
     input:
     tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
     tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
-    path "reads/fq-dump_log.csv", emit: "log"
+    path "${task.process}.log", emit: "log"
 
     script:
     """
@@ -177,12 +185,13 @@ process FASTERQ_DUMP {
       --max-size-gb ${params.max_sra_size} \\
       --min-read-length ${params.min_read_len} \\
       --outdir reads \\
-      ${accession}
+      ${accession} \\
+      2>&1 | ${task.process}.log
     """
 
     stub:
     """
     mkdir -p reads
-    touch reads/${accession}_1.fastq reads/${accession}_2.fastq
+    touch reads/${accession}_1.fastq reads/${accession}_2.fastq ${task.process}.log
     """
 }

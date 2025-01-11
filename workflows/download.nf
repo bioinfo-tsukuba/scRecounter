@@ -28,16 +28,16 @@ process FQDUMP_LOG_MERGE {
     path "*_log.csv"
 
     output:
-    path "fq-dump.csv"
+    path "fq-dump_summary.csv"
 
     script:
     """
-    csv-merge.py --outfile fq-dump.csv *_log.csv
+    csv-merge.py --outfile fq-dump_summary.csv *_log.csv
     """
 
     stub:
     """
-    touch fq-dump.csv 
+    touch fq-dump_summary.csv 
     """
 }
 

@@ -78,3 +78,15 @@ def joinReads(ch_read1, ch_read2){
         }
 }
 
+
+def saveAsLog(filename, sample, accession=null) {
+    if (filename.endsWith(".log")) {
+        def basename = filename.tokenize("/")[-1]
+        if (accession) {
+            return "logs/${sample}/${accession}/${basename}"
+        } else {
+            return "logs/${sample}/${basename}"
+        }
+    }
+    return null
+}

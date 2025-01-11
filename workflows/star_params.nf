@@ -1,4 +1,4 @@
-include { joinReads; } from '../lib/utils.groovy'
+include { joinReads; saveAsLog; } from '../lib/utils.groovy'
 include { makeParamSets; validateRequiredColumns; loadBarcodes; loadStarIndices; expandStarParams } from '../lib/star_params.groovy'
 
 // Workflow to run STAR alignment on scRNA-seq data
@@ -11,9 +11,6 @@ workflow STAR_PARAMS_WF{
     //-- Download subset of reads reads --//    
     // Run prefetch & fastq-dump; only testing on subset of SRR accessions, if many
     ch_fqdump = FASTQ_DUMP(ch_accessions.randomSample(params.max_accessions, 23482))
-
-    // Merge dump logs
-    FQDUMP_LOG_MERGE(ch_fqdump.log.collect())
     
     // Join R1 and R2 channels, which will filter out empty R2 records
     ch_fastq = joinReads(ch_fqdump.R1, ch_fqdump.R2)
@@ -36,10 +33,10 @@ workflow STAR_PARAMS_WF{
     STAR_PARAM_SEARCH(ch_params)
 
     // Format the STAR parameters into a CSV file
-    STAR_FORMAT_PARAMS(STAR_PARAM_SEARCH.out)
+    STAR_FORMAT_PARAMS(STAR_PARAM_SEARCH.out.csv)
     
     // Get best parameters
-    ch_params_all = STAR_FORMAT_PARAMS.out
+    ch_params_all = STAR_FORMAT_PARAMS.out.csv
         .groupTuple(by: [0,1])
         .join(SEQKIT_STATS.out, by: [0,1])
         .join(ch_sra_stat, by: [0,1])
@@ -95,13 +92,15 @@ def saveAsFinalParams(sample, filename) {
 
 process STAR_SAVE_FINAL_PARAMS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsFinalParams(sample, filename) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
 
     input:
     tuple val(sample), val(barcodes), val(star_index), val(cell_barcode_length), val(umi_length), val(strand)
 
     output:
-    path "star_params.csv"
+    path "star_params.csv",     emit: "csv"
+    path "${task.process}.log", emit: "log"
 
     script:
     """
@@ -115,12 +114,13 @@ process STAR_SAVE_FINAL_PARAMS {
       --star-index ${star_index} \\
       --cell-barcode-length ${cell_barcode_length} \\
       --umi-length ${umi_length} \\
-      --strand ${strand}
+      --strand ${strand} \\
+      2>&1 | ${task.process}.log
     """
 
     stub:
     """
-    touch star_params.json
+    touch star_params.csv ${task.process}.log
     """
 }
 
@@ -181,15 +181,16 @@ def saveAsParams(sample, accession, filename) {
 
 process STAR_SELECT_PARAMS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, accession, filename) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
 
     input:
     tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats), path(sra_stats)
 
     output:
-    tuple val(sample), val(accession), path("results/merged_star_params.csv"),    emit: csv
-    tuple val(sample), val(accession), path("results/selected_star_params.json"), emit: json
-    path "results/select-star-params_log.csv",  emit: "log"
+    tuple val(sample), val(accession), path("results/merged_star_params.csv"),    emit: "csv"
+    tuple val(sample), val(accession), path("results/selected_star_params.json"), emit: "json"
+    path "${task.process}.log",  emit: "log"
     
     script:
     """
@@ -200,7 +201,8 @@ process STAR_SELECT_PARAMS {
     select-star-params.py \\
       --sample ${sample} \\
       --accession ${accession} \\
-      $read_stats $sra_stats star_params*.csv
+      $read_stats $sra_stats star_params*.csv \\
+      2>&1 | ${task.process}.log
     """
 
     stub:
@@ -210,13 +212,15 @@ process STAR_SELECT_PARAMS {
 }
 
 process STAR_FORMAT_PARAMS {
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
 
     input:
-    tuple val(sample), val(accession), val(metadata), val(params), path(star_summary) 
+    tuple val(sample), val(accession), val(metadata), val(params), path(star_summary)
 
     output:
-    tuple val(sample), val(accession), path("star_params.csv")
+    tuple val(sample), val(accession), path("star_params.csv"), emit: "csv"
+    path "${task.process}.log",                                 emit: "log"
 
     script:
     """
@@ -230,7 +234,8 @@ process STAR_FORMAT_PARAMS {
       --umi-length ${params.umi_length} \\
       --organism ${params.organism} \\
       --star-index ${params.star_index} \\
-      $star_summary 
+      $star_summary \\
+      2>&1 | ${task.process}.log
     """
 }
 
@@ -241,6 +246,7 @@ def saveAsValid(sample, filename) {
 
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_PARAM_SEARCH {
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
     label "process_medium"
 
@@ -248,7 +254,8 @@ process STAR_PARAM_SEARCH {
     tuple val(sample), val(accession), val(metadata), path(fastq_1), path(fastq_2), path(barcodes_file), path(star_index), val(params)
 
     output:
-    tuple val(sample), val(accession), val(metadata), val(params), path("star_summary.csv")
+    tuple val(sample), val(accession), val(metadata), val(params), path("star_summary.csv"), emit: "csv"
+    path "${task.process}.log", emit: "log"
 
     script:
     """
@@ -272,7 +279,8 @@ process STAR_PARAM_SEARCH {
       --soloMultiMappers EM \\
       --outSAMtype None \\
       --soloBarcodeReadLength 0 \\
-      --outFileNamePrefix results 
+      --outFileNamePrefix results \\
+      2>&1 | tee ${task.process}.log
     
     # rename output
     mv -f resultsSolo.out/GeneFull/Summary.csv star_summary.csv
@@ -306,28 +314,8 @@ process SEQKIT_STATS {
     """
 }
 
-process FQDUMP_LOG_MERGE {
-    publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
-    label "download_env"
-
-    input:
-    path "*_log.csv"
-
-    output:
-    path "fq-dump.csv"
-
-    script:
-    """
-    csv-merge.py --outfile fq-dump.csv *_log.csv
-    """
-
-    stub:
-    """
-    touch fq-dump.csv 
-    """
-}
-
 process FASTQ_DUMP {
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
 
     input:
@@ -336,7 +324,7 @@ process FASTQ_DUMP {
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
     tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
-    path "reads/fq-dump_log.csv", emit: "log"
+    path "${task.process}.log",    emit: "log"
 
     script:
     """
@@ -355,7 +343,8 @@ process FASTQ_DUMP {
       --min-read-length ${params.min_read_len} \\
       --maxSpotId ${params.max_spots} \\
       --outdir reads \\
-      ${accession}
+      ${accession} \\
+      2>&1 | tee ${task.process}.log
 
     # remove the temporary files
     rm -rf TMP_FILES
