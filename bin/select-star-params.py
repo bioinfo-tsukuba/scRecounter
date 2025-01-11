@@ -159,7 +159,7 @@ def get_best_params(
     data = data[data[target_col] != float("inf")]
     data = data[data[target_col] == data[target_col].max()]
     if data.shape[0] == 0:
-        logging.info(f"No parameters passed the max `Fraction of Unique Reads in Cells` filter")
+        logging.info(f"No parameters passed the `max(Fraction of Unique Reads in Cells)` filter")
 
     return data
 
