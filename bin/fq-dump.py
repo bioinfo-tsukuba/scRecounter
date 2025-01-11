@@ -150,27 +150,45 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     if not read_lens_filt:
         return "Failure","No reads passed the read length filter"
 
-    # make the shorter read the R1
+    # rename read files
     read_files_filt = {}
-    for i,x in enumerate(sorted(read_lens_filt.items(), key=lambda x: x[1]), 1):
-        # rename
-        new_name = os.path.join(outdir, f"read_{i}.fastq")
-        os.rename(x[0], new_name)
-        read_files_filt[f"R{i}"] = new_name
-        logging.info(f"Renamed {x[0]} to {new_name}")
+    if len(read_lens_filt) == 1:
+        logging.info("Only one read file found; renaming to read_1.fastq")
+        new_name = os.path.join(outdir, "read_1.fastq")
+        old_name = list(read_lens_filt.keys())[0]
+        if new_name == old_name:
+            raise ValueError(f"New fastq name is the same as old name: {new_name}")
+        os.rename(old_name, new_name)
+    else:
+        logging.info(">=2 read files found; renaming largest files to read_1.fastq and read_2.fastq")
+        # sort by largest to smallest: {first = R2, second = R1, third = break
+        for i,x in enumerate(sorted(read_lens_filt.items(), key=lambda x: x[1], reverse=True), 1):
+            if i > 2:
+                break
+            elif i == 1:
+               read_num = 2
+            elif i == 2:
+                read_num = 1
+            # rename
+            new_name = os.path.join(outdir, f"read_{read_num}.fastq")
+            if x[0] == new_name:
+                raise ValueError(f"New fastq name is the same as old name: {new_name}")
+            os.rename(x[0], new_name)
+            read_files_filt[f"R{read_num}"] = new_name
+            logging.info(f"Renamed {x[0]} to {new_name}")
     
     # if no R1 or R2, return warning
     file_names = ",".join([os.path.basename(x) for x in read_files_filt.values()])
     if not read_files_filt.get("R1"):
-        msg = f"Read 1 not found; files found: {file_names}"
+        msg = f"Read 1 not found; read files available: {file_names}"
         logging.warning(msg)
         return "Failure",msg
     if not read_files_filt.get("R2"):
-        msg = f"Read 2 not found; files found: {file_names}"
+        msg = f"Read 2 not found; read files available: {file_names}"
         logging.warning(msg)
         return "Failure",msg
 
-    return "Success","Dump successful"
+    return "Success","Fastq dump successful"
 
 def write_log(logF, sample: str, accession: str, step: str, success: bool, msg: str) -> None:
     """
