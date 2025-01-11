@@ -4,6 +4,7 @@ import os
 import warnings
 from typing import List
 ## 3rd party
+import numpy
 import psycopg2
 import pandas as pd
 from psycopg2.extras import execute_values
@@ -59,6 +60,26 @@ def add_to_log(
         msg = str(msg[:(200-3)]) + '...'
     df.loc[len(df)] = [sample, accession, process, step, status, msg]
 
+def sanitize_int_columns(df, min_int=-2**31, max_int=2**31 - 1) -> pd.DataFrame:
+    """
+    Sanitize integer columns in a DataFrame by casting them to float and replacing out-of-range values with NaN.
+    Args:
+        df: pandas DataFrame
+        min_int: Minimum integer value
+        max_int: Maximum integer value
+    """
+    int_cols = df.select_dtypes(include=["int", "int32", "int64"]).columns
+    
+    # Cast these columns to float so they can hold NaN values
+    for col in int_cols:
+        df[col] = df[col].astype(float)
+        
+        # Replace out-of-range values with NaN
+        df.loc[df[col] < min_int, col] = np.nan
+        df.loc[df[col] > max_int, col] = np.nan
+
+    return df
+
 def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
     """
     Upload a pandas DataFrame to PostgreSQL, performing an upsert operation.
@@ -80,6 +101,9 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
 
     # filter to overlapping target columns
     df = df[list(set(get_table_columns(table_name, conn)).intersection(df.columns))]
+
+    # Sanitize integer columns
+    df = sanitize_int_columns(df)
 
     # Get DataFrame columns
     columns = list(df.columns)

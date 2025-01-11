@@ -39,7 +39,6 @@ workflow STAR_FULL_WF{
 process STAR_FULL_SUMMARY {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
     label "star_env"
-    label "process_high"
 
     input:
     tuple val(sample), path("gene_summary.csv")
