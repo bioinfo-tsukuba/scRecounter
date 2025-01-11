@@ -274,9 +274,9 @@ if __name__ == '__main__':
     main(args, log_df)
 
     # write log
-    log_file = os.path.join(args.outdir, "select-star-params_log.csv")
-    log_df.to_csv(log_file, index=False)
-    logging.info(f'Log written to: {log_file}')
+    #log_file = os.path.join(args.outdir, "select-star-params_log.csv")
+    #log_df.to_csv(log_file, index=False)
+    #logging.info(f'Log written to: {log_file}')
     
     # upsert log to database
     with db_connect() as conn:

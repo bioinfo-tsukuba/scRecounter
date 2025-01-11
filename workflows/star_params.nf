@@ -174,10 +174,13 @@ process STAR_FORMAT_PARAMS {
 
     output:
     tuple val(sample), val(accession), path("star_params.csv"), emit: "csv"
-    path "${task.process}.log",                                 emit: "log"
+    path "${task.process}*.log",                                emit: "log"
 
     script:
     """
+    BARCODES_FILE=\$(basename ${params.barcodes_file})
+    STAR_INDEX=\$(dirname ${params.star_index})
+
     format-star-params.py \\
       --sample ${params.sample} \\
       --accession ${params.accession} \\
@@ -188,8 +191,9 @@ process STAR_FORMAT_PARAMS {
       --umi-length ${params.umi_length} \\
       --organism ${params.organism} \\
       --star-index ${params.star_index} \\
+      --outfile star_params.csv \\
       $star_summary \\
-      2>&1 | tee ${task.process}.log
+      2>&1 | tee ${task.process}:\${STAR_INDEX}:\${BARCODES_FILE}:${params.strand}.log
     """
 }
 
@@ -209,10 +213,13 @@ process STAR_PARAM_SEARCH {
 
     output:
     tuple val(sample), val(accession), val(metadata), val(params), path("star_summary.csv"), emit: "csv"
-    path "${task.process}.log", emit: "log"
+    path "${task.process}*.log", emit: "log"
 
     script:
     """
+    BARCODES_FILE=\$(basename ${params.barcodes_file})
+    STAR_INDEX=\$(dirname ${params.star_index})
+
     # run STAR
     STAR \\
       --readFilesIn $fastq_2 $fastq_1 \\
@@ -234,7 +241,7 @@ process STAR_PARAM_SEARCH {
       --outSAMtype None \\
       --soloBarcodeReadLength 0 \\
       --outFileNamePrefix results \\
-      2>&1 | tee ${task.process}.log
+      2>&1 | tee ${task.process}:\${STAR_INDEX}:\${BARCODES_FILE}:${params.strand}.log
     
     # rename output
     mv -f resultsSolo.out/GeneFull/Summary.csv star_summary.csv

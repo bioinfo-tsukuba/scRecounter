@@ -53,6 +53,10 @@ def main(args):
         df.append(x)
     df = pd.concat(df)
 
+    # status
+    logging.info(f"Number of rows in row summary table: {df.shape[0]}")
+    print(df);
+
     # format category
     for x in ["Gene", "GeneFull", "GeneFull_Ex50pAS", "GeneFull_ExonOverIntron", "Velocyto"]:
         regex = re.compile(f" {x} ")
@@ -78,6 +82,10 @@ def main(args):
 
     # add sample name
     df["sample"] = args.sample
+
+    # status
+    logging.info(f"Number of rows after formattings: {df.shape[0]}")
+    print(df);
 
     # upsert results to database
     with db_connect() as conn:

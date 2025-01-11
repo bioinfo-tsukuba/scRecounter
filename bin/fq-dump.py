@@ -106,19 +106,32 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
         outdir: Output directory
         min_read_length: Minimum read length
     """
+    # get accession
     accession = os.path.splitext(os.path.basename(sra_file))[0]
+    logging.info(f"Checking output for {accession}")
+
+    # list all files in outdir
+    out_files_str = ", ".join(glob(os.path.join(outdir, "*")))
+    logging.info(f"Files in outdir: {out_files_str}")
+
     # list output files
     read_files = []
     for file_ext in ['fastq', 'fastq.gz', 'fq', 'fq.gz']:
         read_files += glob(os.path.join(outdir, f"{accession}*.{file_ext}"))
     if not read_files:
-        files_present = ", ".join(glob(os.path.join(outdir, "*")) or ["None"])
-        return "Failure",f"No read files found; files present: {files_present}"
+        msg = f"No read files found; files present: {out_files_str}"
+        logging.warning(msg)
+        return "Failure",msg
+
+    # listing read files
+    read_files_str = ", ".join(read_files)
+    logging.info(f"Read files found: {read_files_str}")
 
     # determine which read files are the read 1 and read 2
     read_lens = {}
     for read_file in read_files:
         read_lens[read_file] = get_read_lengths(read_file, 400)
+        logging.info(f"Read length for {read_file}: {read_lens[read_file]}")
     
     # filter read files by length
     read_lens_filt = {}
@@ -128,6 +141,10 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
         else:
             # delete the read file
             os.remove(k)
+
+    # status on read lengths
+    remaining_files = ", ".join(read_lens_filt.keys())
+    logging.info(f"Remaining files after read-length filtering: {remaining_files}")
 
     # if no read files pass the filter, return warning
     if not read_lens_filt:
@@ -140,13 +157,18 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
         new_name = os.path.join(outdir, f"read_{i}.fastq")
         os.rename(x[0], new_name)
         read_files_filt[f"R{i}"] = new_name
+        logging.info(f"Renamed {x[0]} to {new_name}")
     
     # if no R1 or R2, return warning
     file_names = ",".join([os.path.basename(x) for x in read_files_filt.values()])
     if not read_files_filt.get("R1"):
-        return "Failure",f"Read 1 not found; files found: {file_names}"
+        msg = f"Read 1 not found; files found: {file_names}"
+        logging.warning(msg)
+        return "Failure",msg
     if not read_files_filt.get("R2"):
-        return "Failure",f"Read 2 not found; files found: {file_names}"
+        msg = f"Read 2 not found; files found: {file_names}"
+        logging.warning(msg)
+        return "Failure",msg
 
     return "Success","Dump successful"
 

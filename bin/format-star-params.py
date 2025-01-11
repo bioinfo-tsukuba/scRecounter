@@ -69,6 +69,10 @@ def main(args):
     # convert to dataframe
     star_params = pd.DataFrame([star_params])
 
+    # print to stderr
+    #print("#-- raw dataframe --#", file=sys.stderr)
+    #star_params.to_csv(sys.stderr, index=False)
+
     # read star summary
     star_summary = pd.read_csv(args.star_summary_csv, header=None)
     star_summary["sample"] = args.sample
@@ -81,6 +85,10 @@ def main(args):
 
     # merge dataframes on sample and accession
     star_params = star_params.merge(star_summary, on=["sample", "accession"], how="inner")
+
+    # print to stderr
+    #print("#-- final dataframe --#", file=sys.stderr)
+    #star_params.to_csv(sys.stderr, index=False)
 
     # write to file
     star_params.to_csv(args.outfile, index=False)
