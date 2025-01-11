@@ -152,15 +152,15 @@ process FASTERQ_DUMP {
     time { (16.h + (sra_file_size_gb * 0.8).h) * task.attempt }
     disk { 
         def disk_size = 100.GB + (sra_file_size_gb * (8 + task.attempt * 2)).GB
-        [request: disk_size, type: 'local-ssd'] 
+        /*
+        def disk_size = 
+            sra_file_size_gb > 150 ? 1500.GB :
+            sra_file_size_gb > 75 ? 1125.GB :
+            sra_file_size_gb > 40 ? 750.GB :
+            375.GB
+        */
+        [request: disk_size, type: 'pd-standard'] 
     }
-    /*
-    def disk_size = 
-            sra_file_size_gb > 200 ? 1200.GB :
-            sra_file_size_gb > 100 ? 600.GB :
-            sra_file_size_gb > 50 ? 450.GB :
-            300.GB
-    */
     
     input:
     tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
@@ -183,7 +183,7 @@ process FASTERQ_DUMP {
       --bufsize 200MB \\
       --curcache 1GB \\
       --mem 12GB \\
-      --temp TMP_FILES \\
+      --temp TEMP_FILES \\
       --max-size-gb ${params.max_sra_size} \\
       --min-read-length ${params.min_read_len} \\
       --outdir reads \\
