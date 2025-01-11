@@ -124,6 +124,7 @@ def main(args):
     # get unprocessed records
     with db_connect() as conn:
         df = db_get_unprocessed_records(conn, process, args.database, max_srx=args.max_srx)
+    logging.info(f"Number of records obtained: {df.shape[0]}")
 
     ## write out records
     df.to_csv(args.outfile, index=False)
@@ -139,6 +140,7 @@ def main(args):
     df = df[["sample", "accession", "process", "step", "status", "message"]]
 
     ## upsert log to database
+    logging.info("Updating scRecounter log table...")
     with db_connect() as conn:
         db_upsert(df, "screcounter_log", conn)
 

@@ -145,15 +145,22 @@ def get_best_params(
 
     # filter to proper strand
     data = data[data["strand"] == data["proper_strand"]].drop(columns="proper_strand")
+    if data.shape[0] == 0:
+        logging.info(f"No parameters passed the proper strand filter")
 
     # Filter on fraction of reads with valid barcode
     target_col = "Reads With Valid Barcodes"
     data = data[data[target_col] >= reads_with_barcodes_cutoff]
+    if data.shape[0] == 0:
+        logging.info(f"No parameters passed the reads_with_barcodes_cutoff filter: {reads_with_barcodes_cutoff}")
 
     # Filter to the max `Fraction of Unique Reads in Cells` => best parameters
     target_col = "Fraction of Unique Reads in Cells"
     data = data[data[target_col] != float("inf")]
     data = data[data[target_col] == data[target_col].max()]
+    if data.shape[0] == 0:
+        logging.info(f"No parameters passed the max `Fraction of Unique Reads in Cells` filter")
+
     return data
 
 def write_all_data(data_all: pd.DataFrame, outfile_merged: str) -> None:
