@@ -91,7 +91,8 @@ def db_get_unprocessed_records(
             srx_metadata.is_paired_end == "yes",
             srx_metadata.lib_prep == "10x_Genomics",
             srx_metadata.organism.isin(organisms),
-            #~srx_metadata.tech_10x.isin(["other", "not_applicable"])
+            srx_metadata.notes != "Processed by Chris Carpenter",
+            ~srx_metadata.tech_10x.isin(["other", "not_applicable"])   # TODO: uncomment
         ])) \
         .distinct()
 

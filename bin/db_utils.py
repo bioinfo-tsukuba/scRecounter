@@ -4,7 +4,7 @@ import os
 import warnings
 from typing import List
 ## 3rd party
-import numpy
+import numpy as np
 import psycopg2
 import pandas as pd
 from psycopg2.extras import execute_values
@@ -60,7 +60,7 @@ def add_to_log(
         msg = str(msg[:(200-3)]) + '...'
     df.loc[len(df)] = [sample, accession, process, step, status, msg]
 
-def sanitize_int_columns(df, min_int=-2**31, max_int=2**31 - 1) -> pd.DataFrame:
+def sanitize_int_columns(df, min_int=-2**30, max_int=2**30 - 1) -> pd.DataFrame:
     """
     Sanitize integer columns in a DataFrame by casting them to float and replacing out-of-range values with NaN.
     Args:
