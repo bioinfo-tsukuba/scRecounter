@@ -197,12 +197,6 @@ def main(args, log_df):
     # get accession
     accession = os.path.splitext(os.path.basename(args.sra_file))[0]
 
-    # set vdb-config
-    cmd = ["vdb-config", "--report-cloud-identity", "yes"]
-    returncode, output, err = run_cmd(cmd)
-    if returncode != 0:
-        logging.warning(err)
-
     # run fast(er)q-dump
     cmd = []
     if args.maxSpotId and args.maxSpotId > 0:
@@ -225,6 +219,8 @@ def main(args, log_df):
             tries=args.tries,
             outdir=os.path.join(args.temp, "prefetch")
         )
+        if prefetch_outdir is None:
+            return None
         # fasterq-dump
         cmd = [
             "fasterq-dump",  

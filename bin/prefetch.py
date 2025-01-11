@@ -6,7 +6,7 @@ import re
 import sys
 import argparse
 import logging
-from typing import Tuple
+from typing import Tuple, Optional
 from time import sleep
 from shutil import which
 from subprocess import Popen, PIPE
@@ -168,7 +168,7 @@ def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
     logF.write(','.join([sample, accession, step, msg]) + '\n')
 
 def prefetch_workflow(sample: str, accession: str, log_df: pd.DataFrame, outdir:str, 
-                      gcp_download: bool=False, tries: int=3, max_size_gb: float=1000) -> None:
+                      gcp_download: bool=False, tries: int=3, max_size_gb: float=1000) -> Optional[str]:
     """
     Run prefetch workflow.
     Args:
