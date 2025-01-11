@@ -2,6 +2,7 @@
 import os
 import argparse
 from typing import Tuple, List
+import pandas as pd
 from google.cloud import storage
 
 # argparse
@@ -27,23 +28,42 @@ parser.add_argument(
 
 
 # functions
-def list_directories(bucket_name: str, prefix: str) -> List[str]:
+def list_bucket_contents(bucket_name: str, prefix: str) -> Tuple[List[str], List[str]]:
     """
-    List directories in a GCP bucket path
+    List directories and files in a GCP bucket path
     Args:
         bucket_name: GCP bucket name
         prefix: GCP bucket prefix    
     Returns:
-        List of directories in the bucket path
+        Tuple of (directories list, files list) in the bucket path
     """
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blobs = bucket.list_blobs(prefix=prefix, delimiter='/')
     
     directories = []
+    files = {}
+    
+    # Get directories (prefixes)
     for page in blobs.pages:
         directories.extend(page.prefixes)
-    return [d.rstrip('/') for d in directories]
+    directories = [d.rstrip('/') for d in directories]
+    
+    # Create a new iterator for blobs
+    blobs = bucket.list_blobs(prefix=prefix, delimiter='/')
+
+    # Get files
+    for blob in blobs:
+        if not blob.name.endswith('/'):  # Skip directory markers
+            num_rows = 0
+            if blob.name.split('/')[-1] == "accessions.csv":
+                # get the number of rows
+                blob.download_to_filename('/tmp/accessions.csv')
+                with open('/tmp/accessions.csv', 'r') as f:
+                    num_rows = pd.read_csv(f).shape[0]
+                os.remove('/tmp/accessions.csv')
+            files[os.path.basename(blob.name)] = num_rows         
+    return directories, files
 
 def delete_bucket_path(bucket_name: str, path: str) -> None:
     """
@@ -51,7 +71,6 @@ def delete_bucket_path(bucket_name: str, path: str) -> None:
     Args:
         bucket_name: GCP bucket name
     """
-
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blobs = bucket.list_blobs(prefix=path)
@@ -77,25 +96,31 @@ def parse_gs_path(gs_path: str) -> Tuple[str, str]:
 def clean_output_dir(output_dir: str) -> None:
     """
     Delete the contents of the output directory, 
-    if it only contains 'nf-report', 'nf-trace', and optionally 'logs' directories
+    if it only contains 'nf-report', 'nf-trace'.
     Args:
        output_dir: GCP bucket path to output directory
     """
     # parse the bucket path  
     bucket_name, path_prefix = parse_gs_path(output_dir)
-    
+
     # list directories in the bucket path
-    directories = list_directories(bucket_name, path_prefix)
+    directories,files = list_bucket_contents(bucket_name, path_prefix)
     directories = [os.path.basename(d) for d in directories]
     print(f"Directories found: {', '.join(directories)}")
-    
-    allowed_dirs = {"nf-report", "nf-trace", "logs"}
-    if set(directories).issubset(allowed_dirs):
-        print("No STAR results found. Deleting the bucket path...")
+    files_basename = [os.path.basename(f) for f in files]
+    print(f"Files found: {', '.join(files_basename)}")
+
+    # if accessions.csv in the directory, get the number of lines
+    if files.get("accessions.csv") == 0:
+        print("No accessions found. Deleting the bucket path...")
+        delete_bucket_path(bucket_name, path_prefix)
+        print(f"Deleted path: {output_dir}")
+    elif set(directories).issubset({"nf-report", "nf-trace"}):
+        print("Just Nextflow report and/or trace found. Deleting the bucket path...")
         delete_bucket_path(bucket_name, path_prefix)
         print(f"Deleted path: {output_dir}")
     else:
-        print("Bucket path contains other directories. No deletion performed.")
+        print("Bucket path contains pipeline results. No deletion performed.")
 
 def clean_work_dir(work_dir:  str) -> None:
     """

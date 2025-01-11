@@ -11,8 +11,17 @@ workflow DB_ACC_WF {
     ch_accessions.csv
 }
 
+// Save accessions csv
+def saveAsFinalAcc(filename) {
+    if (filename.endsWith(".csv")){
+        filename = filename.tokenize("/").last()
+        return "${filename}"
+    }
+    return null
+}
 
 process GET_DB_ACCESSIONS {
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "*.csv"
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename) }
     label "download_env"
 
