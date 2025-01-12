@@ -183,10 +183,16 @@ def upload_trace(output_dir: str) -> None:
         trace_df = pd.read_csv(local_file_path, sep="\t")
         # remove the local file
         os.remove(local_file_path)
-        # convert exit column to character
-        trace_df["exit"] = trace_df["exit"].astype(str)
-        # remove second "submit" column
-        trace_df = trace_df.drop(columns=["submit.1"])
+        # format
+        ## convert exit column to character
+        if "exit" in trace_df.columns:
+            trace_df["exit"] = trace_df["exit"].astype(str)
+        ## remove second "submit" column
+        if "submit.1" in trace_df.columns:
+            trace_df.drop(columns=["submit.1"], inplace=True)
+        ## rename "%cpu" to cpu_percent
+        if r"%cpu" in trace_df.columns:
+            trace_df.rename(columns={r"%cpu": "cpu_percent"}, inplace=True)
         # upsert
         with db_connect() as conn:
             db_upsert(trace_df, "screcounter_trace", conn)
