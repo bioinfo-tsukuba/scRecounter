@@ -165,7 +165,7 @@ process STAR_SELECT_PARAMS {
 
     stub:
     """
-    touch star_params.json
+    touch star_params.json merged_star_params.csv ${task.process}.log
     """
 }
 
@@ -255,7 +255,7 @@ process STAR_PARAM_SEARCH {
 
     stub:
     """
-    touch star_summary.csv
+    touch star_summary.csv ${task.process}.log
     """
 }
 
@@ -274,13 +274,13 @@ process SEQKIT_STATS {
     script:
     """
     seqkit -j $task.cpus stats -T \\
-      $fastq_1 $fastq_2 \
+      $fastq_1 $fastq_2 \\
       > ${sample}_${accession}_stats.tsv
     """
 
     stub:
     """
-    touch ${sample}_stats.tsv
+    touch ${sample}_${accession}_stats.tsv
     """
 }
 
@@ -324,6 +324,6 @@ process FASTQ_DUMP {
     stub:
     """
     mkdir -p reads
-    touch reads/${accession}_1.fastq reads/${accession}_2.fastq
+    touch reads/read1.fastq reads/read_2.fastq ${task.process}.log
     """
 }
