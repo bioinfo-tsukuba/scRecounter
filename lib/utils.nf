@@ -1,5 +1,6 @@
 process SRA_STAT {
     label "download_env"
+    disk 50.GB
 
     input:
     tuple val(sample), val(accession), val(metadata)

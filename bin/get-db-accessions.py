@@ -15,7 +15,7 @@ from pypika import Query, Table, Criterion
 from psycopg2.extras import execute_values
 from psycopg2.extensions import connection
 ## pipeline
-from db_utils import db_connect, db_upsert, add_to_log
+from db_utils import db_connect, db_upsert
 
 
 # logging
@@ -90,7 +90,7 @@ def db_get_unprocessed_records(
         .select(srx_metadata.srx_accession)
         .where(
             Criterion.all([
-                nontarget_srx.sample.isnull(),
+                nontarget_srx.sample.isnull(),      # filters out already processed records
                 srx_metadata.database.isin(database),
                 srx_metadata.is_illumina == "yes",
                 srx_metadata.is_single_cell == "yes",
@@ -98,7 +98,7 @@ def db_get_unprocessed_records(
                 srx_metadata.lib_prep == "10x_Genomics",
                 srx_metadata.organism.isin(organisms),
                 srx_metadata.notes != "Processed by Chris Carpenter",
-                ~srx_metadata.tech_10x.isin(["other", "not_applicable"])  # TODO: comment to make the query more open
+                ~srx_metadata.tech_10x.isin(["other", "not_applicable"])  # TODO: comment to make the query more permissive
             ])
         )
         .distinct()
@@ -127,7 +127,7 @@ def db_get_unprocessed_records(
     return pd.read_sql(str(stmt), conn)
 
 def main(args):
-    # set process name
+    # set process name; used to determine which records have been processed
     process = "Get db accessions"
 
     # get unprocessed records

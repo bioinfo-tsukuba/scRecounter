@@ -1,6 +1,7 @@
 # import
 ## batteries
 import os
+import logging
 import warnings
 from typing import List
 ## 3rd party
@@ -11,8 +12,12 @@ from psycopg2.extras import execute_values
 from psycopg2.extensions import connection
 from tempfile import NamedTemporaryFile
 
-# Suppress the specific warning
+# Suppress notifications
 warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable")
+logging.getLogger("psycopg2").setLevel(logging.CRITICAL)
+logging.getLogger("google.auth.transport.requests").setLevel(logging.CRITICAL)
+logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+logging.getLogger("google.auth").setLevel(logging.CRITICAL)
 
 # functions
 def db_connect() -> connection:
