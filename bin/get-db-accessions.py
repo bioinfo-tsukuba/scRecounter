@@ -67,34 +67,43 @@ def db_get_unprocessed_records(
 
     # subquery to get srx_accessions
     ## find already-processed records in sc-recounter log
-    nontarget_srx = Query \
-        .from_(scr_log) \
-        .select(scr_log.sample) \
-        .where(Criterion.all([
-            scr_log.process == process,
-            scr_log.step == "Final",
-            scr_log.status == "Success",
-        ])) \
+    nontarget_srx = (
+        Query
+        .from_(scr_log)
+        .select(scr_log.sample)
+        .where(
+            Criterion.all([
+                scr_log.process == process,
+                scr_log.step == "Final",
+                scr_log.status == "Success"
+            ])
+        )
         .distinct()
+    )
 
     ## find unprocessed records
-    target_srx = Query \
-        .from_(srx_metadata) \
-        .left_join(nontarget_srx) \
-        .on(srx_metadata.srx_accession == nontarget_srx.sample) \
-        .select(srx_metadata.srx_accession) \
-        .where(Criterion.all([
-            nontarget_srx.sample.isnull(),
-            srx_metadata.database.isin(database),
-            srx_metadata.is_illumina == "yes",
-            srx_metadata.is_single_cell == "yes",
-            srx_metadata.is_paired_end == "yes",
-            srx_metadata.lib_prep == "10x_Genomics",
-            srx_metadata.organism.isin(organisms),
-            srx_metadata.notes != "Processed by Chris Carpenter",
-            ~srx_metadata.tech_10x.isin(["other", "not_applicable"])   # TODO: uncomment
-        ])) \
+    target_srx = (
+        Query
+        .from_(srx_metadata)
+        .left_join(nontarget_srx)
+        .on(srx_metadata.srx_accession == nontarget_srx.sample)
+        .select(srx_metadata.srx_accession)
+        .where(
+            Criterion.all([
+                nontarget_srx.sample.isnull(),
+                srx_metadata.database.isin(database),
+                srx_metadata.is_illumina == "yes",
+                srx_metadata.is_single_cell == "yes",
+                srx_metadata.is_paired_end == "yes",
+                srx_metadata.lib_prep == "10x_Genomics",
+                srx_metadata.organism.isin(organisms),
+                srx_metadata.notes != "Processed by Chris Carpenter",
+                ~srx_metadata.tech_10x.isin(["other", "not_applicable"])  # TODO: comment to make the query more open
+            ])
+        )
         .distinct()
+        .limit(max_srx)
+    )
 
     # main query to obtain the SRR for each SRX and then format the output
     stmt = (
@@ -111,7 +120,7 @@ def db_get_unprocessed_records(
             srx_metadata.organism.as_("organism"),
             srx_metadata.tech_10x.as_("tech_10x"),
         )
-        .limit(max_srx)
+        .distinct()
     )
         
     # fetch as pandas dataframe
