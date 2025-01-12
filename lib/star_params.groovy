@@ -1,9 +1,12 @@
 import groovy.json.JsonSlurper
 
 def expandStarParams(ch_fastq, ch_star_params_json) {
+    def processedSamples = [] 
+    
     // read the JSON file with the STAR parameters and join with the fastq channel
     ch_params = ch_fastq.join(ch_star_params_json, by: [0,1])
         .map{ sample, accession, metadata, read1, read2, json_file -> 
+            processedSamples << [sample, accession] 
             def params = new JsonSlurper().parseText(json_file.text)
             def barcodes_file = params.barcodes_file
             def star_index = params.star_index
@@ -16,7 +19,12 @@ def expandStarParams(ch_fastq, ch_star_params_json) {
         }
 
     // status on number of parameter combinations
-    ch_params.ifEmpty{ println "WARNING: No valid parameter set found" }
+    ch_params.ifEmpty{ 
+        println "WARNING: No valid parameter set found for the following samples:"
+        processedSamples.each { sampleInfo -> 
+            println "- Sample: ${sampleInfo[0]}, Accession: ${sampleInfo[1]}"
+        }
+    }
     return ch_params
 }
 

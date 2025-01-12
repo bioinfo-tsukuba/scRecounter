@@ -46,7 +46,7 @@ workflow STAR_PARAMS_WF{
     ch_star_params_json = STAR_SELECT_PARAMS.out.json
         .filter { sample, accession, json_file -> 
             if(json_file.size() < 5) {
-                println "Warning: No valid STAR parameters found for ${sample}; skipping"
+                println "WARNING: No valid STAR parameters found for ${sample}; skipping"
             }
             return json_file.size() > 5
         }

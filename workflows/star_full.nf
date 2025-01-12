@@ -148,6 +148,7 @@ def saveAsSTAR(sample, filename) {
 process FASTERQ_DUMP {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
+    maxRetries 1
     cpus 16
     memory { 16.GB * task.attempt }
     time { (16.h + (sra_file_size_gb * 0.8).h) * task.attempt }
@@ -218,6 +219,6 @@ process FASTERQ_DUMP {
     stub:
     """
     mkdir -p reads
-    touch reads/${accession}_1.fastq reads/${accession}_2.fastq ${task.process}.log
+    touch reads/read_1.fastq reads/read_2.fastq ${task.process}.log
     """
 }
