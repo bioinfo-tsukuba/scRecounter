@@ -101,7 +101,7 @@ gcloud beta run jobs update ${JOB_NAME} \
   --set-env-vars=TZ=America/Los_Angeles \
   --cpu=2 \
   --memory=6Gi \
-  --task-timeout=10060m \
+  --task-timeout=8640m \
   --max-retries=0 \
   --args=""
 ```
