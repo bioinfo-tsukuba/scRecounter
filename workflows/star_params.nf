@@ -1,4 +1,4 @@
-include { joinReads; saveAsLog; } from '../lib/utils.groovy'
+include { joinReads; saveAsLog; subsampleByGroup; } from '../lib/utils.groovy'
 include { makeParamSets; validateRequiredColumns; loadBarcodes; loadStarIndices; expandStarParams } from '../lib/star_params.groovy'
 
 // Workflow to run STAR alignment on scRNA-seq data
@@ -10,7 +10,9 @@ workflow STAR_PARAMS_WF{
     main:
     //-- Download subset of reads reads --//    
     // Run prefetch & fastq-dump; only testing on subset of SRR accessions, if many
-    ch_fqdump = FASTQ_DUMP(ch_accessions.randomSample(params.max_accessions, 23482))
+    ch_fqdump = FASTQ_DUMP(
+        subsampleByGroup(ch_accessions, params.max_accessions, 23482)
+    )
     
     // Join R1 and R2 channels, which will filter out empty R2 records
     ch_fastq = joinReads(ch_fqdump.R1, ch_fqdump.R2)

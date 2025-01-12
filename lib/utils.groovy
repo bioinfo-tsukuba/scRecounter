@@ -95,3 +95,38 @@ def saveAsLog(filename, sample=null, accession=null) {
     }
     return null
 }
+
+def subsampleByGroup(ch_accessions, max_per_group, seed) {
+    ch_accessions
+        .groupTuple()
+        .map { samples, accessions, meta, sra_stat ->
+            accessions = accessions.toList()
+            meta = meta.toList()
+            sra_stat = sra_stat.toList()
+        
+            if (accessions) { // Ensure lists are not empty
+                def indices = (0..<accessions.size()).toList() // Create indices
+                indices.shuffle(new Random(seed)) // Shuffle indices with seed
+            
+                def shuffledAcc = indices.collect { accessions[it] } // Shuffle accessions based on indices
+                def shuffledMeta = indices.collect { meta[it] } // Shuffle meta based on the same indices
+                def shuffledStat = indices.collect { sra_stat[it] } // Shuffle meta based on the same indices
+            
+                def maxSize = Math.min(shuffledAcc.size(), max_per_group)
+                shuffledAcc = maxSize > 0 ? shuffledAcc[0..<maxSize] : []
+                shuffledMeta = maxSize > 0 ? shuffledMeta[0..<maxSize] : []
+                shuffledStat = maxSize > 0 ? shuffledStat[0..<maxSize] : []
+            
+                [samples, shuffledAcc, shuffledMeta, shuffledStat]
+            } else {
+                [samples, [], [], []] // Handle empty groups gracefully
+            }
+        }
+        .flatMap { samples, accessions, meta, sra_stat ->
+            def flattened = []
+            for (int i = 0; i < accessions.size(); i++) {
+                flattened << [samples, accessions[i], meta[i], sra_stat[i]]
+            }
+            flattened
+        }
+}
