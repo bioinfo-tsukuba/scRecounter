@@ -213,7 +213,7 @@ process FASTERQ_DUMP {
     fi
 
     # symlink reads from /tmp to working directory
-    ln -s /tmp/reads/ .
+    ln -s ${params.fasterq_out}/reads/ .
     """
 
     stub:
