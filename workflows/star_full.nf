@@ -213,9 +213,14 @@ process FASTERQ_DUMP {
           --min-read-length ${params.min_read_len} \\
           --temp ${params.fasterq_tmp} \\
           --outdir reads \\
-          --maxSpotId 60000000 \\
+          --maxSpotId 80000000 \\
           ${accession} \\
           2>&1 | tee -a ${task.process}.log
+    fi
+
+    # if task.attempt == 2, touch reads/read_1.fastq to avoid pipeline failure
+    if [ ${task.attempt} -eq 2 ]; then
+        touch reads/read_1.fastq
     fi
     """
 
