@@ -48,7 +48,7 @@ def makeParamSets(ch_subsample, ch_barcodes, ch_star_indices) {
     // status on number of parameter combinations
     ch_params
         .ifEmpty("No valid parameter set found")
-        .count().view{ count -> "Number of parameter sets to test: ${count}" }
+        .count().view{ count -> "Param sets to test across all SRX: ${count}" }
     return ch_params
 }
 
