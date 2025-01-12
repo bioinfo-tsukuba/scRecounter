@@ -74,6 +74,7 @@ process STAR_FULL {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
     label "process_high"
+    disk { 100.GB * task.attempt }
 
     input:
     tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), 
@@ -145,7 +146,7 @@ def saveAsSTAR(sample, filename) {
 }
 
 process FASTERQ_DUMP {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
     cpus 16
     memory { 16.GB * task.attempt }
@@ -179,6 +180,7 @@ process FASTERQ_DUMP {
     echo "Downloading ${accession} for ${sample}" > ${task.process}.log
     echo "sra-stat file size: ${sra_file_size_gb} GB" >> ${task.process}.log
 
+    # run prefetch and fasterq-dump
     fq-dump.py \\
       --sample ${sample} \\
       --accession ${accession} \\
@@ -193,6 +195,24 @@ process FASTERQ_DUMP {
       ${accession} \\
       2>&1 | tee -a ${task.process}.log
 
+    # if read_2.fastq does not exist, try to fall back to fastq-dump
+    if [ ! -f ${params.fasterq_out}/read_2.fastq ]; then
+        echo "Falling back to fastq-dump" >> ${task.process}.log
+        rm -rf ${params.fasterq_tmp}
+        rm -rf ${params.fasterq_out}
+        fq-dump.py \\
+          --sample ${sample} \\
+          --accession ${accession} \\
+          --threads ${task.cpus} \\
+          --min-read-length ${params.min_read_len} \\
+          --temp ${params.fasterq_tmp} \\
+          --outdir ${params.fasterq_out} \\
+          --maxSpotId 20000000 \\
+          ${accession} \\
+          2>&1 | tee -a ${task.process}.log
+    fi
+
+    # symlink reads from /tmp to working directory
     ln -s /tmp/reads/ .
     """
 
