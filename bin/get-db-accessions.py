@@ -133,7 +133,14 @@ def main(args):
     # get unprocessed records
     with db_connect() as conn:
         df = db_get_unprocessed_records(conn, process, args.database, max_srx=args.max_srx)
-    logging.info(f"Number of records obtained: {df.shape[0]}")
+
+    # log number of records
+    num_unique_srx = df["sample"].nunique()
+    logging.info(f"No. of SRX accessions: {num_unique_srx}")
+    num_unique_acc = df["accession"].nunique()
+    logging.info(f"No. of SRR accessions: {num_unique_acc}")
+    srr_per_srx = df.groupby("sample")["accession"].count()
+    logging.info(f"No. of SRR per SRX: {srr_per_srx.to_dict()}")
 
     ## write out records
     df.to_csv(args.outfile, index=False)
