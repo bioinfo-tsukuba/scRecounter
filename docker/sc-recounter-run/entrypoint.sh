@@ -13,6 +13,9 @@ micromamba run -n sc-recounter-run \
     -ansi-log false "$@"
 
 # Delete output directory if only nf-report and nf-trace
+export GCP_SQL_DB_HOST="35.243.133.29"
+export GCP_SQL_DB_NAME="sragent-prod"
+export GCP_SQL_DB_USERNAME="postgres"
 micromamba run -n sc-recounter-run \
   python cleanup.py \
     "gs://arc-ctc-nextflow/scRecounter/prod/work/${RUN_NAME}" \
