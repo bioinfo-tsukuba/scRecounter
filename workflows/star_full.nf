@@ -40,7 +40,6 @@ process STAR_FULL_SUMMARY {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 50.GB
 
     input:
@@ -76,7 +75,6 @@ process STAR_FULL {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
     label "process_high"
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk { 100.GB * task.attempt }
 
     input:
@@ -152,7 +150,6 @@ process FASTERQ_DUMP {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
     maxRetries 1
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     cpus 16
     memory { 16.GB * task.attempt }
     time { (16.h + (sra_file_size_gb * 0.8).h) * task.attempt }

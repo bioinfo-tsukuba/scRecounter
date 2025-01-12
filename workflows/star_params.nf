@@ -96,7 +96,6 @@ process STAR_SAVE_FINAL_PARAMS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsFinalParams(sample, filename) }
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 50.GB
 
     input:
@@ -141,7 +140,6 @@ process STAR_SELECT_PARAMS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, accession, filename) }
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 50.GB
 
     input:
@@ -174,7 +172,6 @@ process STAR_SELECT_PARAMS {
 process STAR_FORMAT_PARAMS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 50.GB
 
     input:
@@ -215,7 +212,6 @@ process STAR_PARAM_SEARCH {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
     label "process_medium"
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 75.GB
 
     input:
@@ -267,7 +263,6 @@ process STAR_PARAM_SEARCH {
 process SEQKIT_STATS {
     label "download_env"
     label "process_low"
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 50.GB
 
     input:
@@ -293,7 +288,6 @@ process FASTQ_DUMP {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
     maxRetries 1
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 75.GB
 
     input:
@@ -302,7 +296,7 @@ process FASTQ_DUMP {
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
     tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
-    path "${task.process}.log",    emit: "log"
+    path "${task.process}.log",                                                   emit: "log"
 
     script:
     """
