@@ -156,10 +156,12 @@ process FASTERQ_DUMP {
     //disk { 300.GB + (sra_file_size_gb * (8 + task.attempt * 2)).GB }
     disk { 
         def disk_size = 
-            sra_file_size_gb > 225 ? 1875.GB :
-            sra_file_size_gb > 150 ? 1500.GB :
-            sra_file_size_gb > 75 ? 1125.GB :
-            sra_file_size_gb > 40 ? 750.GB :
+            sra_file_size_gb > 260 ? 2625.GB :
+            sra_file_size_gb > 220 ? 2250.GB :
+            sra_file_size_gb > 170 ? 1875.GB :
+            sra_file_size_gb > 120 ? 1500.GB :
+            sra_file_size_gb > 60 ? 1125.GB :
+            sra_file_size_gb > 30 ? 750.GB :
             375.GB
         disk_size = disk_size + (375 * (task.attempt - 1)).GB
         [request: disk_size, type: 'local-ssd'] 
