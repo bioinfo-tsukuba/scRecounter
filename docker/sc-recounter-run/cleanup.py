@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import os
 import argparse
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 import pandas as pd
 from google.cloud import storage
+from db_utils import db_connect, db_upsert
 
 # argparse
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
@@ -28,7 +29,7 @@ parser.add_argument(
 
 
 # functions
-def list_bucket_contents(bucket_name: str, prefix: str) -> Tuple[List[str], List[str]]:
+def list_bucket_contents(bucket_name: str, prefix: str) -> Tuple[List[str], Dict[str, int]]:
     """
     List directories and files in a GCP bucket path
     Args:
@@ -122,7 +123,7 @@ def clean_output_dir(output_dir: str) -> None:
     else:
         print("Bucket path contains pipeline results. No deletion performed.")
 
-def clean_work_dir(work_dir:  str) -> None:
+def clean_work_dir(work_dir: str) -> None:
     """
     Delete the contents of the work directory
     Args:
@@ -135,9 +136,71 @@ def clean_work_dir(work_dir:  str) -> None:
     delete_bucket_path(bucket_name, path_prefix)
     print(f"Deleted path: {work_dir}")
 
+
+def download_gcs_file(
+    bucket_name: str, gcs_file_path: str, local_file_path: str="/tmp/temp_file.tsv"
+    ) -> str:
+    """
+    Download a file from a GCP bucket to a local file
+    Args:
+        bucket_name: GCP bucket name
+        gcs_file_path: GCP bucket path to the file
+        local_file_path: Local file path
+    Returns:
+        Local file path
+    """
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(gcs_file_path)
+    blob.download_to_filename(local_file_path)
+    return local_file_path
+  
+def upload_trace(output_dir: str) -> None:
+    """
+    Upload the trace file to the screcounter db
+    Args:
+        output_dir: GCP bucket path to output directory
+    """
+    # does nf-trace directory exists in gcp bucket location?
+    bucket_name, path_prefix = parse_gs_path(output_dir)
+    directories,files = list_bucket_contents(bucket_name, path_prefix)
+    directories = [os.path.basename(d) for d in directories]
+
+    if "nf-trace" in directories:
+        # list the files in nf-trace directory
+        trace_dir = path_prefix + "nf-trace/"
+        trace_files = list_bucket_contents(bucket_name, trace_dir)[1]
+        # get the most recent based on the name
+        trace_file = sorted(list(trace_files.keys()))[-1]
+        # read the trace file as a pandas dataframe
+        trace_file_path = os.path.join(trace_dir, trace_file)
+        # read from gcp
+        local_file_path = download_gcs_file(bucket_name, trace_file_path)
+        # read the file
+        if not os.path.exists(local_file_path):
+            print(f"File not found: {local_file_path}")
+            return None
+        trace_df = pd.read_csv(local_file_path, sep="\t")
+        # remove the local file
+        os.remove(local_file_path)
+        # convert exit column to character
+        trace_df["exit"] = trace_df["exit"].astype(str)
+        # remove second "submit" column
+        trace_df = trace_df.drop(columns=["submit.1"])
+        # upsert
+        with db_connect() as conn:
+            db_upsert(trace_df, "screcounter_trace", conn)
+        # status update
+        print(f"Uploaded trace file to screcounter db: {trace_file}")
+    else:
+        print("No nf-trace directory found. Skipping trace file db upload.")
+
 def main(args): 
+    # clean up the work and output directories
     clean_work_dir(args.work_dir)
     clean_output_dir(args.output_dir)
+    # upload the trace file to the screcounter db
+    upload_trace(args.output_dir)
     
 
 if __name__ == "__main__":
