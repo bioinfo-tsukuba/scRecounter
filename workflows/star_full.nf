@@ -191,29 +191,28 @@ process FASTERQ_DUMP {
       --max-size-gb ${params.max_sra_size} \\
       --min-read-length ${params.min_read_len} \\
       --temp ${params.fasterq_tmp} \\
-      --outdir ${params.fasterq_out} \\
+      --outdir reads \\
       ${accession} \\
-      2>&1 | tee -a ${task.process}.log
+      2>&1 | tee -a ${task.process}.log || \
+        echo "fasterq-dump failed to download ${accession}" >> ${task.process}.log
 
     # if read_2.fastq does not exist, try to fall back to fastq-dump
-    if [ ! -f ${params.fasterq_out}/read_2.fastq ]; then
-        echo "Falling back to fastq-dump" >> ${task.process}.log
+    mkdir -p reads
+    if [ ! -f reads/read_2.fastq ]; then
+        echo "No read_2 found, falling back to fastq-dump" >> ${task.process}.log
         rm -rf ${params.fasterq_tmp}
-        rm -rf ${params.fasterq_out}
+        rm -rf reads
         fq-dump.py \\
           --sample ${sample} \\
           --accession ${accession} \\
           --threads ${task.cpus} \\
           --min-read-length ${params.min_read_len} \\
           --temp ${params.fasterq_tmp} \\
-          --outdir ${params.fasterq_out} \\
-          --maxSpotId 20000000 \\
+          --outdir reads \\
+          --maxSpotId 60000000 \\
           ${accession} \\
           2>&1 | tee -a ${task.process}.log
     fi
-
-    # symlink reads from /tmp to working directory
-    ln -s ${params.fasterq_out}/reads/ .
     """
 
     stub:
