@@ -10,6 +10,7 @@ import logging
 from glob import glob
 from time import sleep
 from shutil import which, rmtree
+from typing import Dict
 from subprocess import Popen, PIPE
 import pandas as pd
 from db_utils import db_connect, db_upsert, add_to_log
@@ -98,6 +99,71 @@ def get_read_lengths(fastq_file: str, num_lines: int) -> float:
     # return average read length
     return sum(read_lens) / len(read_lens)
 
+def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, str]:
+    """
+    Rename reads in `read_lens_filt` to:
+    - 'read_1.fastq' if there's only one file.
+    - If two or more files exist:
+      * Compare the top 2 by read length.
+      * If lengths differ, rename the largest to 'read_2.fastq' and second largest to 'read_1.fastq'.
+      * If lengths are the same, rename them by alphabetical order to 'read_1.fastq' and 'read_2.fastq'.
+    Returns a dictionary { "R1": <path>, "R2": <path> } with the renamed files.
+    """
+    read_files_filt = {}
+    num_files = len(read_lens_filt)
+
+    # Handle only 1 file
+    if num_files == 1:
+        logging.info("Only one read file found; renaming to read_1.fastq")
+        old_name = list(read_lens_filt.keys())[0]
+        new_name = os.path.join(outdir, "read_1.fastq")
+
+        if old_name == new_name:
+            raise ValueError(f"New fastq name is the same as old name: {new_name}")
+
+        os.rename(old_name, new_name)
+        read_files_filt["R1"] = new_name
+        logging.info(f"Renamed {old_name} to {new_name}")
+        return read_files_filt
+
+    # Handle 2 or more files
+    logging.info(">=2 read files found; picking two largest to rename")
+    ## Sort by descending read length and then take the top 2
+    sorted_by_length_desc = sorted(read_lens_filt.items(), key=lambda x: x[1], reverse=True)
+    top_two = sorted_by_length_desc[:2]
+
+    # If the two longest have the same read length, re-sort them by filename ascending
+    if top_two[0][1] == top_two[1][1]:
+        logging.info("Top 2 files have the same read length; renaming by alphabetical order")
+        # Sort by filename (x[0]) ascending
+        top_two.sort(key=lambda x: x[0])
+
+        # Rename in ascending order:
+        #  - first becomes read_1.fastq
+        #  - second becomes read_2.fastq
+        for i, (old_name, _) in enumerate(top_two, start=1):
+            new_name = os.path.join(outdir, f"read_{i}.fastq")
+            if old_name == new_name:
+                raise ValueError(f"New fastq name is the same as old name: {new_name}")
+            os.rename(old_name, new_name)
+            read_files_filt[f"R{i}"] = new_name
+            logging.info(f"Renamed {old_name} to {new_name}")
+    else:
+        logging.info("Top 2 files differ in read length; largest file => read_2, second => read_1")
+        # Assign read_2 to the largest read, read_1 to the second largest
+        for i, (old_name, _) in enumerate(top_two, start=1):
+            read_num = 2 if i == 1 else 1
+            new_name = os.path.join(outdir, f"read_{read_num}.fastq")
+
+            if old_name == new_name:
+                raise ValueError(f"New fastq name is the same as old name: {new_name}")
+
+            os.rename(old_name, new_name)
+            read_files_filt[f"R{read_num}"] = new_name
+            logging.info(f"Renamed {old_name} to {new_name}")
+
+    return read_files_filt
+
 def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     """
     Check the output of fastq-dump.
@@ -150,32 +216,8 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
     if not read_lens_filt:
         return "Failure","No reads passed the read length filter"
 
-    # rename read files
-    read_files_filt = {}
-    if len(read_lens_filt) == 1:
-        logging.info("Only one read file found; renaming to read_1.fastq")
-        new_name = os.path.join(outdir, "read_1.fastq")
-        old_name = list(read_lens_filt.keys())[0]
-        if new_name == old_name:
-            raise ValueError(f"New fastq name is the same as old name: {new_name}")
-        os.rename(old_name, new_name)
-    else:
-        logging.info(">=2 read files found; renaming largest files to read_1.fastq and read_2.fastq")
-        # sort by largest to smallest: {first = R2, second = R1, third = break
-        for i,x in enumerate(sorted(read_lens_filt.items(), key=lambda x: x[1], reverse=True), 1):
-            if i > 2:
-                break
-            elif i == 1:
-               read_num = 2
-            elif i == 2:
-                read_num = 1
-            # rename
-            new_name = os.path.join(outdir, f"read_{read_num}.fastq")
-            if x[0] == new_name:
-                raise ValueError(f"New fastq name is the same as old name: {new_name}")
-            os.rename(x[0], new_name)
-            read_files_filt[f"R{read_num}"] = new_name
-            logging.info(f"Renamed {x[0]} to {new_name}")
+    # rename read files based on read length (or file name)
+    read_files_filt = rename_read_files(read_lens_filt, outdir)
     
     # if no R1 or R2, return warning
     file_names = ",".join([os.path.basename(x) for x in read_files_filt.values()])
