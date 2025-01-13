@@ -1,7 +1,6 @@
 process SRA_STAT {
     label "download_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
-    disk 50.GB
 
     input:
     tuple val(sample), val(accession), val(metadata)

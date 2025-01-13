@@ -41,7 +41,6 @@ process STAR_FULL_SUMMARY {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
-    disk 50.GB
 
     input:
     tuple val(sample), path("gene_summary.csv")
@@ -77,7 +76,7 @@ process STAR_FULL {
     label "star_env"
     label "process_high"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
-    disk { 100.GB * task.attempt }
+    disk { [request: (375 * task.attempt).GB, type: 'local-ssd'] }
 
     input:
     tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"), 
@@ -170,7 +169,7 @@ process FASTERQ_DUMP {
         [request: disk_size, type: 'local-ssd'] 
     }
     machineType { 
-        def options = ['n2-*', 'c2-*', 'n2d-*', 'c2d-*']
+        def options = ['n2-*', 'c2-*', 'n2d-*', 'c2d-*', 'e2-*', 'n1-*']
         return options[new Random().nextInt(options.size())]
     }
     

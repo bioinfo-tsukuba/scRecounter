@@ -24,7 +24,6 @@ process GET_DB_ACCESSIONS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "*.csv"
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename) }
     label "download_env"
-    disk 50.GB
 
     output:
     path "accessions.csv",      emit: "csv"
