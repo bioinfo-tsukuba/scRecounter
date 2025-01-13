@@ -256,9 +256,12 @@ def main(args, log_df):
     ## run command
     returncode, output, err = run_cmd(cmd)
     if returncode == 0:
-        msg = '; '.join(output.decode().split('\n'))
+        msg = output.decode().split('\n')
     else:
-        msg = '; '.join(err.decode().split('\n'))
+        msg = err.decode().split('\n')
+    msg = "; ".join([x for x in msg if x])        
+    if msg == "":
+        msg = "No command output"
     ## add to log
     status = "Success" if returncode == 0 else "Failure"
     add_to_log(log_df, args.sample, args.accession, "fq-dump", cmd[0], status, msg)
@@ -268,7 +271,7 @@ def main(args, log_df):
 
     # Check the fq-dump output
     status,msg = check_output(args.sra_file, args.outdir, args.min_read_length)
-    add_to_log(log_df, args.sample, args.accession, "fq-dump", "check_output", status, msg)
+    add_to_log(log_df, args.sample, args.accession, "fq-dump", f"check_{cmd[0]}_output", status, msg)
 
     # unlink temp files
     rmtree(args.temp, ignore_errors=True)
