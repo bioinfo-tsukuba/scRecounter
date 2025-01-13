@@ -234,13 +234,14 @@ def main(args, log_df):
 
     # check if data is empty
     if data_filt.shape[0] == 0:
-        msg = "No valid barcodes found in the STAR summary table"
+        msg = "Best parameters not found"
         logging.warning(msg)
-        #write_log(logF, sample, "Valid barcode check", False, msg)
-        add_to_log(log_df, args.sample, args.accession, process, "Check raw params", "Failure", msg)
+        add_to_log(log_df, args.sample, args.accession, process, "Get best params", "Failure", msg)
         # write empty json file
         write_data(None, data_all, outfile_selected, outfile_merged)
         return None
+    else:
+        add_to_log(log_df, args.sample, args.accession, process, "Get best params", "Success", "Valid barcodes found")
 
     # Convert dtypes
     for x in ["cell_barcode_length", "umi_length", "read1_length", "read2_length"]:
@@ -255,6 +256,8 @@ def main(args, log_df):
         add_to_log(log_df, args.sample, args.accession, process, "Read length filter", "Failure", msg)
         write_data(None, data_all, outfile_selected, outfile_merged)
         return None
+    else:
+        add_to_log(log_df, args.sample, args.accession, process, "Read length filter", "Success", "Read lengths > cell barcode + UMI")
     data_filt.drop(columns="CHECK", inplace=True)
 
     # If multiple rows, take the first after sorting by "READS_WITH_VALID_BARCODES"
