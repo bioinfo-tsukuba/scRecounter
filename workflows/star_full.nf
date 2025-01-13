@@ -169,6 +169,10 @@ process FASTERQ_DUMP {
         disk_size = disk_size + (375 * (task.attempt - 1)).GB
         [request: disk_size, type: 'local-ssd'] 
     }
+    machineType { 
+        def options = ['n2-*', 'c2-*', 'n2d-*', 'c2d-*']
+        return options[new Random().nextInt(options.size())]
+    }
     
     input:
     tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
