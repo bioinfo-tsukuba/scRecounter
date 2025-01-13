@@ -41,6 +41,7 @@ process STAR_FULL_SUMMARY {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    disk 10.GB
 
     input:
     tuple val(sample), path("gene_summary.csv")

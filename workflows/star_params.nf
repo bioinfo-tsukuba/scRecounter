@@ -97,6 +97,7 @@ process STAR_SAVE_FINAL_PARAMS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    disk 10.GB
 
     input:
     tuple val(sample), val(barcodes), val(star_index), val(cell_barcode_length), val(umi_length), val(strand)
@@ -141,6 +142,7 @@ process STAR_SELECT_PARAMS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    disk 10.GB
 
     input:
     tuple val(sample), val(accession), path("star_params*.csv"), path(read_stats), path(sra_stats)
@@ -173,6 +175,7 @@ process STAR_FORMAT_PARAMS {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    disk 10.GB
 
     input:
     tuple val(sample), val(accession), val(metadata), val(params), path(star_summary)
@@ -213,6 +216,7 @@ process STAR_PARAM_SEARCH {
     label "star_env"
     label "process_medium"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    disk 10.GB
 
     input:
     tuple val(sample), val(accession), val(metadata), path(fastq_1), path(fastq_2), path(barcodes_file), path(star_index), val(params)
@@ -264,6 +268,7 @@ process SEQKIT_STATS {
     label "download_env"
     label "process_low"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    disk 10.GB
 
     input:
     tuple val(sample), val(accession), val(metadata), path(fastq_1), path(fastq_2)
@@ -289,6 +294,7 @@ process FASTQ_DUMP {
     label "download_env"
     maxRetries 1
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    disk 10.GB
 
     input:
     tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
