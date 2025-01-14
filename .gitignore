@@ -13,3 +13,5 @@ archive/
 screenlog.*
 *.pyc
 SRAgent/
+scripts/db_utils.py
+docker/sc-recounter-run/db_utils.py
