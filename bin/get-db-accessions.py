@@ -152,8 +152,6 @@ def main(args):
     srr_per_srx = df.groupby("sample")["accession"].count()
     logging.info(f"No. of target SRR per SRX: {srr_per_srx.to_dict()}")
 
-    print(df); exit()
-
     ## write out records
     df.to_csv(args.outfile, index=False)
 
