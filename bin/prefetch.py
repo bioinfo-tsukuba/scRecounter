@@ -205,8 +205,16 @@ def prefetch_workflow(sample: str, accession: str, log_df: pd.DataFrame, outdir:
         logging.warning(f'Failed to download: {msg}')
         return None
 
+    # print output file size
+    sra_file = os.path.join(outdir, accession)
+    if not os.path.exists(sra_file):
+        logging.warning(f'File not found: {sra_file}')
+        return None
+    file_size = os.path.getsize(sra_file)
+    logging.info(f"SRA file size: {file_size / 1e9:.3f} GB")
+
     # return output file
-    return os.path.join(outdir, accession)
+    return sra_file
 
 ## script main
 if __name__ == '__main__':

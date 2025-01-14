@@ -218,6 +218,11 @@ def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
 
     # rename read files based on read length (or file name)
     read_files_filt = rename_read_files(read_lens_filt, outdir)
+
+    # for each read file, print the file size in GB
+    for read_name, read_file in read_files_filt.items():
+        file_size = os.path.getsize(read_file)
+        logging.info(f"File size for {read_name}: {file_size / 1e9:.2f} GB")
     
     # if no R1 or R2, return warning
     file_names = ",".join([os.path.basename(x) for x in read_files_filt.values()])

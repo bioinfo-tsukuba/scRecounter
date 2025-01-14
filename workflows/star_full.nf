@@ -98,7 +98,8 @@ process STAR_FULL {
 
     script:
     """
-    # run STAR
+    echo "Running STAR for ${sample}" > ${task.process}.log
+
     R1=\$(printf "%s," input*_R1.fastq)
     R1=\${R1%,} 
     R2=\$(printf "%s," input*_R2.fastq)
@@ -123,7 +124,7 @@ process STAR_FULL {
       --outSAMtype None \\
       --soloBarcodeReadLength 0 \\
       --outFileNamePrefix results \\
-      2>&1 | tee ${task.process}.log
+      2>&1 | tee -a ${task.process}.log
 
 
     # gzip the results
