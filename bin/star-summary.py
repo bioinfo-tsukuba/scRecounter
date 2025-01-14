@@ -73,7 +73,7 @@ def main(args):
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
     # float columns to integer
-    cols_to_convert = ["estimated_number_of_cells", "number_of_reads", "reads_with_valid_barcodes", "umis_in_cells"]
+    cols_to_convert = ["estimated_number_of_cells", "number_of_reads", "umis_in_cells"]
     for col in cols_to_convert:
         if col in df.columns:
             df[col] = df[col].fillna(0).replace([float('inf'), -float('inf')], 0).astype(int)
