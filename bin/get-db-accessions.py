@@ -81,6 +81,10 @@ def db_get_unprocessed_records(
         .distinct()
     )
 
+    # status
+    num_nontarget = pd.read_sql(str(nontarget_srx), conn).shape[0]
+    logging.info(f"No. of non-target records: {num_nontarget}")
+
     ## find unprocessed records
     target_srx = (
         Query
@@ -93,6 +97,7 @@ def db_get_unprocessed_records(
                 nontarget_srx.sample.isnull(),      # filters out already processed records
                 srx_metadata.database.isin(database),
                 srx_metadata.srx_accession != "",
+                (srx_metadata.srx_accession.like("SRX%") | srx_metadata.srx_accession.like("ERX%")),
                 srx_metadata.is_illumina == "yes",
                 srx_metadata.is_single_cell == "yes",
                 srx_metadata.is_paired_end == "yes",
@@ -105,6 +110,10 @@ def db_get_unprocessed_records(
         .distinct()
         .limit(max_srx)
     )
+
+    # status
+    #df_target = pd.read_sql(str(target_srx), conn)
+    #print(f"No. of target records: {df_target.shape[0]}")
 
     # main query to obtain the SRR for each SRX and then format the output
     stmt = (
@@ -137,11 +146,13 @@ def main(args):
 
     # log number of records
     num_unique_srx = df["sample"].nunique()
-    logging.info(f"No. of SRX accessions: {num_unique_srx}")
+    logging.info(f"No. of target SRX accessions: {num_unique_srx}")
     num_unique_acc = df["accession"].nunique()
-    logging.info(f"No. of SRR accessions: {num_unique_acc}")
+    logging.info(f"No. of target SRR accessions: {num_unique_acc}")
     srr_per_srx = df.groupby("sample")["accession"].count()
-    logging.info(f"No. of SRR per SRX: {srr_per_srx.to_dict()}")
+    logging.info(f"No. of target SRR per SRX: {srr_per_srx.to_dict()}")
+
+    print(df); exit()
 
     ## write out records
     df.to_csv(args.outfile, index=False)
