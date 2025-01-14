@@ -291,6 +291,7 @@ def main(args, log_df):
             "fasterq-dump",  
             "--split-files", 
             "--force",
+            "--include-technical",
             "--threads", args.threads, 
             "--bufsize", args.bufsize, 
             "--curcache", args.curcache, 
