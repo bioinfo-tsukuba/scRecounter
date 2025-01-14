@@ -92,6 +92,7 @@ def db_get_unprocessed_records(
             Criterion.all([
                 nontarget_srx.sample.isnull(),      # filters out already processed records
                 srx_metadata.database.isin(database),
+                srx_metadata.srx_accession != "",
                 srx_metadata.is_illumina == "yes",
                 srx_metadata.is_single_cell == "yes",
                 srx_metadata.is_paired_end == "yes",
