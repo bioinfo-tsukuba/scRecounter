@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
      - Removes the SRX directories from the GCP output folder of the scRecounter pipeline.
 
     Note: only scRecounter is purged, not SRAgent.
-    
+
     Examples:
     purge-srx.py ERX10024831 ERX10086874
     """
@@ -67,6 +67,7 @@ def list_screcounter_directories(
     Returns:
         A dictionary of {srx_accession: directory_path} for the target SRX accessions.
     """
+    print(f"Searching for SRX directories...", file=sys.stderr)
     srx_dirs = {}
     for blob in bucket.list_blobs(prefix=prefix):
         blob_dir = os.path.dirname(blob.name)
@@ -74,6 +75,7 @@ def list_screcounter_directories(
         blob_dir_parent = os.path.basename(os.path.dirname(blob_dir))
         if blob_dir_parent == "STAR" and blob_dir_base in srx_accesions:
             srx_dirs[blob_dir_base] = blob_dir
+    print(f"  Found {len(srx_dirs)} SRX directories", file=sys.stderr)
     return srx_dirs
 
 def purge_accession_tables(
@@ -111,6 +113,7 @@ def delete_srx(srx_accessions: List[str], conn: connection, dry_run: bool=False)
         conn: database connection
         dry_run: if True, only print actions without executing
     """
+    print("Purging SRX accessions from scRecounter DB tables...", file=sys.stderr)
     target_tables = ["screcounter_log", "screcounter_star_params", "screcounter_star_results"]
     with db_connect() as conn:
         for srx in srx_accessions:
@@ -119,7 +122,7 @@ def delete_srx(srx_accessions: List[str], conn: connection, dry_run: bool=False)
                     with conn.cursor() as cur:
                         cur.execute(f"DELETE FROM {tbl_name} WHERE sample = '{srx}'")
                         conn.commit()
-            print(f"Deleted: {srx}", file=sys.stderr)
+            print(f"  Deleted: {srx}", file=sys.stderr)
 
 def main(args: argparse.Namespace) -> None:
     """
@@ -132,6 +135,8 @@ def main(args: argparse.Namespace) -> None:
        - For each target folder, find the "accessions.csv" file 2 levels up from the target folder
        - Also delete the SRX from all scRecounter tables in the SQL database
     """
+    print(f"GCP_SQL_DB_NAME: {os.getenv('GCP_SQL_DB_NAME')}", file=sys.stderr)
+
     # Parse the GCP bucket path
     bucket_name, path_prefix = parse_gs_path(args.gcs_dir)
     
@@ -139,13 +144,13 @@ def main(args: argparse.Namespace) -> None:
     client = storage.Client()
     bucket = client.bucket(bucket_name)
 
-    # find target SRX directories in GCP bucket
+    # Dind target SRX directories in GCP bucket
     srx_dirs = list_screcounter_directories(bucket, path_prefix, args.srx_accession)
 
-    # delete SRX accessions from scRecounter tables
+    # Selete SRX accessions from scRecounter tables
     purge_accession_tables(srx_dirs, bucket, dry_run=args.dry_run)
 
-    # delete SRX directories from GCP bucket
+    # Selete SRX directories from GCP bucket
     print(f"Deleting SRX STAR directories...", file=sys.stderr)
     for srx_dir in srx_dirs.values():
         print(f"  Deleting: {srx_dir}", file=sys.stderr)
@@ -153,8 +158,7 @@ def main(args: argparse.Namespace) -> None:
             for blob in bucket.list_blobs(prefix=srx_dir):
                 blob.delete()
 
-    # delete SRX accessions from scRecounter tables
-    print("Purging SRX accessions from scRecounter DB tables...", file=sys.stderr)
+    # Selete SRX accessions from scRecounter tables
     with db_connect() as conn:
         delete_srx(args.srx_accession, conn, dry_run=args.dry_run)
 
