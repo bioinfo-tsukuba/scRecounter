@@ -183,7 +183,7 @@ process FASTQ_DUMP {
     time { (6.h + (sra_file_size_gb * 0.8).h) * task.attempt }
     disk {[request: 375.GB, type: 'local-ssd']}
     machineType { 
-        def options = ['n2-*', 'c2-*', 'n2d-*', 'c2d-*', 'n1-*']
+        def options = ['n2-*', 'c2-*', 'n2d-*', 'c2d-*']
         return options[new Random().nextInt(options.size())]
     }
     
