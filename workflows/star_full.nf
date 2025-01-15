@@ -244,7 +244,7 @@ process FASTERQ_DUMP {
         [request: disk_size, type: 'local-ssd'] 
     }
     machineType { 
-        def options = ['n2-*', 'c2-*', 'n2d-*', 'c2d-*', 'n1-*']
+        def options = ['n2-*', 'c2-*', 'n2d-*', 'c2d-*'] //, 'n1-*']
         return options[new Random().nextInt(options.size())]
     }
     
