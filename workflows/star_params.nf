@@ -293,7 +293,9 @@ process FASTQ_DUMP {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
     maxRetries 1
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' } 
+    cpus 4
+    memory { 4.GB * task.attempt }
     disk 10.GB
 
     input:

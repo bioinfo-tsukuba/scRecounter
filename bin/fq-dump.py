@@ -27,7 +27,8 @@ class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
 desc = 'Run sra-tools prefetch'
 epi = """DESCRIPTION:
 Run fastq-dump or fasterq-dump on an SRA file or accession.
-If the --maxSpotId option is >0, then fastq-dump is used; otherwise, prefetch + fasterq-dump is used.
+If the --maxSpotId option is >0, then (parallel-)fastq-dump is used; otherwise, prefetch + fasterq-dump is used.
+If --threads >1, parallel-fastq-dump is used instead of fastq-dump.
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
@@ -53,7 +54,7 @@ parser.add_argument('--outdir', type=str, default='prefetch_out',
 parser.add_argument('--min-read-length', type=int, default=28,
                     help='Minimum read length')  
 # prefetch
-parser.add_argument('--max-size-gb', type=int, default=1000,
+parser.add_argument('--max-size-gb', type=int, default=300,
                     help='Max file size in Gb')
 parser.add_argument('--tries', type=int, default=3,
                     help='Number of tries to download')
@@ -265,14 +266,24 @@ def main(args, log_df):
     # run fast(er)q-dump
     cmd = []
     if args.maxSpotId and args.maxSpotId > 0:
-        # fastq-dump with maxSpotId
-        cmd = [
-            "fastq-dump",
-            "--split-files",
-            "--outdir", args.outdir,  
-            "--maxSpotId", args.maxSpotId,
-            args.sra_file
-        ]
+        # (parallel-)fastq-dump with maxSpotId
+        if args.threads > 1:
+            cmd = [
+                "parallel-fastq-dump.py",
+                "--split-files",
+                "--outdir", args.outdir,
+                "--threads", args.threads,
+                "--maxSpotId", args.maxSpotId,
+                "--sra-id", args.sra_file
+            ]
+        else:
+            cmd = [
+                "fastq-dump",
+                "--split-files",
+                "--outdir", args.outdir,  
+                "--maxSpotId", args.maxSpotId,
+                args.sra_file
+            ]
     else:
         # prefetch
         prefetch_outdir = prefetch_workflow(
@@ -291,6 +302,7 @@ def main(args, log_df):
             "fasterq-dump",  
             "--split-files", 
             "--force",
+            "--include-technical",
             "--threads", args.threads, 
             "--bufsize", args.bufsize, 
             "--curcache", args.curcache, 
