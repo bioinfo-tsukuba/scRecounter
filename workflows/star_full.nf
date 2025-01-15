@@ -228,7 +228,7 @@ process FASTERQ_DUMP {
     label "download_env"
     maxRetries 1
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
-    cpus 16
+    cpus 8
     memory { 16.GB * task.attempt }
     time { (16.h + (sra_file_size_gb * 0.8).h) * task.attempt }
     disk { 
