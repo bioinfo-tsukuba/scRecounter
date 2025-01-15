@@ -4,7 +4,7 @@ Env vars
 
 ```bash
 IMG_NAME=sc-recounter-run
-IMG_VERSION=0.1.5
+IMG_VERSION=0.1.6
 REGION="us-east1"
 GCP_PROJECT_ID="c-tc-429521"
 SERVICE_ACCOUNT_EMAIL="nick-nextflow@c-tc-429521.iam.gserviceaccount.com"
@@ -105,4 +105,6 @@ gcloud beta run jobs update ${JOB_NAME} \
   --max-retries=0 \
   --args=""
 ```
+
+# TODO: 6Gi => 4Gi ???
 
