@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     """
     desc = 'Extract data from STAR results in scRecounter output directory'
     epi = """DESCRIPTION:
-    Examples:
+
     """
     parser = argparse.ArgumentParser(description=desc, epilog=epi, formatter_class=CustomFormatter)
     parser.add_argument('gcs_dir', type=str,
@@ -143,7 +143,6 @@ def read_and_merge_summary_files(
         p = os.path.dirname(path)
         df["feature"] = rename_idx[os.path.basename(p)]
         df["sample"] = os.path.basename(os.path.dirname(p))
-        #df["path"] = path
         # add to list 
         dfs.append(df)
 

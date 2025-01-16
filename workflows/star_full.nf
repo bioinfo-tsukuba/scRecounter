@@ -97,7 +97,7 @@ process STAR_FULL {
     label "star_env"
     label "process_high"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
-    disk { [request: (375 * task.attempt).GB, type: 'local-ssd'] }
+    disk { [request: (375 * (task.attempt > 1 ? 2 : 1)).GB, type: 'local-ssd'] }
     machineType { 
         def options = ['n2-*', 'n2d-*']
         return options[new Random().nextInt(options.size())]
@@ -228,9 +228,9 @@ process FASTERQ_DUMP {
     label "download_env"
     maxRetries 1
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
-    cpus 8
+    cpus 6
     memory { 16.GB * task.attempt }
-    time { (16.h + (sra_file_size_gb * 0.8).h) * task.attempt }
+    time { (10.h + (sra_file_size_gb * 0.8).h) * task.attempt }
     disk { 
         def disk_size = 
             sra_file_size_gb > 260 ? 2625.GB :
