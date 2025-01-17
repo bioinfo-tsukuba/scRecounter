@@ -88,6 +88,8 @@ def purge_accession_tables(
         bucket: The GCS bucket object.
         dry_run: If True, only print actions without executing.
     """   
+    if len(srx_dirs) == 0:
+        return None
     print(f"Purging accession tables...", file=sys.stderr)
     target_parent_dirs = set()
     for srx, srx_dir in srx_dirs.items():
@@ -113,6 +115,8 @@ def delete_srx(srx_accessions: List[str], conn: connection, dry_run: bool=False)
         conn: database connection
         dry_run: if True, only print actions without executing
     """
+    if len(srx_accessions) == 0:
+        return None
     print("Purging SRX accessions from scRecounter DB tables...", file=sys.stderr)
     target_tables = ["screcounter_log", "screcounter_star_params", "screcounter_star_results"]
     with db_connect() as conn:
@@ -123,6 +127,23 @@ def delete_srx(srx_accessions: List[str], conn: connection, dry_run: bool=False)
                         cur.execute(f"DELETE FROM {tbl_name} WHERE sample = '{srx}'")
                         conn.commit()
             print(f"  Deleted: {srx}", file=sys.stderr)
+
+def delete_srx_star_dirs(srx_dirs: Dict[str,str], bucket: storage.bucket.Bucket, dry_run: bool=False):
+    """
+    Delete SRX directories from the GCP bucket
+    Args:
+        srx_dirs: Dictionary of {srx_accession: directory_path} for the target SRX accessions.
+        bucket: The GCS bucket object.
+        dry_run: If True, only print actions without executing.
+    """
+    if len(srx_dirs) == 0:
+        return None
+    print(f"Deleting SRX STAR directories...", file=sys.stderr)
+    for srx_dir in srx_dirs.values():
+        print(f"  Deleting: {srx_dir}", file=sys.stderr)
+        if not dry_run:
+            for blob in bucket.list_blobs(prefix=srx_dir):
+                blob.delete()
 
 def main(args: argparse.Namespace) -> None:
     """
@@ -151,12 +172,7 @@ def main(args: argparse.Namespace) -> None:
     purge_accession_tables(srx_dirs, bucket, dry_run=args.dry_run)
 
     # Selete SRX directories from GCP bucket
-    print(f"Deleting SRX STAR directories...", file=sys.stderr)
-    for srx_dir in srx_dirs.values():
-        print(f"  Deleting: {srx_dir}", file=sys.stderr)
-        if not args.dry_run:
-            for blob in bucket.list_blobs(prefix=srx_dir):
-                blob.delete()
+    delete_srx_star_dirs(srx_dirs, bucket, dry_run=args.dry_run)
 
     # Selete SRX accessions from scRecounter tables
     with db_connect() as conn:
