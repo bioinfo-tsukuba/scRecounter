@@ -136,7 +136,6 @@ def clean_work_dir(work_dir: str) -> None:
     delete_bucket_path(bucket_name, path_prefix)
     print(f"Deleted path: {work_dir}")
 
-
 def download_gcs_file(
     bucket_name: str, gcs_file_path: str, local_file_path: str="/tmp/temp_file.tsv"
     ) -> str:
