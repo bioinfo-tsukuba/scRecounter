@@ -2,8 +2,9 @@
 import os
 import sys
 import argparse
-from typing import List, Set, Optional
+from typing import List, Set, Tuple, Optional
 import tiledbsoma
+import tiledbsoma.io
 import scanpy as sc
 from pathlib import Path
 
@@ -46,14 +47,12 @@ def parse_arguments() -> argparse.Namespace:
 def get_existing_srx_ids(db_uri: str) -> Set[str]:
     """
     Read metadata from existing database and return set of SRX IDs.
-    
     Args:
         db_uri: URI of the TileDB database
-        
     Returns:
         Set of SRX IDs already in the database
     """
-    print(f"Checking for existing SRX accessions in {db_uri}...")
+    print(f"Checking for existing SRX accessions in {db_uri}...", file=sys.stderr)
 
     srx = set()
     if not os.path.exists(db_uri):
@@ -66,9 +65,8 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
             srx = set(metadata["SRX_accessions"].unique())
 
     # status
-    print(f"  Found {len(srx)} existing SRX accessions.")
+    print(f"  Found {len(srx)} existing SRX accessions.", file=sys.stderr)
     return srx
-
 
 def find_matrix_files(
         base_dir: str, feature_type: str, multi_mapper: str, raw: bool=False
@@ -113,26 +111,52 @@ def find_matrix_files(
     print(f"Found {len(results)} new data files to process.", file=sys.stderr)
     return results
 
-def load_matrix_as_anndata(matrix_path: str) -> sc.AnnData:
+def filter_existing_srx_ids(matrix_files: List[tuple], db_uri: str) -> List[Tuple[str, str]]:
+    """
+    Filter out SRX IDs that already exist in the database.
+    Args:
+        matrix_files: List of tuples (matrix_path, srx_id)
+        db_uri: URI of the TileDB database
+    Returns:
+        Filtered list of tuples (matrix_path, srx_id)
+    """
+    # Get existing SRX IDs if database exists
+    existing_srx_ids = get_existing_srx_ids(db_uri)
+
+    # Filter out existing SRX IDs
+    print(f"Filtering out existing SRX accessions...", file=sys.stderr)
+    matrix_files = [
+        (path, srx) for path, srx in matrix_files if srx not in existing_srx_ids
+    ]
+
+    if not matrix_files:
+        print("No new data files to process.", file=sys.stderr)
+        exit()
+
+    print(f"  {len(matrix_files)} matrix files remaining.", file=sys.stderr)
+    return matrix_files
+
+def load_matrix_as_anndata(matrix_path: str, srx_id) -> sc.AnnData:
     """
     Load a matrix.mtx.gz file as an AnnData object.
-    
     Args:
         matrix_path: Path to matrix.mtx.gz file
-        
+        srx_id: SRX accession
     Returns:
         AnnData object
     """
-    return sc.read_10x_mtx(
+    adata = sc.read_10x_mtx(
         os.path.dirname(matrix_path),
         var_names="gene_ids",
         make_unique=True
     )
+    # add metadata
+    adata.obs["SRX_accessions"] = srx_id
+    return adata
 
 def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
     """
     Append an AnnData object to the TileDB database.
-    
     Args:
         db_uri: URI of the TileDB database
         adata: AnnData object to append
@@ -162,23 +186,38 @@ def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
         registration_mapping=rd,
     )
 
+def create_tiledb(db_uri: str, adata: sc.AnnData) -> None:
+    ## create db
+    tiledbsoma.io.from_anndata(
+        db_uri,
+        adata,
+        measurement_name="RNA",
+    )
 
-def filter_existing_srx_ids(matrix_files: List[tuple], db_uri: str) -> List[tuple]:
-    # Get existing SRX IDs if database exists
-    existing_srx_ids = get_existing_srx_ids(db_uri)
+def load_tiledb(matrix_files: List[Tuple[str,str]], db_uri: str) -> None:
+    """
+    Load data into TileDB database.
+    Args:
+        matrix_files: List of tuples (matrix_path, srx_id)
+        db_uri: URI of the TileDB database
+    """
 
-    # Filter out existing SRX IDs
-    print(f"Filtering out existing SRX accessions...")
-    matrix_files = [
-        (path, srx) for path, srx in matrix_files if srx not in existing_srx_ids
-    ]
+    print("Loading data into TileDB...", file=sys.stderr)
 
-    if not matrix_files:
-        print("No new data files to process.", file=sys.stderr)
-        exit()
+    # Process each new matrix file
+    for matrix_path, srx_id in matrix_files:
+        print(f"  Processing {srx_id}...", file=sys.stderr)
+        
+        # Load the matrix file as AnnData
+        adata = load_matrix_as_anndata(matrix_path, srx_id)
+            
+        # Append or add to database
+        if os.path.exists(db_uri):
+            append_to_database(db_uri, adata)
+        else:
+            create_tiledb(db_uri, adata)
 
-    print(f"  {len(matrix_files)} matrix files remaining.", file=sys.stderr)
-    return matrix_files
+    print("DB loading complete!", file=sys.stderr)
 
 def main():
     """Main function to run the TileDB loader workflow."""
@@ -191,29 +230,10 @@ def main():
     
     # filter out existing SRX IDs
     matrix_files = filter_existing_srx_ids(matrix_files, args.db_uri)
-
-    print(matrix_files); exit();
         
-    # Process each new matrix file
-    for matrix_path, srx_id in matrix_files:
-        print(f"Processing {srx_id}...")
-        
-        # Load the matrix file as AnnData
-        try:
-            adata = load_matrix_as_anndata(matrix_path)
-        except Exception as e:
-            print(f"Error loading {matrix_path}: {str(e)}")
-            continue
-            
-        # Append to database
-        try:
-            append_to_database(args.db_uri, adata)
-            print(f"Successfully processed {srx_id}")
-        except Exception as e:
-            print(f"Error appending {srx_id} to database: {str(e)}")
-            continue
+    # Load data into TileDB
+    load_tiledb(matrix_files, args.db_uri)    
 
-    print("Processing complete.")
 
 
 if __name__ == "__main__":
