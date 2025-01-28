@@ -29,6 +29,8 @@ def parse_arguments() -> argparse.Namespace:
     
     Example:
     ./scripts/tiledb-loader.py --db-uri tmp/tiledb/tiledb_exp1 tmp/tiledb/prod3 
+    Production:
+    ./scripts/tiledb-loader.py --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/scRecounter/prod3
     """
     parser = argparse.ArgumentParser(description=desc, epilog=epi, formatter_class=CustomFormatter)
     parser.add_argument(
@@ -42,9 +44,9 @@ def parse_arguments() -> argparse.Namespace:
         '--raw', action='store_true', default=False,
         help='Use raw count matrix files instead of filtered'
     )
-    parser.add_argument(
+    parser.add_argument(   # TODO: implement => https://github.com/alexdobin/STAR/blob/master/extras/scripts/soloBasicCellFilter.awk
         '--multi-mapper', default='None', choices=['None', 'EM', 'uniform'],
-        help='Multi-mapper strategy to use'
+        help='Multi-mapper strategy to use' 
     )
     parser.add_argument(
         '--db-uri', type=str, default="tiledb_exp", 
@@ -95,6 +97,7 @@ def find_matrix_files(
     Returns:
         List of tuples (matrix_path, srx_id)
     """
+    print(f"Searching for new data files in {base_dir}...", file=sys.stderr)
     results = []
     base_path = Path(base_dir)
     
@@ -124,10 +127,10 @@ def find_matrix_files(
 
         # check max datasets
         if max_datasets and len(results) >= max_datasets:
-            print(f"Found --max-datasets datasets. Stopping search.", file=sys.stderr)
+            print(f"  Found --max-datasets datasets. Stopping search.", file=sys.stderr)
             break
 
-    print(f"Found {len(results)} new data files to process.", file=sys.stderr)
+    print(f"  Found {len(results)} new data files to process.", file=sys.stderr)
     return results
 
 def filter_existing_srx_ids(matrix_files: List[tuple], db_uri: str) -> List[Tuple[str, str]]:
@@ -149,10 +152,10 @@ def filter_existing_srx_ids(matrix_files: List[tuple], db_uri: str) -> List[Tupl
     ]
 
     if not matrix_files:
-        print("No new data files to process.", file=sys.stderr)
+        print("  No new data files to process!", file=sys.stderr)
         exit()
 
-    print(f"  {len(matrix_files)} matrix files remaining.", file=sys.stderr)
+    print(f"  Matrix files remaining: {len(matrix_files)}", file=sys.stderr)
     return matrix_files
 
 def load_matrix_as_anndata(matrix_path: str, srx_id) -> sc.AnnData:
@@ -291,7 +294,6 @@ def main():
         
     # Load data into TileDB
     load_tiledb(matrix_files, args.db_uri)    
-
 
 
 if __name__ == "__main__":
