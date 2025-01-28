@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
+# import
+## batteries
 import os
 import sys
 import argparse
+from pathlib import Path
 from typing import List, Set, Tuple, Optional
+## 3rd party
+import pandas as pd
 import tiledbsoma
 import tiledbsoma.io
 import scanpy as sc
-from pathlib import Path
+from pypika import Query, Table, Field, Column, Criterion
+## package
+from db_utils import db_connect
 
+# classes
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
 
+# functions
 def parse_arguments() -> argparse.Namespace:
     """
     Parse command-line arguments.
@@ -47,7 +56,6 @@ def parse_arguments() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-
 def get_existing_srx_ids(db_uri: str) -> Set[str]:
     """
     Read metadata from existing database and return set of SRX IDs.
@@ -63,10 +71,10 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
         print("Database does not exist yet. No SRX accessions to obtain.", file=sys.stderr)
     else:
         with tiledbsoma.open(db_uri) as exp:
-            metadata = exp.obs.read(column_names=["obs_id", "SRX_accessions"]) \
+            metadata = exp.obs.read(column_names=["obs_id", "SRX_accession"]) \
                 .concat() \
                 .to_pandas()
-            srx = set(metadata["SRX_accessions"].unique())
+            srx = set(metadata["SRX_accession"].unique())
 
     # status
     print(f"  Found {len(srx)} existing SRX accessions.", file=sys.stderr)
@@ -156,13 +164,46 @@ def load_matrix_as_anndata(matrix_path: str, srx_id) -> sc.AnnData:
     Returns:
         AnnData object
     """
+    # get metadata from scRecounter postgresql database
+    srx_metadata = Table("srx_metadata")
+    stmt = (
+        Query
+        .from_(srx_metadata)
+        .select(
+            srx_metadata.lib_prep, 
+            srx_metadata.tech_10x,
+            srx_metadata.organism,
+            srx_metadata.tissue,
+            srx_metadata.disease,
+            srx_metadata.purturbation,
+            srx_metadata.cell_line,
+            srx_metadata.czi_collection_id,
+            srx_metadata.czi_collection_name,
+        )
+        .where(srx_metadata.srx_accession == srx_id)
+    )
+    metadata = None
+    with db_connect() as conn:
+        metadata = pd.read_sql(str(stmt), conn)
+    
+    ## if metadata is not found, return None
+    if metadata is None or metadata.shape[0] == 0:
+        raise ValueError(f"Metadata not found for SRX accession {srx_id}")
+    if metadata.shape[0] > 1:
+        raise ValueError(f"Multiple metadata entries found for SRX accession {srx_id}")
+
+    # load count matrix
     adata = sc.read_10x_mtx(
         os.path.dirname(matrix_path),
         var_names="gene_ids",
         make_unique=True
     )
+
     # add metadata
     adata.obs["SRX_accession"] = srx_id
+    for col in metadata.columns:
+        adata.obs[col] = metadata[col].values[0]
+
     return adata
 
 def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
@@ -249,4 +290,6 @@ def main():
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
     main()
