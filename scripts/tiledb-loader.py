@@ -239,7 +239,12 @@ def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
     )
 
 def create_tiledb(db_uri: str, adata: sc.AnnData) -> None:
-    ## create db
+    """
+    Create a new tiledb database.
+    Args:
+        db_uri: URI of the TileDB database
+        adata: AnnData object to append
+    """
     tiledbsoma.io.from_anndata(
         db_uri,
         adata,
