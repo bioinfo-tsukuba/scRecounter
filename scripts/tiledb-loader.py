@@ -41,6 +41,10 @@ def parse_arguments() -> argparse.Namespace:
         '--db-uri', type=str, default="tiledb_exp", 
         help='URI of existing TileDB database, or it will be created if it does not exist'
     )
+    parser.add_argument(
+        '--max-datasets', type=int, default=None,
+        help='Maximum number of datasets to process'
+    )
     return parser.parse_args()
 
 
@@ -69,7 +73,8 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
     return srx
 
 def find_matrix_files(
-        base_dir: str, feature_type: str, multi_mapper: str, raw: bool=False
+        base_dir: str, feature_type: str, multi_mapper: str, 
+        raw: bool=False, max_datasets: Optional[int]=None
     ) -> List[tuple]:
     """
     Recursively find matrix.mtx.gz files and extract SRX IDs.
@@ -78,6 +83,7 @@ def find_matrix_files(
         feature_type: 'Gene' or 'GeneFull'
         multi_mapper: 'EM', 'uniform', or 'None'
         raw: Use raw count matrix files instead of filtered
+        max_datasets: Maximum number of datasets to process
     Returns:
         List of tuples (matrix_path, srx_id)
     """
@@ -107,6 +113,11 @@ def find_matrix_files(
         matrix_path = feature_dir / subdir / matrix_filename
         if matrix_path.exists():
             results.append((str(matrix_path), srx_dir.name))
+
+        # check max datasets
+        if max_datasets and len(results) >= max_datasets:
+            print(f"Found --max-datasets datasets. Stopping search.", file=sys.stderr)
+            break
 
     print(f"Found {len(results)} new data files to process.", file=sys.stderr)
     return results
@@ -151,7 +162,7 @@ def load_matrix_as_anndata(matrix_path: str, srx_id) -> sc.AnnData:
         make_unique=True
     )
     # add metadata
-    adata.obs["SRX_accessions"] = srx_id
+    adata.obs["SRX_accession"] = srx_id
     return adata
 
 def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
@@ -225,7 +236,8 @@ def main():
     
     # Find all matrix files and their corresponding SRX IDs
     matrix_files = find_matrix_files(
-        args.base_dir, args.feature_type, args.multi_mapper, args.raw
+        args.base_dir, args.feature_type, args.multi_mapper, 
+        raw=args.raw, max_datasets=args.max_datasets
     )
     
     # filter out existing SRX IDs
