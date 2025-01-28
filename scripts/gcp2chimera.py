@@ -19,8 +19,6 @@ def parse_args() -> argparse.Namespace:
         argparse.Namespace containing arguments.
     """
     # default min/max datetime
-    ## min date = 3 days ago
-    ## max date = 2 days ago
     fmt = "%Y-%m-%d_%H-%M-%S"
     min_dt = (datetime.now() - timedelta(days=3)).strftime(fmt)
     max_dt = (datetime.now() - timedelta(days=2)).strftime(fmt)
@@ -30,8 +28,8 @@ def parse_args() -> argparse.Namespace:
     Transfer scRecounter output files from GCP to Chimera.
     Example:
     ./scripts/gcp2chimera.py \
-        --min-date-time 2025-01-16_00-00-00 \
-        --max-date-time 2025-01-17_00-00-00 \
+        --min-date-time 2025-01-25_00-00-00 \
+        --max-date-time 2025-01-26_00-00-00 \
         --dest-dir /processed_datasets/scRecount/scRecounter/prod3 \
         --dry-run \
         gs://arc-ctc-screcounter/prod3/
