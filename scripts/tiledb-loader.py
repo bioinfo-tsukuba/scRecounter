@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import argparse
 from typing import List, Set, Optional
 import tiledbsoma
@@ -17,7 +18,7 @@ def parse_arguments() -> argparse.Namespace:
     epi = """DESCRIPTION:
     
     Example:
-    ./scripts/tiledb-loader.py tmp/tiledb/prod3
+    ./scripts/tiledb-loader.py --db-uri tmp/tiledb/tiledb_exp1 tmp/tiledb/prod3 
     """
     parser = argparse.ArgumentParser(description=desc, epilog=epi, formatter_class=CustomFormatter)
     parser.add_argument(
@@ -28,11 +29,15 @@ def parse_arguments() -> argparse.Namespace:
         help='Feature type to process'
     )
     parser.add_argument(
-        '--multi-mapper', required=True, default='None', choices=['None', 'EM', 'uniform'],
+        '--raw', action='store_true', default=False,
+        help='Use raw count matrix files instead of filtered'
+    )
+    parser.add_argument(
+        '--multi-mapper', default='None', choices=['None', 'EM', 'uniform'],
         help='Multi-mapper strategy to use'
     )
     parser.add_argument(
-        '--db-uri', required=True, type=str, default="tiledb_exp", 
+        '--db-uri', type=str, default="tiledb_exp", 
         help='URI of existing TileDB database, or it will be created if it does not exist'
     )
     return parser.parse_args()
@@ -48,25 +53,33 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
     Returns:
         Set of SRX IDs already in the database
     """
-    if db_uri.lower() == 'none':
-        return set()
-        
-    with tiledbsoma.open(db_uri) as exp:
-        metadata = exp.obs.read(column_names=["obs_id", "SRX_accessions"]) \
-            .concat() \
-            .to_pandas()
-        return set(metadata["SRX_accessions"].unique())
+    print(f"Checking for existing SRX accessions in {db_uri}...")
+
+    srx = set()
+    if not os.path.exists(db_uri):
+        print("Database does not exist yet. No SRX accessions to obtain.", file=sys.stderr)
+    else:
+        with tiledbsoma.open(db_uri) as exp:
+            metadata = exp.obs.read(column_names=["obs_id", "SRX_accessions"]) \
+                .concat() \
+                .to_pandas()
+            srx = set(metadata["SRX_accessions"].unique())
+
+    # status
+    print(f"  Found {len(srx)} existing SRX accessions.")
+    return srx
 
 
-def find_matrix_files(base_dir: str, feature_type: str, multi_mapper: str) -> List[tuple]:
+def find_matrix_files(
+        base_dir: str, feature_type: str, multi_mapper: str, raw: bool=False
+    ) -> List[tuple]:
     """
     Recursively find matrix.mtx.gz files and extract SRX IDs.
-    
     Args:
         base_dir: Base directory to search
         feature_type: 'Gene' or 'GeneFull'
         multi_mapper: 'EM', 'uniform', or 'None'
-        
+        raw: Use raw count matrix files instead of filtered
     Returns:
         List of tuples (matrix_path, srx_id)
     """
@@ -82,6 +95,8 @@ def find_matrix_files(base_dir: str, feature_type: str, multi_mapper: str) -> Li
         matrix_filename = 'UniqueAndMult-Uniform.mtx.gz'
     
     # Walk through directory structure
+    subdir = 'raw' if raw else 'filtered'
+
     for srx_dir in base_path.glob('**/SRX*'):
         if not srx_dir.is_dir():
             continue
@@ -91,14 +106,12 @@ def find_matrix_files(base_dir: str, feature_type: str, multi_mapper: str) -> Li
             continue
             
         # Check both filtered and raw directories
-        for subdir in ['filtered', 'raw']:
-            matrix_path = feature_dir / subdir / matrix_filename
-            if matrix_path.exists():
-                results.append((str(matrix_path), srx_dir.name))
-                break  # Found a matrix file for this SRX, move to next
-                
-    return results
+        matrix_path = feature_dir / subdir / matrix_filename
+        if matrix_path.exists():
+            results.append((str(matrix_path), srx_dir.name))
 
+    print(f"Found {len(results)} new data files to process.", file=sys.stderr)
+    return results
 
 def load_matrix_as_anndata(matrix_path: str) -> sc.AnnData:
     """
@@ -115,7 +128,6 @@ def load_matrix_as_anndata(matrix_path: str) -> sc.AnnData:
         var_names="gene_ids",
         make_unique=True
     )
-
 
 def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
     """
@@ -151,29 +163,39 @@ def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
     )
 
 
+def filter_existing_srx_ids(matrix_files: List[tuple], db_uri: str) -> List[tuple]:
+    # Get existing SRX IDs if database exists
+    existing_srx_ids = get_existing_srx_ids(db_uri)
+
+    # Filter out existing SRX IDs
+    print(f"Filtering out existing SRX accessions...")
+    matrix_files = [
+        (path, srx) for path, srx in matrix_files if srx not in existing_srx_ids
+    ]
+
+    if not matrix_files:
+        print("No new data files to process.", file=sys.stderr)
+        exit()
+
+    print(f"  {len(matrix_files)} matrix files remaining.", file=sys.stderr)
+    return matrix_files
+
 def main():
     """Main function to run the TileDB loader workflow."""
     args = parse_arguments()
-
-    print(args); exit();
-    
-    # Get existing SRX IDs if database exists
-    existing_srx_ids = get_existing_srx_ids(args.db_uri)
     
     # Find all matrix files and their corresponding SRX IDs
-    matrix_files = find_matrix_files(args.base_dir, args.feature_type, args.multi_mapper)
+    matrix_files = find_matrix_files(
+        args.base_dir, args.feature_type, args.multi_mapper, args.raw
+    )
     
-    # Filter out existing SRX IDs
-    new_matrix_files = [
-        (path, srx) for path, srx in matrix_files if srx not in existing_srx_ids
-    ]
-    
-    if not new_matrix_files:
-        print("No new data files to process.")
-        return None
+    # filter out existing SRX IDs
+    matrix_files = filter_existing_srx_ids(matrix_files, args.db_uri)
+
+    print(matrix_files); exit();
         
     # Process each new matrix file
-    for matrix_path, srx_id in new_matrix_files:
+    for matrix_path, srx_id in matrix_files:
         print(f"Processing {srx_id}...")
         
         # Load the matrix file as AnnData
