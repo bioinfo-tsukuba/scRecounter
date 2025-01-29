@@ -247,6 +247,10 @@ def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
         db_uri: URI of the TileDB database
         adata: AnnData object to append
     """
+    if adata is None:
+        logging.warning("    AnnData object is None. Skipping append.")
+        return None
+
     # Register new anndata object
     rd = tiledbsoma.io.register_anndatas(
         db_uri,
@@ -297,7 +301,6 @@ def load_tiledb(
         matrix_files: List of tuples (matrix_path, srx_id)
         db_uri: URI of the TileDB database
     """
-
     logging.info("Loading data into TileDB...")
 
     # Process each new matrix file
