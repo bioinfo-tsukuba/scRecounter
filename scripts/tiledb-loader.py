@@ -3,6 +3,7 @@
 ## batteries
 import os
 import sys
+import logging
 import argparse
 from pathlib import Path
 from typing import List, Set, Tuple, Optional
@@ -14,6 +15,12 @@ import scanpy as sc
 from pypika import Query, Table
 ## package
 from db_utils import db_connect
+
+# format logging
+logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
+logging.getLogger("tiledbsoma").setLevel(logging.WARNING)
+logging.getLogger("tiledbsoma.io").setLevel(logging.WARNING)
+logging.getLogger("tiledb").setLevel(logging.WARNING) 
 
 # classes
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -30,7 +37,7 @@ def parse_arguments() -> argparse.Namespace:
     ./scripts/tiledb-loader.py --db-uri tmp/tiledb/tiledb_exp1 tmp/tiledb/prod3 
 
     Production (scRecounter):
-    ./scripts/tiledb-loader.py --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/scRecounter/prod3
+    ./scripts/tiledb-loader.py --skip-no-metadata --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/scRecounter/prod3
 
     Production (Chris):
     ./scripts/tiledb-loader.py --allow-no-metadata --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/cellxgene/counted_SRXs
@@ -57,7 +64,11 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         '--allow-no-metadata', action='store_true', default=False,
-        help='Allow datasets with no metadata to be loaded'
+        help='Allow datasets with no scRecounter metadata to be loaded'
+    )
+    parser.add_argument(
+        '--skip-no-metadata', action='store_true', default=False,
+        help='Skip datasets with no scRecounter metadata'
     )
     parser.add_argument(   # TODO: implement => https://github.com/alexdobin/STAR/blob/master/extras/scripts/soloBasicCellFilter.awk
         '--multi-mapper', default='None', choices=['None', 'EM', 'uniform'],
@@ -73,11 +84,11 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
     Returns:
         Set of SRX IDs already in the database
     """
-    print(f"Checking for existing SRX accessions in {db_uri}...", file=sys.stderr)
+    logging.info(f"Checking for existing SRX accessions in {db_uri}...")
 
     srx = set()
     if not os.path.exists(db_uri):
-        print("Database does not exist yet. No SRX accessions to obtain.", file=sys.stderr)
+        logging.info("Database does not exist yet. No SRX accessions to obtain.")
     else:
         with tiledbsoma.open(db_uri) as exp:
             metadata = exp.obs.read(column_names=["obs_id", "SRX_accession"]) \
@@ -86,7 +97,7 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
             srx = set(metadata["SRX_accession"].unique())
 
     # status
-    print(f"  Found {len(srx)} existing SRX accessions.", file=sys.stderr)
+    logging.info(f"  Found {len(srx)} existing SRX accessions.")
     return srx
 
 def find_matrix_files(
@@ -106,7 +117,7 @@ def find_matrix_files(
     Returns:
         List of tuples (matrix_path, srx_id)
     """
-    print(f"Searching for new data files in {base_dir}...", file=sys.stderr)
+    logging.info(f"Searching for new data files in {base_dir}...")
     results = []
     base_path = Path(base_dir)
     
@@ -136,7 +147,7 @@ def find_matrix_files(
                     if not feature_dir.exists():
                         continue
                 except PermissionError:
-                    print(f"Permission denied for {feature_dir}. Skipping.", file=sys.stderr)
+                    logging.warning(f"Permission denied for {feature_dir}. Skipping.")
                     feature_dir = None
         if feature_dir is None:
             continue
@@ -147,25 +158,29 @@ def find_matrix_files(
             if matrix_path.exists() and not srx_dir.name in existing_srx:
                 results.append((str(matrix_path), srx_dir.name))
         except PermissionError:
-            print(f"Permission denied for {matrix_path}. Skipping.", file=sys.stderr)
+            logging.warning(f"Permission denied for {matrix_path}. Skipping.")
             continue
 
         # Check max datasets
         if max_datasets and len(results) >= max_datasets:
-            print(f"  Found --max-datasets datasets. Stopping search.", file=sys.stderr)
+            logging.info(f"  Found --max-datasets datasets. Stopping search.")
             break
 
-    print(f"  Found {len(results)} new data files to process.", file=sys.stderr)
+    logging.info(f"  Found {len(results)} new data files to process.")
     return results
 
 def load_matrix_as_anndata(
-        matrix_path: str, srx_id: str, allow_no_metadata: bool=False
+        matrix_path: str, srx_id: str, 
+        allow_no_metadata: bool=False, 
+        skip_no_metadata: bool=False
     ) -> sc.AnnData:
     """
     Load a matrix.mtx.gz file as an AnnData object.
     Args:
         matrix_path: Path to matrix.mtx.gz file
         srx_id: SRX accession
+        allow_no_metadata: Allow datasets with no metadata to be loaded
+        skip_no_metadata: Skip datasets with no metadata
     Returns:
         AnnData object
     """
@@ -194,13 +209,19 @@ def load_matrix_as_anndata(
     ## if metadata is not found, return None
     if metadata is None or metadata.shape[0] == 0:
         if allow_no_metadata:
-            msg = f"    Metadata not found for SRX accession {srx_id}, but --allow-no-metadata used"
-            print(msg, file=sys.stderr)
+            logging.warning(
+                f"    Metadata not found for SRX accession {srx_id}, but --allow-no-metadata used"
+            )
+            pass
+        elif skip_no_metadata:
+            logging.warning(
+                f"    Metadata not found for SRX accession {srx_id}, but --skip-no-metadata used"
+            )
+            return None
         else:
-            raise ValueError(f"Metadata not found for SRX accession {srx_id}")
+            raise ValueError(f"    Metadata not found for SRX accession {srx_id}")
     if metadata.shape[0] > 1:
         raise ValueError(f"Multiple metadata entries found for SRX accession {srx_id}")
-
 
     # load count matrix
     adata = sc.read_10x_mtx(
@@ -265,7 +286,10 @@ def create_tiledb(db_uri: str, adata: sc.AnnData) -> None:
     )
 
 def load_tiledb(
-        matrix_files: List[Tuple[str,str]], db_uri: str, allow_no_metadata: bool=False
+        matrix_files: List[Tuple[str,str]],
+        db_uri: str, 
+        allow_no_metadata: bool=False,
+        skip_no_metadata: bool=False
     ) -> None:
     """
     Load data into TileDB database.
@@ -274,14 +298,18 @@ def load_tiledb(
         db_uri: URI of the TileDB database
     """
 
-    print("Loading data into TileDB...", file=sys.stderr)
+    logging.info("Loading data into TileDB...")
 
     # Process each new matrix file
     for matrix_path, srx_id in matrix_files:
-        print(f"  Processing {srx_id}...", file=sys.stderr)
+        logging.info(f"  Processing {srx_id}...")
         
         # Load the matrix file as AnnData
-        adata = load_matrix_as_anndata(matrix_path, srx_id, allow_no_metadata)
+        adata = load_matrix_as_anndata(
+            matrix_path, srx_id, 
+            allow_no_metadata=allow_no_metadata, 
+            skip_no_metadata=skip_no_metadata
+        )
             
         # Append or add to database
         if os.path.exists(db_uri):
@@ -289,7 +317,7 @@ def load_tiledb(
         else:
             create_tiledb(db_uri, adata)
 
-    print("DB loading complete!", file=sys.stderr)
+    logging.info("DB loading complete!")
 
 def main():
     """Main function to run the TileDB loader workflow."""
@@ -307,7 +335,11 @@ def main():
     )
 
     # Load data into TileDB
-    load_tiledb(matrix_files, args.db_uri, args.allow_no_metadata)
+    load_tiledb(
+        matrix_files, args.db_uri, 
+        allow_no_metadata=args.allow_no_metadata, 
+        skip_no_metadata=args.skip_no_metadata
+    )
 
 
 if __name__ == "__main__":
