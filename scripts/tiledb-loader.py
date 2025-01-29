@@ -11,7 +11,7 @@ import pandas as pd
 import tiledbsoma
 import tiledbsoma.io
 import scanpy as sc
-from pypika import Query, Table, Field, Column, Criterion
+from pypika import Query, Table
 ## package
 from db_utils import db_connect
 
@@ -26,11 +26,14 @@ def parse_arguments() -> argparse.Namespace:
     """
     desc = 'Convert scRecounter output files to TileDB format.'
     epi = """DESCRIPTION:
-    
-    Example:
+    Test example:
     ./scripts/tiledb-loader.py --db-uri tmp/tiledb/tiledb_exp1 tmp/tiledb/prod3 
-    Production:
+
+    Production (scRecounter):
     ./scripts/tiledb-loader.py --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/scRecounter/prod3
+
+    Production (Chris):
+    ./scripts/tiledb-loader.py --allow-no-metadata --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/cellxgene/counted_SRXs
     """
     parser = argparse.ArgumentParser(description=desc, epilog=epi, formatter_class=CustomFormatter)
     parser.add_argument(
@@ -44,10 +47,6 @@ def parse_arguments() -> argparse.Namespace:
         '--raw', action='store_true', default=False,
         help='Use raw count matrix files instead of filtered'
     )
-    parser.add_argument(   # TODO: implement => https://github.com/alexdobin/STAR/blob/master/extras/scripts/soloBasicCellFilter.awk
-        '--multi-mapper', default='None', choices=['None', 'EM', 'uniform'],
-        help='Multi-mapper strategy to use' 
-    )
     parser.add_argument(
         '--db-uri', type=str, default="tiledb_exp", 
         help='URI of existing TileDB database, or it will be created if it does not exist'
@@ -55,6 +54,14 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         '--max-datasets', type=int, default=None,
         help='Maximum number of datasets to process'
+    )
+    parser.add_argument(
+        '--allow-no-metadata', action='store_true', default=False,
+        help='Allow datasets with no metadata to be loaded'
+    )
+    parser.add_argument(   # TODO: implement => https://github.com/alexdobin/STAR/blob/master/extras/scripts/soloBasicCellFilter.awk
+        '--multi-mapper', default='None', choices=['None', 'EM', 'uniform'],
+        help='Multi-mapper strategy to use' 
     )
     return parser.parse_args()
 
@@ -83,7 +90,8 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
     return srx
 
 def find_matrix_files(
-        base_dir: str, feature_type: str, multi_mapper: str, 
+        base_dir: str, feature_type: str, 
+        existing_srx: Set[str], multi_mapper: str, 
         raw: bool=False, max_datasets: Optional[int]=None
     ) -> List[tuple]:
     """
@@ -91,6 +99,7 @@ def find_matrix_files(
     Args:
         base_dir: Base directory to search
         feature_type: 'Gene' or 'GeneFull'
+        existing_srx: Set of existing SRX IDs
         multi_mapper: 'EM', 'uniform', or 'None'
         raw: Use raw count matrix files instead of filtered
         max_datasets: Maximum number of datasets to process
@@ -106,8 +115,10 @@ def find_matrix_files(
         matrix_filename = 'matrix.mtx.gz'
     elif multi_mapper == 'EM':
         matrix_filename = 'UniqueAndMult-EM.mtx.gz'
-    else:  # uniform
+    elif multi_mapper == 'uniform':
         matrix_filename = 'UniqueAndMult-Uniform.mtx.gz'
+    else:
+        raise ValueError(f"Invalid multi-mapper strategy: {multi_mapper}")
     
     # Walk through directory structure
     subdir = 'raw' if raw else 'filtered'
@@ -115,17 +126,31 @@ def find_matrix_files(
     for srx_dir in base_path.glob('**/SRX*'):
         if not srx_dir.is_dir():
             continue
-            
+
+        # Check for feature directory
         feature_dir = srx_dir / feature_type
         if not feature_dir.exists():
+            for srr_dir in srx_dir.glob('**/SRR*'):
+                feature_dir = srr_dir / feature_type
+                try:
+                    if not feature_dir.exists():
+                        continue
+                except PermissionError:
+                    print(f"Permission denied for {feature_dir}. Skipping.", file=sys.stderr)
+                    feature_dir = None
+        if feature_dir is None:
             continue
-            
+
         # Check both filtered and raw directories
         matrix_path = feature_dir / subdir / matrix_filename
-        if matrix_path.exists():
-            results.append((str(matrix_path), srx_dir.name))
+        try:
+            if matrix_path.exists() and not srx_dir.name in existing_srx:
+                results.append((str(matrix_path), srx_dir.name))
+        except PermissionError:
+            print(f"Permission denied for {matrix_path}. Skipping.", file=sys.stderr)
+            continue
 
-        # check max datasets
+        # Check max datasets
         if max_datasets and len(results) >= max_datasets:
             print(f"  Found --max-datasets datasets. Stopping search.", file=sys.stderr)
             break
@@ -133,32 +158,9 @@ def find_matrix_files(
     print(f"  Found {len(results)} new data files to process.", file=sys.stderr)
     return results
 
-def filter_existing_srx_ids(matrix_files: List[tuple], db_uri: str) -> List[Tuple[str, str]]:
-    """
-    Filter out SRX IDs that already exist in the database.
-    Args:
-        matrix_files: List of tuples (matrix_path, srx_id)
-        db_uri: URI of the TileDB database
-    Returns:
-        Filtered list of tuples (matrix_path, srx_id)
-    """
-    # Get existing SRX IDs if database exists
-    existing_srx_ids = get_existing_srx_ids(db_uri)
-
-    # Filter out existing SRX IDs
-    print(f"Filtering out existing SRX accessions...", file=sys.stderr)
-    matrix_files = [
-        (path, srx) for path, srx in matrix_files if srx not in existing_srx_ids
-    ]
-
-    if not matrix_files:
-        print("  No new data files to process!", file=sys.stderr)
-        exit()
-
-    print(f"  Matrix files remaining: {len(matrix_files)}", file=sys.stderr)
-    return matrix_files
-
-def load_matrix_as_anndata(matrix_path: str, srx_id) -> sc.AnnData:
+def load_matrix_as_anndata(
+        matrix_path: str, srx_id: str, allow_no_metadata: bool=False
+    ) -> sc.AnnData:
     """
     Load a matrix.mtx.gz file as an AnnData object.
     Args:
@@ -191,9 +193,14 @@ def load_matrix_as_anndata(matrix_path: str, srx_id) -> sc.AnnData:
     
     ## if metadata is not found, return None
     if metadata is None or metadata.shape[0] == 0:
-        raise ValueError(f"Metadata not found for SRX accession {srx_id}")
+        if allow_no_metadata:
+            msg = f"    Metadata not found for SRX accession {srx_id}, but --allow-no-metadata used"
+            print(msg, file=sys.stderr)
+        else:
+            raise ValueError(f"Metadata not found for SRX accession {srx_id}")
     if metadata.shape[0] > 1:
         raise ValueError(f"Multiple metadata entries found for SRX accession {srx_id}")
+
 
     # load count matrix
     adata = sc.read_10x_mtx(
@@ -202,10 +209,13 @@ def load_matrix_as_anndata(matrix_path: str, srx_id) -> sc.AnnData:
         make_unique=True
     )
 
-    # add metadata
+    # add metadata to adata
     adata.obs["SRX_accession"] = srx_id
     for col in metadata.columns:
-        adata.obs[col] = metadata[col].values[0]
+        try:
+            adata.obs[col] = metadata[col].values[0]
+        except IndexError:
+            adata.obs[col] = None
 
     return adata
 
@@ -254,7 +264,9 @@ def create_tiledb(db_uri: str, adata: sc.AnnData) -> None:
         measurement_name="RNA",
     )
 
-def load_tiledb(matrix_files: List[Tuple[str,str]], db_uri: str) -> None:
+def load_tiledb(
+        matrix_files: List[Tuple[str,str]], db_uri: str, allow_no_metadata: bool=False
+    ) -> None:
     """
     Load data into TileDB database.
     Args:
@@ -269,7 +281,7 @@ def load_tiledb(matrix_files: List[Tuple[str,str]], db_uri: str) -> None:
         print(f"  Processing {srx_id}...", file=sys.stderr)
         
         # Load the matrix file as AnnData
-        adata = load_matrix_as_anndata(matrix_path, srx_id)
+        adata = load_matrix_as_anndata(matrix_path, srx_id, allow_no_metadata)
             
         # Append or add to database
         if os.path.exists(db_uri):
@@ -282,18 +294,20 @@ def load_tiledb(matrix_files: List[Tuple[str,str]], db_uri: str) -> None:
 def main():
     """Main function to run the TileDB loader workflow."""
     args = parse_arguments()
+
+    # Get existing SRX IDs
+    existing_srx = get_existing_srx_ids(args.db_uri)
     
     # Find all matrix files and their corresponding SRX IDs
     matrix_files = find_matrix_files(
-        args.base_dir, args.feature_type, args.multi_mapper, 
-        raw=args.raw, max_datasets=args.max_datasets
+        args.base_dir, args.feature_type, existing_srx,
+        multi_mapper=args.multi_mapper,
+        raw=args.raw, 
+        max_datasets=args.max_datasets
     )
-    
-    # filter out existing SRX IDs
-    matrix_files = filter_existing_srx_ids(matrix_files, args.db_uri)
-        
+
     # Load data into TileDB
-    load_tiledb(matrix_files, args.db_uri)    
+    load_tiledb(matrix_files, args.db_uri, args.allow_no_metadata)
 
 
 if __name__ == "__main__":
