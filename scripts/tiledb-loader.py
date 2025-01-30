@@ -7,6 +7,7 @@ import logging
 import argparse
 from pathlib import Path
 from typing import List, Set, Tuple, Optional
+import concurrent.futures
 ## 3rd party
 import pandas as pd
 import tiledbsoma
@@ -35,6 +36,8 @@ def parse_arguments() -> argparse.Namespace:
     epi = """DESCRIPTION:
     Test example:
     ./scripts/tiledb-loader.py --db-uri tmp/tiledb/tiledb_exp1 tmp/tiledb/prod3 
+
+    ./scripts/tiledb-loader.py --skip-no-metadata --max-datasets 20 --db-uri tmp/tiledb/tiledb_TEST /processed_datasets/scRecount/scRecounter/prod3
 
     Production (scRecounter):
     ./scripts/tiledb-loader.py --skip-no-metadata --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/scRecounter/prod3
@@ -73,6 +76,10 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(   # TODO: implement => https://github.com/alexdobin/STAR/blob/master/extras/scripts/soloBasicCellFilter.awk
         '--multi-mapper', default='None', choices=['None', 'EM', 'uniform'],
         help='Multi-mapper strategy to use' 
+    )
+    parser.add_argument(
+        '--threads', type=int, default=8,
+        help='Number of threads to use for loading data into memory'
     )
     return parser.parse_args()
 
@@ -240,6 +247,71 @@ def load_matrix_as_anndata(
 
     return adata
 
+def producer_consumer_load_and_append(matrix_files, db_uri, concurrency=8) -> None:
+    """
+    Load and append data to TileDB using a producer-consumer pattern.
+    Args:
+        matrix_files: List of tuples (matrix_path, srx_id)
+        db_uri: URI of the TileDB database
+        concurrency: Number of threads to use
+    """
+    logging.info("Loading data into TileDB...")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+        futures = []  # tasks in flight
+
+        # Start by launching up to `concurrency` tasks 
+        for i in range(min(concurrency, len(matrix_files))):
+            (matrix_path, srx_id) = matrix_files[i]
+            logging.info(f"  Loading {srx_id} as AnnData...")
+            f = executor.submit(load_matrix_as_anndata, matrix_path, srx_id)
+            futures.append((f, srx_id))
+
+        # Keep track of the current index in matrix_files
+        current_idx = concurrency
+
+        # Process tasks as they finish, and keep launching new ones
+        while futures:
+            # Wait until at least one future finishes
+            done_set, futures_set = concurrent.futures.wait(
+                [f[0] for f in futures],  # just the future objects
+                return_when=concurrent.futures.FIRST_COMPLETED
+            )
+
+            # Handle each "done" future
+            still_pending = []
+            for (future, srx_id) in futures:
+                if future in done_set:
+                    # future completed
+                    try:
+                        logging.info(f"  Appending {srx_id} to TileDB...")
+                        adata = future.result()
+                        if adata is not None:
+                            if not os.path.exists(db_uri):
+                                create_tiledb(db_uri, adata)
+                            else:
+                                append_to_database(db_uri, adata)
+                    except Exception as e:
+                        logging.error(f"Error loading {srx_id}: {e}")
+                else:
+                    # Still pending
+                    still_pending.append((future, srx_id))
+
+            # Update the list of futures in flight
+            futures = still_pending
+
+            # Launch new tasks (to keep concurrency up) if we have more matrix_files left
+            while current_idx < len(matrix_files) and len(futures) < concurrency:
+                (matrix_path, srx_id) = matrix_files[current_idx]
+                logging.info(f"  Loading {srx_id} as AnnData...")
+                f = executor.submit(load_matrix_as_anndata, matrix_path, srx_id)
+                futures.append((f, srx_id))
+                current_idx += 1
+
+    # All tasks are done
+    logging.info("All matrix files processed.")
+
+
 def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
     """
     Append an AnnData object to the TileDB database.
@@ -289,38 +361,38 @@ def create_tiledb(db_uri: str, adata: sc.AnnData) -> None:
         measurement_name="RNA",
     )
 
-def load_tiledb(
-        matrix_files: List[Tuple[str,str]],
-        db_uri: str, 
-        allow_no_metadata: bool=False,
-        skip_no_metadata: bool=False
-    ) -> None:
-    """
-    Load data into TileDB database.
-    Args:
-        matrix_files: List of tuples (matrix_path, srx_id)
-        db_uri: URI of the TileDB database
-    """
-    logging.info("Loading data into TileDB...")
+# def load_tiledb(
+#         matrix_files: List[Tuple[str,str]],
+#         db_uri: str, 
+#         allow_no_metadata: bool=False,
+#         skip_no_metadata: bool=False
+#     ) -> None:
+#     """
+#     Load data into TileDB database.
+#     Args:
+#         matrix_files: List of tuples (matrix_path, srx_id)
+#         db_uri: URI of the TileDB database
+#     """
+#     logging.info("Loading data into TileDB...")
 
-    # Process each new matrix file
-    for matrix_path, srx_id in matrix_files:
-        logging.info(f"  Processing {srx_id}...")
+#     # Process each new matrix file
+#     for matrix_path, srx_id in matrix_files:
+#         logging.info(f"  Processing {srx_id}...")
         
-        # Load the matrix file as AnnData
-        adata = load_matrix_as_anndata(
-            matrix_path, srx_id, 
-            allow_no_metadata=allow_no_metadata, 
-            skip_no_metadata=skip_no_metadata
-        )
+#         # Load the matrix file as AnnData
+#         adata = load_matrix_as_anndata(
+#             matrix_path, srx_id, 
+#             allow_no_metadata=allow_no_metadata, 
+#             skip_no_metadata=skip_no_metadata
+#         )
             
-        # Append or add to database
-        if os.path.exists(db_uri):
-            append_to_database(db_uri, adata)
-        else:
-            create_tiledb(db_uri, adata)
+#         # Append or add to database
+#         if os.path.exists(db_uri):
+#             append_to_database(db_uri, adata)
+#         else:
+#             create_tiledb(db_uri, adata)
 
-    logging.info("DB loading complete!")
+#     logging.info("DB loading complete!")
 
 def main():
     """Main function to run the TileDB loader workflow."""
@@ -337,12 +409,17 @@ def main():
         max_datasets=args.max_datasets
     )
 
-    # Load data into TileDB
-    load_tiledb(
-        matrix_files, args.db_uri, 
-        allow_no_metadata=args.allow_no_metadata, 
-        skip_no_metadata=args.skip_no_metadata
+    # Load data into memory and append to TileDB
+    producer_consumer_load_and_append(
+        matrix_files, args.db_uri, concurrency=args.threads
     )
+
+    # # Load data into TileDB
+    # load_tiledb(
+    #     matrix_files, args.db_uri, 
+    #     allow_no_metadata=args.allow_no_metadata, 
+    #     skip_no_metadata=args.skip_no_metadata
+    # )
 
 
 if __name__ == "__main__":
