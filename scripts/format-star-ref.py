@@ -174,6 +174,9 @@ def parse_args() -> argparse.Namespace:
         default=["readthrough_transcript", "PAR"],
         help='Filter records containing this tag',
     )
+    parser.add_argument(
+        '--verbose', action="store_true", default=False, help='Verbose output',
+    )
     return parser.parse_args()
 
 def process_gtf_line(
@@ -254,13 +257,14 @@ def process_gtf_line(
     attributes = "; ".join([f"{k} \"{v}\"" for k, v in attributes.items()])
     outF.write("\t".join(fields + [attributes]) + "\n")
 
-def process_fasta(fasta: str, output_fasta: str, seq_names: Set[str]):
+def process_fasta(fasta: str, output_fasta: str, seq_names: Set[str], verbose: bool=False):
     """
     Process a fasta file. Check to make sure that the sequence names are in the set.
     Args:
         fasta: Path to input fasta file.
         output_fasta: Path to output fasta file.
         seq_names: Set of sequence names to keep.
+        verbose: Verbose output.
     """
     print(f"Processing fasta: {os.path.basename(fasta)}", file=sys.stderr)
 
@@ -285,7 +289,7 @@ def process_fasta(fasta: str, output_fasta: str, seq_names: Set[str]):
             if write:
                 outF.write(line.encode())
             # status
-            if i % 100000 == 0:
+            if verbose and i % 100000 == 0:
                 print(f"  Processed {i} lines...", file=sys.stderr)
 
 def main():
@@ -310,7 +314,8 @@ def main():
         "total_raw": 0, "biotype": 0, "tag": 0, "filter_count" : {"kept" : {}, "filtered" : {}}
     }
     biotypes = {str(x).lower() for x in biotype_index[args.organism]}
-    output_gtf = os.path.join(args.output_dir, f"{args.organism}.gtf")
+    output_gtf = os.path.join(args.output_dir, f"{args.organism.replace(" ", "_")}.gtf")
+    print(f"Output GTF: {output_gtf}", file=sys.stderr)
     with open(args.gtf) as inF, open(output_gtf, 'w') as outF:
         for i,line in enumerate(inF, 1):
             process_gtf_line(
@@ -320,7 +325,7 @@ def main():
                 seq_names=seq_names,
                 status=status,
             )
-            if i % 100000 == 0:
+            if args.verbose and i % 100000 == 0:
                 print(f"  Processed {i} lines...", file=sys.stderr)
         
     ## GTF processing status
@@ -328,17 +333,17 @@ def main():
     for key in ["biotype", "tag"]:
         print(f"Filtered {status[key]} records by {key}", file=sys.stderr)
     print("-- Count of biotypes filtered --", file=sys.stderr)
-    for k,v in status["filter_count"]["filtered"].items():
+    for k, v in sorted(status["filter_count"]["filtered"].items(), key=lambda x: x[1], reverse=True):
         print(f"{k}: {v}", file=sys.stderr)
     print("-- Count of biotypes kept --", file=sys.stderr)
-    for k,v in status["filter_count"]["kept"].items():
+    for k, v in sorted(status["filter_count"]["kept"].items(), key=lambda x: x[1], reverse=True):
         print(f"{k}: {v}", file=sys.stderr)
     print("----------------------------", file=sys.stderr)
 
     # fasta
     if args.fasta:
-        output_fasta = os.path.join(args.output_dir, f"{args.organism}.fna.gz")
-        process_fasta(args.fasta, output_fasta, seq_names)
+        output_fasta = os.path.join(args.output_dir, f"{args.organism.replace(" ", "_")}.fna.gz")
+        process_fasta(args.fasta, output_fasta, seq_names, verbose=args.verbose)
 
 
 # main
