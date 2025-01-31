@@ -10,7 +10,7 @@ from collections import Counter
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
 
-
+# global vars
 mammal_biotypes = {
     "protein_coding", 
     "protein_coding_LoF", 
@@ -148,7 +148,7 @@ def parse_args() -> argparse.Namespace:
     desc = 'Create STAR reference genome index.'
     epi = """DESCRIPTION:
     # example
-    ./scripts/create_star_ref.py \
+    ./scripts/format-star-ref.py \
       --organism "Macaca mulatta" \
       --fasta /home/nickyoungblut/tmp/genomes/reference_sources/Macaca_mulatta.Mmul_10.dna.toplevel.fa \
       /home/nickyoungblut/tmp/genomes/reference_sources/Macaca_mulatta.Mmul_10.113.gtf
