@@ -15,6 +15,7 @@ mammal_biotypes = {
     "protein_coding", 
     "protein_coding_LoF", 
     "lncRNA", 
+    "antisense",
     "IG_C_gene", 
     "IG_D_gene", 
     "IG_J_gene", 
@@ -227,15 +228,22 @@ def process_gtf_line(
             pass
     
     # filter by biotype
-    biotype_fields = ['gene_biotype', 'gene_type', 'transcript_type', 'transcript_biotype']
-    for field in biotype_fields:
-        if attributes.get(field) and attributes[field] not in biotypes:
+    biotype_labels = ['gene_biotype', 'gene_type', 'transcript_type', 'transcript_biotype']
+    for label in biotype_labels:
+        if not attributes.get(label):
+            continue
+        if str(attributes[label]).lower() not in biotypes:
             status["biotype"] += 1
             try:
-                status[attributes[field]] += 1
+                status["filter_count"]["filtered"][attributes[label]] += 1
             except KeyError:
-                status[attributes[field]] = 1
+                status["filter_count"]["filtered"][attributes[label]] = 1
             return None
+        else:
+            try:
+                status["filter_count"]["kept"][attributes[label]] += 1
+            except KeyError:
+                status["filter_count"]["kept"][attributes[label]] = 1
     
     # filter by tags
     if attributes.get("tag") and attributes.get("tag") in exclude_tags:
@@ -263,7 +271,7 @@ def process_fasta(fasta: str, output_fasta: str, seq_names: Set[str]):
 
     with _open(fasta) as inF, gzip.open(output_fasta, 'wb') as outF:
         write = False
-        for line in inF:
+        for i,line in enumerate(inF, 1):
             try:
                 line = line.decode()   
             except AttributeError:
@@ -276,6 +284,9 @@ def process_fasta(fasta: str, output_fasta: str, seq_names: Set[str]):
                     print(f"Sequence not in GTF: {line.strip()}", file=sys.stderr)
             if write:
                 outF.write(line.encode())
+            # status
+            if i % 100000 == 0:
+                print(f"  Processed {i} lines...", file=sys.stderr)
 
 def main():
     # parse cli arguments
@@ -295,26 +306,34 @@ def main():
     # iterate over gtf
     print(f"Processing GTF: {os.path.basename(args.gtf)}", file=sys.stderr)
     seq_names = set()
-    status = {"total_raw": 0, "biotype": 0, "tag": 0}
+    status = {
+        "total_raw": 0, "biotype": 0, "tag": 0, "filter_count" : {"kept" : {}, "filtered" : {}}
+    }
+    biotypes = {str(x).lower() for x in biotype_index[args.organism]}
     output_gtf = os.path.join(args.output_dir, f"{args.organism}.gtf")
     with open(args.gtf) as inF, open(output_gtf, 'w') as outF:
-        for line in inF:
+        for i,line in enumerate(inF, 1):
             process_gtf_line(
                 line, outF, 
-                biotypes=biotype_index[args.organism],
+                biotypes=biotypes,
                 exclude_tags=args.exclude_tags,
                 seq_names=seq_names,
                 status=status,
             )
+            if i % 100000 == 0:
+                print(f"  Processed {i} lines...", file=sys.stderr)
         
     ## GTF processing status
     print(f"Total records in GTF: {status['total_raw']}", file=sys.stderr)
     for key in ["biotype", "tag"]:
         print(f"Filtered {status[key]} records by {key}", file=sys.stderr)
     print("-- Count of biotypes filtered --", file=sys.stderr)
-    for key in status:
-        if key not in ["total_raw", "biotype", "tag"]:
-            print(f"{key}: {status[key]}", file=sys.stderr)
+    for k,v in status["filter_count"]["filtered"].items():
+        print(f"{k}: {v}", file=sys.stderr)
+    print("-- Count of biotypes kept --", file=sys.stderr)
+    for k,v in status["filter_count"]["kept"].items():
+        print(f"{k}: {v}", file=sys.stderr)
+    print("----------------------------", file=sys.stderr)
 
     # fasta
     if args.fasta:
