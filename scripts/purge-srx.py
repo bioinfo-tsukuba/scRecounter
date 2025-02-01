@@ -3,7 +3,6 @@ import os
 import sys
 import argparse
 from typing import Tuple, List, Dict
-from datetime import datetime
 import pandas as pd
 from google.cloud import storage
 from psycopg2.extensions import connection
@@ -59,8 +58,7 @@ def list_screcounter_directories(
     srx_accesions: List[str],
 ) -> Dict[str,str]:
     """
-    List directories named 'SCRECOUNTER_YYYY-MM-DD_hh-mm-ss' in the bucket
-    under the given prefix, filtered by date/time range.
+    List directories named 'SCRECOUNTER_YYYY-MM-DD_hh-mm-ss' in the bucket under the given prefix.
     Args:
         bucket: The GCS bucket object.
         prefix: The prefix (subfolder) in which to look for SCRECOUNTER directories.

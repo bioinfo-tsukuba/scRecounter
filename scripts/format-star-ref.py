@@ -111,7 +111,7 @@ biotype_index = {
     "Rattus norvegicus" : mammal_biotypes,
     "Macaca mulatta" : mammal_biotypes,
     "Callithrix jacchus" : mammal_biotypes,
-    "Troglodytes gorilla" : mammal_biotypes,
+    "Pan troglodytes" : mammal_biotypes,
     "Equus caballus" : mammal_biotypes,
     "Canis lupus familiaris" : mammal_biotypes,
     "Bos taurus" : mammal_biotypes,
