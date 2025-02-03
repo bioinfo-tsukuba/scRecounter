@@ -319,7 +319,6 @@ def append_to_database(db_uri: str, ann_list: List[sc.AnnData]) -> None:
             lambda x: _append_to_database(*x), zip(ann_list, [rd]*len(ann_list), [db_uri]*len(ann_list))
         ))
 
-
 def create_tiledb(db_uri: str, adata: sc.AnnData) -> None:
     """
     Create a new tiledb database.
