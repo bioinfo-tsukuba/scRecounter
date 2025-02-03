@@ -108,9 +108,12 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
     return srx
 
 def find_matrix_files(
-        base_dir: str, feature_type: str, 
-        existing_srx: Set[str], multi_mapper: str, 
-        raw: bool=False, max_datasets: Optional[int]=None
+        base_dir: str, 
+        feature_type: str, 
+        existing_srx: Set[str], 
+        multi_mapper: str, 
+        raw: bool=False, 
+        max_datasets: Optional[int]=None
     ) -> List[tuple]:
     """
     Recursively find matrix.mtx.gz files and extract SRX IDs.
@@ -177,7 +180,8 @@ def find_matrix_files(
     return results
 
 def load_matrix_as_anndata(
-        matrix_path: str, srx_id: str, 
+        matrix_path: str, 
+        srx_id: str, 
         allow_no_metadata: bool=False, 
         skip_no_metadata: bool=False
     ) -> sc.AnnData:
