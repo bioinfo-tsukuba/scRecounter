@@ -127,6 +127,12 @@ def create_tiledb(db_uri: str, adata: sc.AnnData) -> None:
     )
 
 def load_tiledb(h5ad_files: List[str], db_uri: str) -> None:
+    """
+    Load all h5ad files into TileDB-SOMA database
+    Args:
+        h5ad_files: List of h5ad files to load
+        db_uri: URI of the TileDB database
+    """
     for infile in h5ad_files:
         logging.info(f"Processing {infile}...")
 
