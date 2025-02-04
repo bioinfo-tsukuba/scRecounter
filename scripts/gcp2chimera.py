@@ -28,8 +28,8 @@ def parse_args() -> argparse.Namespace:
     Transfer scRecounter output files from GCP to Chimera.
     Example:
     ./scripts/gcp2chimera.py \
-        --min-date-time 2025-01-01_00-00-00 \
-        --max-date-time 2025-02-02_00-00-00 \
+        --min-date-time 2025-01-02_00-00-00 \
+        --max-date-time 2025-02-03_00-00-00 \
         --dest-dir /processed_datasets/scRecount/scRecounter/prod3 \
         --dry-run \
         gs://arc-ctc-screcounter/prod3/

@@ -2,7 +2,6 @@
 # import
 ## batteries
 import os
-import sys
 import logging
 import argparse
 from pathlib import Path
@@ -13,6 +12,7 @@ import pandas as pd
 import tiledbsoma
 import tiledbsoma.io
 import scanpy as sc
+import scipy.sparse
 from pypika import Query, Table
 ## package
 from db_utils import db_connect
@@ -37,10 +37,8 @@ def parse_arguments() -> argparse.Namespace:
     Test example:
     ./scripts/tiledb-loader.py --db-uri tmp/tiledb/tiledb_exp1 tmp/tiledb/prod3 
 
-    time ./scripts/tiledb-loader.py --threads 8 --skip-no-metadata --max-datasets 16 --db-uri tmp/tiledb/tiledb_TEST /processed_datasets/scRecount/scRecounter/prod3
-
     Production (scRecounter):
-    ./scripts/tiledb-loader.py --skip-no-metadata --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/scRecounter/prod3
+    ./scripts/tiledb-loader.py  --skip-no-metadata --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/scRecounter/prod3
 
     Production (Chris):
     ./scripts/tiledb-loader.py --allow-no-metadata --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/cellxgene/counted_SRXs
@@ -50,7 +48,8 @@ def parse_arguments() -> argparse.Namespace:
         'base_dir',  type=str, help='Base directory to search for input data files'
     )
     parser.add_argument(
-        '--feature-type', default='GeneFull', choices=['Gene', 'GeneFull', None], 
+        '--feature-type', default='GeneFull_Ex50pAS', 
+        choices=['Gene', 'GeneFull', 'GeneFull_Ex50pAS', 'GeneFull_ExonOverIntron', 'Velocyto', None], 
         help='Feature type to process'
     )
     parser.add_argument(
@@ -98,11 +97,20 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
         logging.info("Database does not exist yet. No SRX accessions to obtain.")
     else:
         with tiledbsoma.open(db_uri) as exp:
-            metadata = exp.obs.read(column_names=["obs_id", "SRX_accession"]) \
-                .concat() \
-                .to_pandas()
-            srx = set(metadata["SRX_accession"].unique())
-
+            try:
+                metadata = (exp.obs.read(column_names=["SRX_accession"])
+                    .concat()
+                    .group_by(["SRX_accession"])
+                    .aggregate([
+                        ([], 'count_all'),
+                    ])
+                    .to_pandas())
+                srx = set(metadata["SRX_accession"].unique())
+            except tiledbsoma._exception.DoesNotExistError:
+                metadata = (exp.obs.read(column_names=["SRX_accession"])
+                    .concat()
+                    .to_pandas())
+                srx = set(metadata["SRX_accession"].unique())
     # status
     logging.info(f"  Found {len(srx)} existing SRX accessions.")
     return srx
@@ -241,6 +249,17 @@ def load_matrix_as_anndata(
         make_unique=True
     )
 
+    # calculate total counts
+    if scipy.sparse.issparse(adata.X):
+        adata.obs["gene_count"] = (adata.X > 0).sum(axis=1).A1
+        adata.obs["umi_count"] = adata.X.sum(axis=1).A1
+    else:
+        adata.obs["gene_count"] = (adata.X > 0).sum(axis=1)
+        adata.obs["umi_count"] = adata.X.sum(axis=1)
+    adata.obs["barcode"] = adata.obs.index
+    ## append SRX to barcode
+    adata.obs.index = adata.obs.index + f"_{srx_id}"
+
     # add metadata to adata
     adata.obs["SRX_accession"] = srx_id
     for col in metadata.columns:
@@ -302,7 +321,7 @@ def append_to_database(db_uri: str, ann_list: List[sc.AnnData]) -> None:
         db_uri: URI of the TileDB database
         adata: AnnData object to append
     """
-    logging.info("  Appending data to TileDB...")
+    logging.info("  Appending data...")
 
     # Register AnnData objects
     rd = tiledbsoma.io.register_anndatas(
