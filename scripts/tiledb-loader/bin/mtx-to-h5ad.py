@@ -128,7 +128,8 @@ def load_matrix_as_anndata(
         adata.obs["gene_count"] = (adata.X > 0).sum(axis=1)
         adata.obs["umi_count"] = adata.X.sum(axis=1)
     adata.obs["barcode"] = adata.obs.index
-    ## append SRX to barcode
+
+    # append SRX to barcode to create a global-unique index
     adata.obs.index = adata.obs.index + f"_{srx_id}"
 
     # add metadata to adata
@@ -157,8 +158,11 @@ def mtx_to_h5ad(
         ))
     ## filter out empty objects
     adata = [a for a in adata if a is not None]
+
     ## concat
-    adata = adata[0].concatenate(*adata[1:], batch_key="sample")
+    #adata = adata[0].concatenate(*adata[1:], batch_key="SRX_accession")
+    adata = sc.concat(adata, join="outer")
+
     ## write to h5ad
     adata.write_h5ad(f"data.h5ad")
 

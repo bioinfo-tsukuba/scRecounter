@@ -3,10 +3,8 @@
 ## batteries
 import os
 import gc
-import sys
 import logging
 import argparse
-from glob import glob
 from typing import List, Set, Tuple, Optional
 ## 3rd party
 import pandas as pd
@@ -29,54 +27,17 @@ def parse_arguments() -> argparse.Namespace:
     """
     Parse command-line arguments.
     """
-    desc = 'Convert Tahoe-100 dataset to TileDB format.'
+    desc = 'Add scRNA-seq data to a TileDB database.'
     epi = """DESCRIPTION:
-    Test example:
-    ./scripts/tiledb-loader-tahoe.py --db-uri ~/dev/nextflow/scRecounter/tmp/tiledb/srx3/tiledb-soma ~/dev/nextflow/scRecounter/tmp/tiledb/srx3/
-
-    Production (scRecounter):
-    ./scripts/tiledb-loader-tahoe.py --h5ad-ext h5ad.gz --db-uri /processed_datasets/scRecount/tahoe/tiledb-soma /processed_datasets/scRecount/tahoe/
     """
     parser = argparse.ArgumentParser(description=desc, epilog=epi, formatter_class=CustomFormatter)
     parser.add_argument(
-        'base_dir',  type=str, help='Base directory to search for input data files'
+        'h5ad_files', type=str, nargs="+", help='Path to the h5ad file(s) to load.'
     )
     parser.add_argument(
-        '--db-uri', type=str, default="tiledb-soma", 
-        help='URI of existing TileDB database, or it will be created if it does not exist'
-    )
-    parser.add_argument(
-        '--h5ad-ext', type=str, default="h5ad", 
-        help='File extension (suffix) for h5ad files'
-    )
-    parser.add_argument(
-        '--max-datasets', type=int, default=None,
-        help='Maximum number of datasets to process'
+        '--db-uri', type=str, help='URI of the TileDB database.', required=True
     )
     return parser.parse_args()
-
-
-def find_matrix_files(
-        base_dir: str, 
-        file_ext: str,
-        max_datasets: Optional[int]=None
-    ) -> List[tuple]:
-    """
-    Recursively find matrix.mtx.gz files and extract SRX IDs.
-    Args:
-        base_dir: Base directory to search
-        max_datasets: Maximum number of datasets to process
-    Returns:
-        List of tuples (matrix_path, srx_id)
-    """
-    logging.info(f"Searching for new data files in {base_dir}...")
-    h5ad_files = glob(f"{base_dir}/*{file_ext}")
-    if max_datasets:
-        h5ad_files = h5ad_files[:max_datasets]
-        
-    logging.info(f"  Found {len(h5ad_files)} new data files to process.")
-    return h5ad_files
-
 
 def append_to_database(db_uri: str, adata: sc.AnnData) -> None:
     """
@@ -158,26 +119,12 @@ def main():
     """Main function to run the TileDB loader workflow."""
     args = parse_arguments()
     
-    # Find all matrix files and their corresponding SRX IDs
-    h5ad_files = find_matrix_files(
-        args.base_dir, 
-        args.h5ad_ext,
-        max_datasets=args.max_datasets
-    )
-
-    # filter out plate14
-    #h5ad_files = [f for f in h5ad_files if "plate14" not in f]
-    #print(h5ad_files); exit();
-
     # Load data into memory and append to TileDB
-    load_tiledb(h5ad_files, args.db_uri)
+    load_tiledb(args.h5ad_files, args.db_uri)
 
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv(override=True)
     main()
-
-
-
 
