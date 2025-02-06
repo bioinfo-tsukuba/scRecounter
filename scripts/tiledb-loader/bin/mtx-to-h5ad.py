@@ -165,7 +165,7 @@ def mtx_to_h5ad(
     adata = sc.concat(adata, join="outer")
 
     ## write to h5ad
-    adata.write_h5ad(f"data.h5ad", format="hdf5")
+    adata.write_h5ad(f"data.h5ad")
     logging.info(f"Saved h5ad file to data.h5ad")
 
 def parse_arg(arg: str) -> List[str]:
@@ -178,7 +178,7 @@ def main():
 
     # parse args
     mtx_files = list(zip(parse_arg(args.srx), parse_arg(args.path)))
-    logging.info(f"No. of mtx files: {len(mtx_files)}")
+    logging.info(f"mtx file count: {len(mtx_files)}")
 
     # create h5ad files
     mtx_to_h5ad(

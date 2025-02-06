@@ -69,7 +69,7 @@ Time:
 ```bash
 nextflow run main.nf -profile conda,slurm \
   --max_datasets 100 \
-  --mtx_batch_size 8 \
+  --mtx_batch_size 20 \
   --h5ad_batch_size 4 \
   --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb_prod3_tmp \
   --input_dir /processed_datasets/scRecount/scRecounter/prod3
