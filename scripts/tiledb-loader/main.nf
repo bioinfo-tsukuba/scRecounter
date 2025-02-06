@@ -30,8 +30,10 @@ process H5AD_TO_DB {
 
     script:
     """
-    h5ad-to-db.py --db-uri ${params.db_uri} *.h5ad \\
-      2>&1 | tee h5ad_to_db.log
+    h5ad-to-db.py \\
+      --threads ${task.cpus} \\
+      --db-uri ${params.db_uri} \\
+      *.h5ad 2>&1 | tee h5ad_to_db.log
     """
 }
 

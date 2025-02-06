@@ -28,18 +28,8 @@ def parse_arguments() -> argparse.Namespace:
     """
     Parse command-line arguments.
     """
-    desc = 'Convert scRecounter output files to TileDB format.'
+    desc = 'Find scRNA-seq count matrix files for TileDB loader.'
     epi = """DESCRIPTION:
-    Test example:
-    ./scripts/tiledb-loader.py --db-uri tmp/tiledb/tiledb_exp1 tmp/tiledb/prod3 
-
-    ./scripts/tiledb-loader.py --skip-no-metadata --max-datasets 24 --db-uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb_prod3 /processed_datasets/scRecount/scRecounter/prod3
-    
-    Production (scRecounter):
-    ./scripts/tiledb-loader.py --skip-no-metadata --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/scRecounter/prod3
-
-    Production (Chris):
-    ./scripts/tiledb-loader.py --allow-no-metadata --max-datasets 5 --db-uri tmp/tiledb/tiledb_prod3 /processed_datasets/scRecount/cellxgene/counted_SRXs
     """
     parser = argparse.ArgumentParser(description=desc, epilog=epi, formatter_class=CustomFormatter)
     parser.add_argument(
