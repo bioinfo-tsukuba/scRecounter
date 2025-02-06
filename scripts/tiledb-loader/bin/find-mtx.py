@@ -59,7 +59,7 @@ def parse_arguments() -> argparse.Namespace:
         help='URI of existing TileDB database, or it will be created if it does not exist'
     )
     parser.add_argument(
-        '--batch-size', type=int, default=8, help='batch size'
+        '--batch-size', type=int, default=8, help='batch size for downstream processing'
     )
     parser.add_argument(
         '--max-datasets', type=int, default=None,
@@ -83,7 +83,7 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
 
     srx = set()
     if not os.path.exists(db_uri):
-        logging.info("Database does not exist yet. No SRX accessions to obtain.")
+        logging.info("Database does not exist yet. No SRX/ERX accessions to obtain.")
     else:
         with tiledbsoma.open(db_uri) as exp:
             try:
@@ -101,7 +101,7 @@ def get_existing_srx_ids(db_uri: str) -> Set[str]:
                     .to_pandas())
                 srx = set(metadata["SRX_accession"].unique())
     # status
-    logging.info(f"  Found {len(srx)} existing SRX accessions.")
+    logging.info(f"  Found {len(srx)} existing SRX/ERX accessions.")
     return srx
 
 def find_matrix_files(
@@ -113,7 +113,7 @@ def find_matrix_files(
         max_datasets: Optional[int]=None
     ) -> List[tuple]:
     """
-    Recursively find matrix.mtx.gz files and extract SRX IDs.
+    Recursively find matrix.mtx.gz files and extract SRX/ERX IDs.
     Args:
         base_dir: Base directory to search
         feature_type: 'Gene' or 'GeneFull'
@@ -141,14 +141,14 @@ def find_matrix_files(
     # Walk through directory structure
     subdir = 'raw' if raw else 'filtered'
 
-    for srx_dir in base_path.glob('**/SRX*'):
+    for srx_dir in chain(base_path.glob('**/SRX*'), base_path.glob('**/ERX*')):
         if not srx_dir.is_dir():
             continue
 
         # Check for feature directory
         feature_dir = srx_dir / feature_type
         if not feature_dir.exists():
-            for srr_dir in srx_dir.glob('**/SRR*'):
+            for srr_dir in chain(srx_dir.glob('**/SRR*'), srx_dir.glob('**/ERR*')):
                 feature_dir = srr_dir / feature_type
                 try:
                     if not feature_dir.exists():
@@ -176,7 +176,15 @@ def find_matrix_files(
     logging.info(f"  Found {len(results)} new data files to process.")
     return results
 
-def make_batch(num_repeats, total_numbers):
+def make_batch(num_repeats: int, total_numbers: int) -> List[int]:
+    """
+    Bin numbers into batches of num_repeats.
+    Args:
+        num_repeats: Number of repeats per unique number
+        total_numbers: Total number of unique numbers
+    Returns:
+        List of batch numbers
+    """
     batch_counts = []
     unique_count = int(round(total_numbers / num_repeats + 0.5))
     for i in range(1, unique_count + 1):
@@ -202,7 +210,7 @@ def main():
     df = pd.DataFrame(matrix_files, columns=['matrix_path', 'srx'])
     df["batch"] = make_batch(args.batch_size, df.shape[0])
     df.to_csv('mtx_files.csv', index=False)
-
+    logging.info(f"File written: mtx_files.csv")
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
