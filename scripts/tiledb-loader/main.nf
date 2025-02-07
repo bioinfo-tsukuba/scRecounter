@@ -40,6 +40,7 @@ process H5AD_TO_DB {
 process MTX_TO_H5AD {
     publishDir file(params.log_dir) , mode: "copy", overwrite: true, pattern: "*.log"
     label "process_high"
+    maxForks 10
 
     input:
     tuple val(batch), val(srx), val(mtx_path)
