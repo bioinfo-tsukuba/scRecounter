@@ -60,8 +60,9 @@ process MTX_TO_H5AD {
     """
 }
 
-process FIND_MTX {  
+process FIND_MTX {
     publishDir file(params.log_dir), mode: "copy", overwrite: true, pattern: "*.log"
+    label "process_low"
 
     output:
     path "mtx_files.csv", emit: csv
