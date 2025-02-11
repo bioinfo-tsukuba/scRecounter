@@ -52,16 +52,46 @@ nextflow run main.nf -profile conda,slurm,report,trace \
   > logs/prod3-3.log 2>&1
 ```
 
+```bash
+rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/tiledb-loader/
+```
+
+```bash
+nextflow run main.nf -profile conda,slurm,report,trace \
+  -N nick.youngblut@arcinstitute.org \
+  -ansi-log false \
+  --max_datasets 8000 \
+  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/prod3/GeneFull_Ex50pAS \
+  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
+  --input_dir /processed_datasets/scRecount/scRecounter/prod3 \
+  > logs/prod3-4.log 2>&1
+```
+
+```bash
+rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/tiledb-loader/
+```
+
+```bash
+nextflow run main.nf -profile conda,slurm,report,trace \
+  -N nick.youngblut@arcinstitute.org \
+  -ansi-log false \
+  --max_datasets 8000 \
+  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/prod3/GeneFull_Ex50pAS \
+  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
+  --input_dir /processed_datasets/scRecount/scRecounter/prod3 \
+  > logs/prod3-5.log 2>&1
+```
+
 ### Chris' Cell-X-Gene data
 
 ```bash
 nextflow run main.nf -profile conda,slurm,report,trace \
   -N nick.youngblut@arcinstitute.org \
   -ansi-log false \
-  --max_datasets 10000 \
+  --max_datasets 20000 \
   --missing_metadata allow \
   --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/cellxgene/GeneFull_Ex50pAS \
-  --db_uri  /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
+  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
   --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs \
   > logs/cellxgene-1.log 2>&1
 ```
@@ -148,3 +178,10 @@ nextflow run main.nf -profile conda,slurm,report,trace \
 ```
 
 Time: `TODO`
+
+
+# Backups
+
+```console
+~/tmp/tiledb/db_bkup
+```
