@@ -115,8 +115,10 @@ def find_matrix_files(
         List of tuples (matrix_path, srx_id)
     """
     logging.info(f"Searching for new data files in {base_dir}...")
-    results = []
     base_path = Path(base_dir)
+    subdir = 'raw' if raw else 'filtered'
+    results = []
+    stats = {'found': 0, 'exists': 0, 'permissions': 0, 'mtx_file_missing': 0, 'novel': 0}
     
     # Determine which matrix file to look for based on multi_mapper
     if multi_mapper == 'None':
@@ -129,41 +131,59 @@ def find_matrix_files(
         raise ValueError(f"Invalid multi-mapper strategy: {multi_mapper}")
     
     # Walk through directory structure
-    subdir = 'raw' if raw else 'filtered'
-
+    num_dirs = 0
     for srx_dir in chain(base_path.glob('**/SRX*'), base_path.glob('**/ERX*')):
+        # skip files
         if not srx_dir.is_dir():
             continue
+        else:
+            stats['found'] += 1
 
-        # Check for feature directory
-        feature_dir = srx_dir / feature_type
-        if not feature_dir.exists():
-            for srr_dir in chain(srx_dir.glob('**/SRR*'), srx_dir.glob('**/ERR*')):
-                feature_dir = srr_dir / feature_type
+        # status
+        num_dirs += 1
+        if num_dirs % 1000 == 0:
+            logging.info(f"  Searched {num_dirs} SRX directories so far...")
+
+        # Check if SRX directory exists in database
+        if srx_dir.name in existing_srx:
+            stats['exists'] += 1
+            continue
+
+        # Find target matrix file in SRX directory
+        for mtx_file in srx_dir.glob(f'**/{matrix_filename}'):
+            hit = None
+            # check for `feature_type/subdir` in file path
+            for i,x in enumerate(mtx_file.parts):
                 try:
-                    if not feature_dir.exists():
-                        continue
+                    if feature_type in x and mtx_file.parts[i+1] == subdir:
+                        hit = True
+                        break
+                except IndexError:
+                    continue
+            # if target file found, check if it exists, and add to results
+            if hit:
+                try:
+                    if not mtx_file.exists():
+                        stats['mtx_file_missing'] += 1
+                    else:
+                        stats['novel'] += 1
+                        results.append([mtx_file, srx_dir.name])                       
                 except PermissionError:
-                    logging.warning(f"Permission denied for {feature_dir}. Skipping.")
-                    feature_dir = None
-        if feature_dir is None:
-            continue
-
-        # Check both filtered and raw directories
-        matrix_path = feature_dir / subdir / matrix_filename
-        try:
-            if matrix_path.exists() and not srx_dir.name in existing_srx:
-                results.append([matrix_path, srx_dir.name])
-        except PermissionError:
-            logging.warning(f"Permission denied for {matrix_path}. Skipping.")
-            continue
-
+                    logging.warning(f"Permission denied for {mtx_file}. Skipping.")
+                    stats['permissions'] += 1
+                break
+        
         # Check max datasets
         if max_datasets and len(results) >= max_datasets:
             logging.info(f"  Found --max-datasets datasets. Stopping search.")
             break
 
-    logging.info(f"  Found {len(results)} new data files to process.")
+    # Status
+    logging.info(f"  {stats['found']} total SRX directories found (total).")
+    logging.info(f"  {stats['exists']} existing SRX directories found (skipped).")
+    logging.info(f"  {stats['mtx_file_missing']} missing matrix files (skipped).")
+    logging.info(f"  {stats['permissions']} directories with permission errors (skipped).")
+    logging.info(f"  {stats['novel']} novel SRX directories found (final).")
     return results
 
 def make_batch(num_repeats: int, total_numbers: int) -> List[int]:

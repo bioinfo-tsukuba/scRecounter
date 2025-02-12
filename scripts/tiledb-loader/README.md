@@ -96,6 +96,18 @@ nextflow run main.nf -profile conda,slurm,report,trace \
   > logs/cellxgene-1.log 2>&1
 ```
 
+```bash
+nextflow run main.nf -profile conda,slurm,report,trace \
+  -N nick.youngblut@arcinstitute.org \
+  -ansi-log false \
+  --max_datasets 20000 \
+  --missing_metadata allow \
+  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/cellxgene/GeneFull_Ex50pAS \
+  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
+  --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs \
+  > logs/cellxgene-2.log 2>&1
+```
+
 
 # Dev
 
@@ -184,4 +196,5 @@ Time: `TODO`
 
 ```console
 ~/tmp/tiledb/db_bkup
+/large_storage/multiomics/projects/tiledb_bkup
 ```
