@@ -82,7 +82,7 @@ def load_matrix_as_anndata(
             srx_metadata.tissue,
             srx_metadata.disease,
             srx_metadata.purturbation,
-            srx_metadata.cell_line,
+            srx_metadata.cell_line,            # TODO: add cell_prep
             srx_metadata.czi_collection_id,
             srx_metadata.czi_collection_name,
         )

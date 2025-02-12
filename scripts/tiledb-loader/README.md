@@ -1,112 +1,14 @@
 tiledb loader
 =============
 
-# Production
+A simple Nextflow pipeline for efficiently loading single-cell data into a TileDB-SOMA database.
 
-```bash
-cd /home/nickyoungblut/dev/nextflow/scRecounter/scripts/tiledb-loader
-```
+Workflow:
+* Find new datasets (SRX accessions)
+* For each batch of datasets:
+  * Convert MTX to h5ad
+  * Load h5ad into TileDB-SOMA database
 
-### scRecounter: prod3
-
-```bash
-nextflow run main.nf -profile conda,slurm,report,trace \
-  -N nick.youngblut@arcinstitute.org \
-  -ansi-log false \
-  --max_datasets 1000 \
-  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/prod3/GeneFull_Ex50pAS \
-  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
-  --input_dir /processed_datasets/scRecount/scRecounter/prod3 \
-  > logs/prod3-1.log 2>&1
-```
-
-Remove working directory
-
-```bash
-rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/tiledb-loader/
-```
-
-```bash
-nextflow run main.nf -profile conda,slurm,report,trace \
-  -N nick.youngblut@arcinstitute.org \
-  -ansi-log false \
-  --max_datasets 5000 \
-  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/prod3/GeneFull_Ex50pAS \
-  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
-  --input_dir /processed_datasets/scRecount/scRecounter/prod3 \
-  > logs/prod3-2.log 2>&1
-```
-
-```bash
-rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/tiledb-loader/
-```
-
-```bash
-nextflow run main.nf -profile conda,slurm,report,trace \
-  -N nick.youngblut@arcinstitute.org \
-  -ansi-log false \
-  --max_datasets 8000 \
-  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/prod3/GeneFull_Ex50pAS \
-  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
-  --input_dir /processed_datasets/scRecount/scRecounter/prod3 \
-  > logs/prod3-3.log 2>&1
-```
-
-```bash
-rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/tiledb-loader/
-```
-
-```bash
-nextflow run main.nf -profile conda,slurm,report,trace \
-  -N nick.youngblut@arcinstitute.org \
-  -ansi-log false \
-  --max_datasets 8000 \
-  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/prod3/GeneFull_Ex50pAS \
-  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
-  --input_dir /processed_datasets/scRecount/scRecounter/prod3 \
-  > logs/prod3-4.log 2>&1
-```
-
-```bash
-rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/tiledb-loader/
-```
-
-```bash
-nextflow run main.nf -profile conda,slurm,report,trace \
-  -N nick.youngblut@arcinstitute.org \
-  -ansi-log false \
-  --max_datasets 8000 \
-  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/prod3/GeneFull_Ex50pAS \
-  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
-  --input_dir /processed_datasets/scRecount/scRecounter/prod3 \
-  > logs/prod3-5.log 2>&1
-```
-
-### Chris' Cell-X-Gene data
-
-```bash
-nextflow run main.nf -profile conda,slurm,report,trace \
-  -N nick.youngblut@arcinstitute.org \
-  -ansi-log false \
-  --max_datasets 20000 \
-  --missing_metadata allow \
-  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/cellxgene/GeneFull_Ex50pAS \
-  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
-  --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs \
-  > logs/cellxgene-1.log 2>&1
-```
-
-```bash
-nextflow run main.nf -profile conda,slurm,report,trace \
-  -N nick.youngblut@arcinstitute.org \
-  -ansi-log false \
-  --max_datasets 20000 \
-  --missing_metadata allow \
-  --log_dir /scratch/multiomics/nickyoungblut/tiledb-loader/logs/cellxgene/GeneFull_Ex50pAS \
-  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb-soma_GeneFull_Ex50pAS \
-  --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs \
-  > logs/cellxgene-2.log 2>&1
-```
 
 
 # Dev
