@@ -112,6 +112,7 @@ biotype_index = {
     "Macaca mulatta" : mammal_biotypes,
     "Callithrix jacchus" : mammal_biotypes,
     "Pan troglodytes" : mammal_biotypes,
+    "Gorilla gorilla" : mammal_biotypes,
     "Equus caballus" : mammal_biotypes,
     "Canis lupus familiaris" : mammal_biotypes,
     "Bos taurus" : mammal_biotypes,

@@ -28,7 +28,7 @@ nextflow run main.nf -profile conda,slurm,dev -resume
 ## Test prod
 
 ```bash
-nextflow run main.nf -profile conda,slurm \
+nextflow run main.nf -profile conda,vm \
   --max_datasets 8 \
   --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb_prod3_tmp \
   --input_dir /processed_datasets/scRecount/scRecounter/prod3
