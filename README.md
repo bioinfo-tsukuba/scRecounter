@@ -226,6 +226,14 @@ nextflow run main.nf \
   -resume
 ```
 
+Run with all organisms
+
+```bash
+nextflow run main.nf \
+  -profile conda,slurm,dev,acc_all_org \
+  -resume
+```
+
 
 ## SLURM, with defined accessions
 

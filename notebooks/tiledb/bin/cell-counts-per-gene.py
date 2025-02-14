@@ -31,6 +31,7 @@ parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
 parser.add_argument('db_uri', type=str, help='tiledb-soma uri')
 parser.add_argument('--outfile', type=str, default='cell_counts.csv', help='Output file name')
+parser.add_argument('--batch-size', type=int, default=100, help='Batch size for reading data matrix')
 
 
 # functions
@@ -61,6 +62,9 @@ def get_cells_per_var(db_uri: str, start: int, end: int) -> np.ndarray:
 def main(args):
     # get var (gene) metadata
     df_var = get_var_meta(args.db_uri)
+
+    # add batch column
+    df_var["batch"] = df_var["var_id"] // args.batch_size
 
     # get cell counts per gene
     df_var["cell_count"] = get_cells_per_var(args.db_uri, 0, df_var.shape[0])
