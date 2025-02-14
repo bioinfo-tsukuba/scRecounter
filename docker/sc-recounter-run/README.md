@@ -4,7 +4,7 @@ Env vars
 
 ```bash
 IMG_NAME=sc-recounter-run
-IMG_VERSION=0.1.7
+IMG_VERSION=0.1.8
 REGION="us-east1"
 GCP_PROJECT_ID="c-tc-429521"
 SERVICE_ACCOUNT_EMAIL="nick-nextflow@c-tc-429521.iam.gserviceaccount.com"
@@ -100,7 +100,7 @@ gcloud beta run jobs update ${JOB_NAME} \
   --image=${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
   --set-env-vars=TZ=America/Los_Angeles \
   --cpu=2 \
-  --memory=4Gi \
+  --memory=2Gi \
   --task-timeout=4320m \
   --max-retries=0 \
   --args=""
