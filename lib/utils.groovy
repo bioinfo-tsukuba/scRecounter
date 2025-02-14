@@ -33,7 +33,7 @@ def readAccessions(accessions_input){
             // add optional, metadata columns
             def metadata = [:]
             ["organism", "tech_10x"].each { col ->
-                metadata[col] = row.containsKey(col) ? row[col] : ""
+                metadata[col] = row.containsKey(col) ? row[col].replaceAll("\\s", "_") : ""
             }
             result << metadata
             return result
