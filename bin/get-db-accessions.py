@@ -40,8 +40,8 @@ parser.add_argument('--max-srx', type=int, default=5,
                     help='Max number of srx records to return')
 parser.add_argument('--database', type=str, default=["sra", "gds"], nargs="+",
                     help='Only return records from these databases')
-parser.add_argument('--organisms', type=str, nargs='+', default=["human", "mouse"], 
-                    help='Organisms to filter by')
+parser.add_argument('--organisms', type=str, default="human,mouse", 
+                    help='Organisms to filter by; comma-separated list')
 parser.add_argument('--outfile', type=str, default="accessions.csv",
                     help='Output file name')
 
@@ -139,6 +139,9 @@ def db_get_unprocessed_records(
     return pd.read_sql(str(stmt), conn)
 
 def main(args):
+    # parse organisms
+    args.organisms = args.organisms.split(",")
+
     # set process name; used to determine which records have been processed
     process = "Get db accessions"
 
@@ -147,6 +150,9 @@ def main(args):
         df = db_get_unprocessed_records(
             conn, process, args.database, max_srx=args.max_srx, organisms=args.organisms
         )
+
+    # remove spaces from organism
+    df["organism"] = df["organism"].str.replace(" ", "_")
 
     # log number of records
     num_unique_srx = df["sample"].nunique()
