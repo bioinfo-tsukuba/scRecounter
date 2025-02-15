@@ -37,6 +37,7 @@ process GET_DB_ACCESSIONS {
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
     get-db-accessions.py \\
+      --organisms ${params.organisms} \\
       --max-srx ${params.max_samples} \\
       2>&1 | tee ${task.process}.log
     """
