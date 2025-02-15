@@ -4,7 +4,7 @@ Env vars
 
 ```bash
 IMG_NAME=sc-recounter-run
-IMG_VERSION=0.1.8
+IMG_VERSION=0.1.9
 REGION="us-east1"
 GCP_PROJECT_ID="c-tc-429521"
 SERVICE_ACCOUNT_EMAIL="nick-nextflow@c-tc-429521.iam.gserviceaccount.com"
@@ -103,7 +103,23 @@ gcloud beta run jobs update ${JOB_NAME} \
   --memory=2Gi \
   --task-timeout=4320m \
   --max-retries=0 \
-  --args=""
+  --args="docker","gcp","report","trace"
 ```
 
+Non-human/mouse genomes
+
+```bash
+JOB_NAME="${IMG_NAME}-all-org"
+gcloud beta run jobs update ${JOB_NAME} \
+  --service-account=${SERVICE_ACCOUNT_EMAIL} \
+  --project=${GCP_PROJECT_ID} \
+  --region=${REGION} \
+  --image=${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${IMG_NAME}/${IMG_NAME}:${IMG_VERSION} \
+  --set-env-vars=TZ=America/Los_Angeles \
+  --cpu=2 \
+  --memory=2Gi \
+  --task-timeout=4320m \
+  --max-retries=0 \
+  --args="docker","gcp","all_org","report","trace"
+```
 
