@@ -19,7 +19,7 @@ workflow {
 
 process H5AD_TO_DB {
     publishDir file(params.log_dir), mode: "copy", overwrite: true
-    label "process_high"
+    label "process_medium"
     maxForks 1
 
     input:
