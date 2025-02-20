@@ -1,0 +1,14 @@
+name: download
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.12
+  - pandas=2.2
+  - pyarrow=19.0.1
+  - scanpy=1.10
+  - psycopg2-binary=2.9
+  - pypika=0.48
+  - python-dotenv=1.0
+  - google-cloud-secret-manager=2.22
+  
