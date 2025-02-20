@@ -89,7 +89,7 @@ fish_biotypes = {
    "TR_gene"
 }
 
-invertibrate_biotypes = {
+invertebrate_biotypes = {
     "protein_coding",
     "lncRNA"
 }
@@ -126,11 +126,11 @@ biotype_index = {
     "Xenopus tropicalis" : amphibian_biotypes,
     ## fish
     "Danio rerio" : fish_biotypes,
-    ## invertibrates
-    "Drosophila melanogaster" : invertibrate_biotypes,
-    "Caenorhabditis elegans" : invertibrate_biotypes,
-    "Schistosoma mansoni" : invertibrate_biotypes,
-    "Anopheles gambiae" : invertibrate_biotypes,
+    ## invertebrates
+    "Drosophila melanogaster" : invertebrate_biotypes,
+    "Caenorhabditis elegans" : invertebrate_biotypes,
+    "Schistosoma mansoni" : invertebrate_biotypes,
+    "Anopheles gambiae" : invertebrate_biotypes,
     # plants
     "Arabidopsis thaliana" : plant_biotypes,
     "Oryza sativa" : plant_biotypes,
