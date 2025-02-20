@@ -164,9 +164,9 @@ def load_matrix_as_anndata(
     metadata["obs_count"] = adata.shape[0]
     
     ## write to h5ad
-    organism = metadata["organism"].values[0].replace(" ", "_")
-    os.makedirs(organism, exist_ok=True)
-    outfile = os.path.join(organism, f"{srx_id}.h5ad")
+    outdir = os.path.join("h5ad", metadata["organism"].values[0].replace(" ", "_"))
+    os.makedirs(outdir, exist_ok=True)
+    outfile = os.path.join(outdir, f"{srx_id}.h5ad")
     logging.info(f"Writing to {outfile}...")
     adata.write_h5ad(outfile)
 

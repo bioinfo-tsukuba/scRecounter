@@ -17,7 +17,7 @@ workflow {
 }
 
 process DB_TO_PARQUET {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "*/*.parquet"
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "metadata/*/*.parquet"
     publishDir file(params.log_dir), mode: "copy", overwrite: true, pattern: "*.log"
     label "process_low"
 
@@ -25,7 +25,7 @@ process DB_TO_PARQUET {
     path h5ad_files
 
     output:
-    path "*/*.parquet", emit: parquet
+    path "metadata/*/*.parquet", emit: parquet
     path "db-to-parquet.log", emit: log
 
     script:
@@ -39,7 +39,7 @@ process DB_TO_PARQUET {
 }
 
 process MTX_TO_H5AD {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "*/*.h5ad"
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "h5ad/*/*.h5ad"
     publishDir file(params.log_dir), mode: "copy", overwrite: true, pattern: "*.log"
     label "process_high"
     maxForks 10
@@ -49,7 +49,7 @@ process MTX_TO_H5AD {
     each path(tissue_categories)
 
     output:
-    path "*/${srx}.h5ad",          emit: h5ad
+    path "h5ad/*/${srx}.h5ad",          emit: h5ad
     path "mtx-to-h5ad_${srx}.log", emit: log
 
     script:

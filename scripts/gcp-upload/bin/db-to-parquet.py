@@ -62,7 +62,7 @@ def main():
         logging.info(f"Processing metadata for {organism}...")
         organism_str = organism.replace(" ", "_")
         # create directory
-        out_dir = Path(organism_str)
+        out_dir = Path("metadata") / Path(organism_str)
         out_dir.mkdir(parents=True, exist_ok=True)
         # write to parquet
         outfile = out_dir / 'metadata.parquet'
