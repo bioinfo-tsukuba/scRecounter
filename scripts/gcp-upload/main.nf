@@ -42,7 +42,7 @@ process MTX_TO_H5AD {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "h5ad/*/*.h5ad"
     publishDir file(params.log_dir), mode: "copy", overwrite: true, pattern: "*.log"
     label "process_high"
-    maxForks 10
+    maxForks 50
 
     input:
     tuple val(srx), path(mtx_path), path(features_path), path(barcodes_path)

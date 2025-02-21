@@ -120,17 +120,18 @@ def load_matrix_as_anndata(
     if metadata.shape[0] > 1:
         raise ValueError(f"Multiple metadata entries found for SRX accession {srx_id}")
 
-    # load tissue categories
-    tissue_categories = None
+    # if tissue_categories_path exists, update tissue to category
     if os.path.exists(tissue_categories_path):
         logging.info(f"Loading tissue categories...")
         df = pd.read_csv(tissue_categories_path)  
         tissue_category = df[df["tissue"] == metadata["tissue"].values[0]]
         if tissue_category.shape[0] > 0:
-            metadata["tissue_category"] = tissue_category["category"].values[0]
+            metadata["tissue"] = tissue_category["category"].values[0]
 
     # add publish path
-    metadata["file_path"] = metadata["organism"].apply(lambda x: os.path.join(publish_path, str(x).replace(" ", "_"), f"{srx_id}.h5ad"))
+    metadata["file_path"] = metadata["organism"].apply(
+        lambda x: os.path.join(publish_path, "h5ad", str(x).replace(" ", "_"), f"{srx_id}.h5ad")
+    )
 
     # load count matrix
     logging.info("Loading count matrix...")
@@ -147,22 +148,21 @@ def load_matrix_as_anndata(
     else:
         adata.obs["gene_count"] = (adata.X > 0).sum(axis=1)
         adata.obs["umi_count"] = adata.X.sum(axis=1)
-    adata.obs["barcode"] = adata.obs.index
 
     # append SRX to barcode to create a global-unique index
-    adata.obs.index = adata.obs.index + f"_{srx_id}"
+    #adata.obs.index = adata.obs.index + f"_{srx_id}"
 
     # add metadata to adata
     adata.obs["SRX_accession"] = srx_id
-    for col in metadata.columns:
-        try:
-            adata.obs[col] = str(metadata[col].values[0])
-        except IndexError:
-            adata.obs[col] = None
+    # for col in metadata.columns:
+    #     try:
+    #         adata.obs[col] = str(metadata[col].values[0])
+    #     except IndexError:
+    #         adata.obs[col] = None
 
     # add obs_count to metadata
     metadata["obs_count"] = adata.shape[0]
-    
+
     ## write to h5ad
     outdir = os.path.join("h5ad", metadata["organism"].values[0].replace(" ", "_"))
     os.makedirs(outdir, exist_ok=True)

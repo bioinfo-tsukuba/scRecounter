@@ -68,7 +68,7 @@ def load_srx_metadata() -> Set[str]:
             Criterion.all([
                 ~srx_metadata.is_illumina.isnull(),
                 ~srx_metadata.organism.isnull(),
-                ~srx_metadata.organism.isin(['NA', 'None', 'NaN']),
+                ~srx_metadata.organism.isin(['NA', 'None', 'NaN', 'other', 'metagenome']),
             ])
         )
     )
