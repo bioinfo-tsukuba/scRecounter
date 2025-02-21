@@ -39,7 +39,7 @@ process DB_TO_PARQUET {
 }
 
 process MTX_TO_H5AD {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "h5ad/*/*.h5ad"
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "h5ad/*/*.h5ad.gz"
     publishDir file(params.log_dir), mode: "copy", overwrite: true, pattern: "*.log"
     label "process_high"
     maxForks 50
@@ -49,7 +49,7 @@ process MTX_TO_H5AD {
     each path(tissue_categories)
 
     output:
-    path "h5ad/*/${srx}.h5ad",          emit: h5ad
+    path "h5ad/*/${srx}.h5ad.gz",  emit: h5ad
     path "mtx-to-h5ad_${srx}.log", emit: log
 
     script:

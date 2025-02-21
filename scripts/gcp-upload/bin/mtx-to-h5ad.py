@@ -130,7 +130,7 @@ def load_matrix_as_anndata(
 
     # add publish path
     metadata["file_path"] = metadata["organism"].apply(
-        lambda x: os.path.join(publish_path, "h5ad", str(x).replace(" ", "_"), f"{srx_id}.h5ad")
+        lambda x: os.path.join(publish_path, "h5ad", str(x).replace(" ", "_"), f"{srx_id}.h5ad.gz")
     )
 
     # load count matrix
@@ -166,9 +166,9 @@ def load_matrix_as_anndata(
     ## write to h5ad
     outdir = os.path.join("h5ad", metadata["organism"].values[0].replace(" ", "_"))
     os.makedirs(outdir, exist_ok=True)
-    outfile = os.path.join(outdir, f"{srx_id}.h5ad")
+    outfile = os.path.join(outdir, f"{srx_id}.h5ad.gz")
     logging.info(f"Writing to {outfile}...")
-    adata.write_h5ad(outfile)
+    adata.write_h5ad(outfile, compression="gzip")
 
     # upsert metadata to postgresql database
     logging.info(f"Upserting metadata for SRX accession {srx_id}...")
