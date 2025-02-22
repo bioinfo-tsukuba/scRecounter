@@ -1,4 +1,7 @@
-### sc-recounter-star
+sc-recounter-star container
+===========================
+
+# Build and push to GCP Container Registry
 
 Env vars
 

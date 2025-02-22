@@ -1,4 +1,9 @@
-## sc-recounter-run
+sc-recounter-run
+================
+
+The container for running the pipeline on GCP Cloud Run Jobs.
+
+## Setup 
 
 Env vars
 

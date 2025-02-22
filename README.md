@@ -69,6 +69,7 @@ Nextflow will automatically create the environments as long as `mamba` is instal
 The pipeline defaults to using custom Docker containers hosted on Google Artifact Registry.
 
 You can build the Docker containers yourself. See [./docker/README.md](./docker/README.md) for details.
+Be sure to update the [profiles.config](./config/profiles.config) file to point to the new containers.
 
 # Usage
 

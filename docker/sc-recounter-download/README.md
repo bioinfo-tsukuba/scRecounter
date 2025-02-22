@@ -1,4 +1,7 @@
-### sc-recounter-download
+sc-recounter-download container
+===============================
+
+# Build and push to GCP Container Registry
 
 Env vars
 
