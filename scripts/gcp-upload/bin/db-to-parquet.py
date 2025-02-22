@@ -5,7 +5,6 @@ import os
 import logging
 import argparse 
 from pathlib import Path
-from itertools import chain
 from typing import List, Set, Tuple, Optional
 ## 3rd party
 import pandas as pd
@@ -65,8 +64,8 @@ def main():
         out_dir = Path("metadata") / Path(organism_str)
         out_dir.mkdir(parents=True, exist_ok=True)
         # write to parquet
-        outfile = out_dir / 'metadata.parquet'
-        df.to_parquet(outfile, index=False)
+        outfile = out_dir / 'metadata.parquet.gz'
+        df.to_parquet(outfile, index=False, compression='gzip')
         logging.info(f"Saved metadata for {organism} to {outfile}")
 
 if __name__ == "__main__":

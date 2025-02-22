@@ -226,8 +226,14 @@ def main():
         max_datasets=args.max_datasets,
     )
 
-    # write as csv
+    # convert to dataframe
     df = pd.DataFrame(matrix_files, columns=['srx', 'matrix_path', 'features_path', 'barcodes_path'])
+
+    # sort by srx and matrix_path
+    df = df.sort_values(by=['srx', 'matrix_path'])
+    df = df.drop_duplicates(subset=['srx'], keep='last')
+
+    # write as csv
     df.to_csv('mtx_files.csv', index=False)
     logging.info(f"File written: mtx_files.csv")
 

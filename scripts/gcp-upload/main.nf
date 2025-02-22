@@ -17,7 +17,7 @@ workflow {
 }
 
 process DB_TO_PARQUET {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "metadata/*/*.parquet"
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "metadata/*/*.parquet.gz"
     publishDir file(params.log_dir), mode: "copy", overwrite: true, pattern: "*.log"
     label "process_low"
 
@@ -25,8 +25,8 @@ process DB_TO_PARQUET {
     path h5ad_files
 
     output:
-    path "metadata/*/*.parquet", emit: parquet
-    path "db-to-parquet.log", emit: log
+    path "metadata/*/*.parquet.gz", emit: parquet
+    path "db-to-parquet.log",       emit: log
 
     script:
     """

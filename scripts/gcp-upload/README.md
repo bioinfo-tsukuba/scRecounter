@@ -18,19 +18,17 @@ Slurm run
 nextflow run main.nf -profile conda,slurm,dev -resume
 ```
 
-## Test prod
+## prod
+
+### SRA
 
 ```bash
-nextflow run main.nf -profile conda,vm \
-  --max_datasets 8 \
-  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb_prod3_tmp \
-  --input_dir /processed_datasets/scRecount/scRecounter/prod3
+nextflow run main.nf -profile conda,slurm
 ```
 
+### CZI
+
 ```bash
-nextflow run main.nf -profile conda,slurm \
-  --max_datasets 8 \
-  --db_uri /scratch/multiomics/nickyoungblut/tiledb-loader/tiledb_prod3_tmp \
-  --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs
+nextflow run main.nf -profile conda,slurm --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs
 ```
 

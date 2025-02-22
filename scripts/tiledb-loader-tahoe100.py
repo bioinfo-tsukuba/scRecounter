@@ -165,10 +165,6 @@ def main():
         max_datasets=args.max_datasets
     )
 
-    # filter out plate14
-    #h5ad_files = [f for f in h5ad_files if "plate14" not in f]
-    #print(h5ad_files); exit();
-
     # Load data into memory and append to TileDB
     load_tiledb(h5ad_files, args.db_uri)
 
