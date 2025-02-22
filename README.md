@@ -179,3 +179,9 @@ nextflow run /home/nickyoungblut/dev/nextflow/scRecounter/main.nf \
 
 See [./docker/sc-recounter-run/README.md](./docker/sc-recounter-run/README.md) for details.
 
+
+# Contributing
+
+Feel free to fork the repository and submit a pull request.
+However, the top priority is to keep SRAgent functioning 
+for the ongoing scBaseCamp project.
