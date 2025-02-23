@@ -2,7 +2,6 @@ workflow {
     // find target MTX files to add to the database
     FIND_MTX()
 
-
     // list target MTX files
     mtx_files = FIND_MTX.out.csv
       .splitCsv( header: true )
@@ -21,11 +20,15 @@ workflow {
     MTX_TO_H5AD( mtx_files, Channel.fromPath(params.tissue_categories) )
 
     // write parquet after all MTX_TO_H5AD jobs complete
-    DB_TO_PARQUET( MTX_TO_H5AD.out.csv.collect() )
+    if( params.update_db ){
+      DB_TO_PARQUET( MTX_TO_H5AD.out.h5ad.collect() )
+    }
+    
+    // aggregate obs metadata
+    AGG_OBS_METADATA( MTX_TO_H5AD.out.csv.collate(100) )
 }
 
-process DB_TO_PARQUET {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "metadata/*/${params.feature_type}/sample_metadata.parquet.gz"
+process AGG_OBS_METADATA {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "metadata_TMP/${params.feature_type}/*.csv.gz"
     publishDir file(params.log_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "*.log"
     label "process_low"
@@ -34,20 +37,36 @@ process DB_TO_PARQUET {
     path csv_files
 
     output:
+    path "metadata_TMP/${params.feature_type}/*.csv.gz", emit: obs_meta
+    path "agg-obs-metadata.log",                         emit: log
+
+    script:
+    """
+    agg-obs-metadata.py \\
+      --feature-type ${params.feature_type} \\
+      ${csv_files} 2>&1 | tee agg-obs-metadata.log
+    """
+}
+
+process DB_TO_PARQUET {
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "metadata/*/${params.feature_type}/sample_metadata.parquet.gz"
+    publishDir file(params.log_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "*.log"
+    label "process_low"
+
+    input:
+    path csv_files
+
+    output:
     path "metadata/*/${params.feature_type}/sample_metadata.parquet.gz", emit: samp_meta
-    path "metadata_TMP/${params.feature_type}/*.csv.gz",                 emit: obs_meta
     path "db-to-parquet.log",                                            emit: log
 
     script:
-    def use_db = params.update_db ? "--use-database" : ""
     """
     export GCP_SQL_DB_HOST="${params.db_host}"
     export GCP_SQL_DB_NAME="${params.db_name}"
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
-    db-to-parquet.py ${use_db} \\
-      --feature-type ${params.feature_type} \\
-      ${csv_files} 2>&1 | tee db-to-parquet.log
+    db-to-parquet.py 2>&1 | tee db-to-parquet.log
     """
 }
 

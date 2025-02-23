@@ -9,12 +9,8 @@ A simple Nextflow pipeline for efficiently loading single-cell data as h5ad file
 Local run
 
 ```bash
-nextflow run main.nf -profile conda,vm,dev -resume
+nextflow run main.nf -profile conda,vm,dev --feature_type GeneFull -resume
 ```
-
-nextflow run main.nf -profile conda,vm,dev --feature_type Velocyto
-
-nextflow run main.nf -profile conda,vm,dev --feature_type Velocyto --update_db --db_name sragent-test -resume
 
 Slurm run
 
@@ -42,6 +38,12 @@ nextflow run main.nf \
 nextflow run main.nf -profile conda,slurm --feature_type GeneFull_Ex50pAS
 ```
 
+### Clean up
+
+```bash
+rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/gcp-loader/
+```
+
 ### Velocyto
 
 ### CZI
@@ -54,6 +56,8 @@ nextflow run main.nf \
   --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs
 ```
 
+**HERE**
+
 
 ### SRA
 
@@ -61,8 +65,13 @@ nextflow run main.nf \
 nextflow run main.nf -profile conda,slurm --feature_type Velocyto
 ```
 
+### Clean up
 
-### Gene
+```bash
+rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/gcp-loader/
+```
+
+### Gene  ==> REDO
 
 ### CZI
 
@@ -79,4 +88,10 @@ nextflow run main.nf \
 
 ```bash
 nextflow run main.nf -profile conda,slurm --feature_type Gene
+```
+
+### Clean up
+
+```bash
+rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/gcp-loader/
 ```
