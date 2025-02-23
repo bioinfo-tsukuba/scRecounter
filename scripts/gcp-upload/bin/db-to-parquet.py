@@ -64,7 +64,7 @@ def main():
         out_dir = Path("metadata") / Path(organism_str)
         out_dir.mkdir(parents=True, exist_ok=True)
         # write to parquet
-        outfile = out_dir / 'metadata.parquet.gz'
+        outfile = out_dir / 'sample_metadata.parquet.gz'
         df.to_parquet(outfile, index=False, compression='gzip')
         logging.info(f"Saved metadata for {organism} to {outfile}")
 

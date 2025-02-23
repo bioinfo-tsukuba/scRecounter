@@ -9,9 +9,10 @@ from itertools import chain, repeat
 from typing import List, Set, Tuple, Optional
 ## 3rd party
 import numpy as np
-import scipy.sparse
 import pandas as pd
 import scanpy as sc
+import anndata
+from scipy import sparse
 from pypika import Query, Table
 ## package
 from db_utils import db_connect, db_upsert
@@ -41,7 +42,7 @@ def parse_arguments() -> argparse.Namespace:
         '--srx', type=str, help="SRX accessions", required=True
     )
     parser.add_argument(
-        '--matrix', type=str, help="Path to matrix.mtx.gz", required=True
+        '--matrix', type=str, nargs="+", help="Path to >=1 *.mtx.gz file", required=True
     )
     parser.add_argument(
         '--publish-path', type=str, help="Publishing path", required=True
@@ -54,23 +55,74 @@ def parse_arguments() -> argparse.Namespace:
         choices=["error", "skip", "allow"],
         help="How do handle missing metadata?"
     )
+    parser.add_argument(
+        '--update-database', action="store_true", default=False, 
+        help="Update the database?"
+    )
     return parser.parse_args()
 
+def buildAnndataFromStarCurr():
+    """Generate an anndata object from the STAR aligner output folder"""
+    logging.info(f"  Assuming a Velocyto dataset...")
+
+    # Load Read Counts
+    X = sc.read_mtx('matrix.mtx.gz')
+
+    # Transpose counts matrix to have Cells as rows and Genes as cols as expected by AnnData objects
+    X = X.X.transpose()
+
+    # Load the 3 matrices containing Spliced, Unspliced and Ambigous reads
+    mtxU = np.loadtxt('unspliced.mtx.gz', skiprows=3, delimiter=' ')
+    mtxS = np.loadtxt('spliced.mtx.gz', skiprows=3, delimiter=' ')
+    mtxA = np.loadtxt('ambiguous.mtx.gz', skiprows=3, delimiter=' ')
+
+    # Extract sparse matrix shape informations from the third row
+    shapeU = np.loadtxt('unspliced.mtx.gz', skiprows=2, max_rows = 1 ,delimiter=' ')[0:2].astype(int)
+    shapeS = np.loadtxt('spliced.mtx.gz', skiprows=2, max_rows = 1 ,delimiter=' ')[0:2].astype(int)
+    shapeA = np.loadtxt('ambiguous.mtx.gz', skiprows=2, max_rows = 1 ,delimiter=' ')[0:2].astype(int)
+
+    # Read the sparse matrix with csr_matrix((data, (row_ind, col_ind)), shape=(M, N))
+    # Subract -1 to rows and cols index because csr_matrix expects a 0 based index
+    # Traspose counts matrix to have Cells as rows and Genes as cols as expected by AnnData objects
+    spliced = sparse.csr_matrix((mtxS[:,2], (mtxS[:,0]-1, mtxS[:,1]-1)), shape = shapeS).transpose()
+    unspliced = sparse.csr_matrix((mtxU[:,2], (mtxU[:,0]-1, mtxU[:,1]-1)), shape = shapeU).transpose()
+    ambiguous = sparse.csr_matrix((mtxA[:,2], (mtxA[:,0]-1, mtxA[:,1]-1)), shape = shapeA).transpose()
+
+    # Load Genes and Cells identifiers
+    obs = pd.read_csv('barcodes.tsv.gz', header = None, index_col = 0)
+
+    # Remove index column name to make it compliant with the anndata format
+    obs.index.name = None
+
+    var = pd.read_csv('features.tsv.gz', sep='\t', names = ('gene_ids', 'feature_types'), index_col = 1)
+  
+    # Build AnnData object to be used with ScanPy and ScVelo
+    adata = anndata.AnnData(
+        X = X, obs = obs, var = var,
+        layers = {'spliced': spliced, 'unspliced': unspliced, 'ambiguous': ambiguous}
+    )
+    adata.var_names_make_unique()
+
+    # Subset Cells based on STAR filtering
+    selected_barcodes = pd.read_csv('barcodes.tsv.gz', header = None)
+    return adata[selected_barcodes[0]]
 
 def load_matrix_as_anndata(
         srx_id: str, 
-        matrix_path: str, 
+        matrix_path: List[str], 
         publish_path: str,
         tissue_categories_path: str,
         missing_metadata: str="error",
+        update_database: bool=False
     ) -> sc.AnnData:
     """
     Load a matrix.mtx.gz file as an AnnData object.
     Args:
         srx_id: SRX accession
-        matrix_path: Path to matrix.mtx.gz file
+        matrix_path: >=1 Path to *.mtx.gz file
         publish_path: Path to publish the h5ad
         missing_metadata: How to handle missing metadata
+        update_database: Update the database?
     Returns:
         AnnData object
     """
@@ -135,30 +187,31 @@ def load_matrix_as_anndata(
 
     # load count matrix
     logging.info("Loading count matrix...")
-    adata = sc.read_10x_mtx(
-        os.path.dirname(matrix_path),
-        var_names="gene_ids",
-        make_unique=True
-    )
+    if len(matrix_path) == 1:
+        
+        adata = sc.read_10x_mtx(
+            os.path.dirname(matrix_path),
+            var_names="gene_ids",
+            make_unique=True
+        )
+    elif len(matrix_path) == 4:
+        adata = buildAnndataFromStarCurr()
+    else:
+        raise ValueError("Invalid number of matrix paths")
 
     # calculate total counts
-    if scipy.sparse.issparse(adata.X):
+    if sparse.issparse(adata.X):
         adata.obs["gene_count"] = (adata.X > 0).sum(axis=1).A1
         adata.obs["umi_count"] = adata.X.sum(axis=1).A1
     else:
         adata.obs["gene_count"] = (adata.X > 0).sum(axis=1)
         adata.obs["umi_count"] = adata.X.sum(axis=1)
 
-    # append SRX to barcode to create a global-unique index
+    # append SRX to barcode to create a global-unique index for tiledb
     #adata.obs.index = adata.obs.index + f"_{srx_id}"
 
     # add metadata to adata
     adata.obs["SRX_accession"] = srx_id
-    # for col in metadata.columns:
-    #     try:
-    #         adata.obs[col] = str(metadata[col].values[0])
-    #     except IndexError:
-    #         adata.obs[col] = None
 
     # add obs_count to metadata
     metadata["obs_count"] = adata.shape[0]
@@ -171,9 +224,12 @@ def load_matrix_as_anndata(
     adata.write_h5ad(outfile, compression="gzip")
 
     # upsert metadata to postgresql database
-    logging.info(f"Upserting metadata for SRX accession {srx_id}...")
-    with db_connect() as conn:
-        db_upsert(metadata, "scbasecamp_metadata", conn)
+    if update_database:
+        logging.info(f"Upserting metadata for SRX accession {srx_id}...")
+        with db_connect() as conn:
+            db_upsert(metadata, "scbasecamp_metadata", conn)
+    else:
+        logging.info(f"Skipping upserting metadata for SRX accession {srx_id}")
     
 def main():
     # parse args
@@ -186,6 +242,7 @@ def main():
         publish_path = args.publish_path, 
         tissue_categories_path = args.tissue_categories,
         missing_metadata = args.missing_metadata, 
+        update_database = args.update_database
     )
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         '--feature-type', default='GeneFull_Ex50pAS', 
-        choices=['Gene', 'GeneFull', 'GeneFull_Ex50pAS', 'GeneFull_ExonOverIntron', 'Velocyto', None], 
+        choices=['Gene', 'GeneFull', 'GeneFull_Ex50pAS', 'GeneFull_ExonOverIntron', 'Velocyto'], 
         help='Feature type to process'
     )
     parser.add_argument(
@@ -76,19 +76,21 @@ def load_srx_metadata() -> Set[str]:
         metadata = pd.read_sql(str(stmt), conn)
     return set(metadata['srx_accession'].tolist())
 
-def load_scbasecamp_metadata() -> Set[str]:
+def load_scbasecamp_metadata(feature_type: str) -> Set[str]:
     """
     Load metadata from scBasecamp database.
     """
     logging.info("Obtaining scbasecamp metadata...")
 
     # get metadata from scRecounter postgresql database
-    srx_metadata = Table("scbasecamp_metadata")
+    scbc_metadata = Table("scbasecamp_metadata")
     stmt = (
         Query
-        .from_(srx_metadata)
+        .from_(scbc_metadata)
         .select(
-            srx_metadata.srx_accession,
+            scbc_metadata.srx_accession,
+        ).where(
+            scbc_metadata.feature_type == feature_type
         )
     )
     with db_connect() as conn:
@@ -129,17 +131,27 @@ def find_matrix_files(
         'mtx_file_missing': 0, 
         'novel': 0
     }
+
+    # account for all 3 matrix files if feature_type is Velocyto
+    if feature_type == "Velocyto":
+        feature_type = ["Velocyto", "Gene"]
+        if max_datasets > 0:
+            max_datasets = max_datasets * 4
+    else:
+        feature_type = [feature_type]
     
     # Determine which matrix file to look for based on multi_mapper
     if multi_mapper == 'None':
-        matrix_filename = 'matrix.mtx.gz'
+        matrix_filename = ['matrix.mtx.gz']
+        if "Velocyto" in feature_type:
+            matrix_filename += ["ambiguous.mtx.gz", "spliced.mtx.gz", "unspliced.mtx.gz"]
     elif multi_mapper == 'EM':
-        matrix_filename = 'UniqueAndMult-EM.mtx.gz'
+        matrix_filename = ['UniqueAndMult-EM.mtx.gz']
     elif multi_mapper == 'uniform':
-        matrix_filename = 'UniqueAndMult-Uniform.mtx.gz'
+        matrix_filename = ['UniqueAndMult-Uniform.mtx.gz']
     else:
         raise ValueError(f"Invalid multi-mapper strategy: {multi_mapper}")
-    
+
     # Walk through directory structure
     num_dirs = 0
     for srx_dir in chain(base_path.glob('**/SRX*'), base_path.glob('**/ERX*')):
@@ -167,12 +179,15 @@ def find_matrix_files(
             continue
 
         # Find target matrix file in SRX directory
-        for mtx_file in srx_dir.glob(f'**/{matrix_filename}'):
+        mtx_files = []
+        for f in matrix_filename:
+            mtx_files.extend(srx_dir.glob(f'**/{f}'))
+        for mtx_file in mtx_files:
             hit = None
             # check for `feature_type/subdir` in file path
             for i,x in enumerate(mtx_file.parts):
                 try:
-                    if feature_type in x and mtx_file.parts[i+1] == subdir:
+                    if any(ft == x for ft in feature_type) and mtx_file.parts[i+1] == subdir:
                         hit = True
                         break
                 except IndexError:
@@ -190,7 +205,7 @@ def find_matrix_files(
                 except PermissionError:
                     logging.warning(f"Permission denied for {mtx_file}. Skipping.")
                     stats['permissions'] += 1
-                break
+                #break
         
         # Check max datasets
         if max_datasets > 0 and len(results) >= max_datasets:
@@ -213,9 +228,9 @@ def main():
 
     # Load metadata
     has_srx_metadata = load_srx_metadata()
-
+    
     # Load metadata
-    processed_srx = load_scbasecamp_metadata()
+    processed_srx = load_scbasecamp_metadata(args.feature_type)
 
     # Find all matrix files and their corresponding SRX IDs
     matrix_files = find_matrix_files(
@@ -227,11 +242,19 @@ def main():
     )
 
     # convert to dataframe
-    df = pd.DataFrame(matrix_files, columns=['srx', 'matrix_path', 'features_path', 'barcodes_path'])
+    df = pd.DataFrame(
+        matrix_files, columns=['srx', 'matrix_path', 'features_path', 'barcodes_path']
+    ).sort_values(['srx'])
 
-    # sort by srx and matrix_path
+    # if feature_type is Velocyto, check for 4 per SRX
+    if args.feature_type == "Velocyto":
+        if df.shape[0] != df.groupby('srx').filter(lambda x: len(x) == 4).shape[0]:
+            raise ValueError(f"The number of Velocyto matrix files per SRX is not equal to 4. Exiting.")
+
+    # sort by srx and matrix_path and drop duplicate of the same srx+path
     df = df.sort_values(by=['srx', 'matrix_path'])
-    df = df.drop_duplicates(subset=['srx'], keep='last')
+    df["basename"] = df["matrix_path"].apply(lambda x: x.name)
+    df = df.drop_duplicates(subset=['srx', 'basename'], keep='last').drop(columns=['basename'])
 
     # write as csv
     df.to_csv('mtx_files.csv', index=False)

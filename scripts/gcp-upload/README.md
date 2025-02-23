@@ -12,10 +12,12 @@ Local run
 nextflow run main.nf -profile conda,vm,dev -resume
 ```
 
+nextflow run main.nf -profile conda,vm,dev --feature_type Velocyto
+
 Slurm run
 
 ```bash
-nextflow run main.nf -profile conda,slurm,dev -resume
+nextflow run main.nf -profile conda,slurm,dev -resume 
 ```
 
 ## prod

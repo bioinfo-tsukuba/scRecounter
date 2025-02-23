@@ -2,12 +2,20 @@ workflow {
     // find target MTX files to add to the database
     FIND_MTX()
 
+
     // list target MTX files
     mtx_files = FIND_MTX.out.csv
       .splitCsv( header: true )
       .map{ row -> 
         tuple(row.srx, file(row.matrix_path), file(row.features_path), file(row.barcodes_path))
       }
+
+    // group Velocyto MTX files by SRX
+    if( params.feature_type == "Velocyto"){
+      mtx_files = mtx_files.groupTuple().map{ group -> 
+        tuple(group[0], group[1], group[2][0], group[3][0])
+      }
+    }
 
     // convert to h5ad and publish
     MTX_TO_H5AD( mtx_files, Channel.fromPath(params.tissue_categories) )
@@ -17,8 +25,8 @@ workflow {
 }
 
 process DB_TO_PARQUET {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "metadata/*/*.parquet.gz"
-    publishDir file(params.log_dir), mode: "copy", overwrite: true, pattern: "*.log"
+    publishDir file(params.output_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "metadata/*/*.parquet.gz"
+    publishDir file(params.log_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "*.log"
     label "process_low"
 
     input:
@@ -39,8 +47,8 @@ process DB_TO_PARQUET {
 }
 
 process MTX_TO_H5AD {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "h5ad/*/*.h5ad.gz"
-    publishDir file(params.log_dir), mode: "copy", overwrite: true, pattern: "*.log"
+    publishDir file(params.output_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "h5ad/*/*.h5ad.gz"
+    publishDir file(params.log_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "*.log"
     label "process_high"
     maxForks 50
 
@@ -53,23 +61,24 @@ process MTX_TO_H5AD {
     path "mtx-to-h5ad_${srx}.log", emit: log
 
     script:
+    def update_db = params.update_db ? "--update-database" : ""
     """
     export GCP_SQL_DB_HOST="${params.db_host}"
     export GCP_SQL_DB_NAME="${params.db_name}"
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
-    mtx-to-h5ad.py \\
+    mtx-to-h5ad.py ${update_db} \\
       --missing-metadata "${params.missing_metadata}" \\
       --tissue-categories "${tissue_categories}" \\
-      --srx "${srx}" \\
-      --matrix "${mtx_path}" \\
+      --srx ${srx} \\
+      --matrix ${mtx_path} \\
       --publish-path "${params.output_dir}" \\
       2>&1 | tee mtx-to-h5ad_${srx}.log
     """
 }
 
 process FIND_MTX {
-    publishDir file(params.log_dir), mode: "copy", overwrite: true, pattern: "*.log"
+    publishDir file(params.log_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "*.log"
     label "process_low"
 
     output:
