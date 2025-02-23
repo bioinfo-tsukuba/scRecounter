@@ -267,6 +267,11 @@ def main():
     # if feature_type is Velocyto, check for 4 per SRX
     if args.feature_type == "Velocyto":
         if df.shape[0] != df.groupby('srx').filter(lambda x: len(x) == 4).shape[0]:
+            # filter to problem records
+            df = df.groupby('srx').filter(lambda x: len(x) != 4)
+            # print records and raise error
+            print(df.head())
+            print(df.shape)
             raise ValueError(f"The number of Velocyto matrix files per SRX is not equal to 4. Exiting.")
 
     # sort by srx and matrix_path and drop duplicate of the same srx+path

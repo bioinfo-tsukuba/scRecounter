@@ -61,3 +61,22 @@ nextflow run main.nf \
 nextflow run main.nf -profile conda,slurm --feature_type Velocyto
 ```
 
+
+### Gene
+
+### CZI
+
+```bash
+nextflow run main.nf \
+  -profile conda,slurm \
+  --feature_type Gene \
+  --organisms "Mus musculus,Homo sapiens,Macaca mulatta" \
+  --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs
+```
+
+
+### SRA
+
+```bash
+nextflow run main.nf -profile conda,slurm --feature_type Gene
+```
