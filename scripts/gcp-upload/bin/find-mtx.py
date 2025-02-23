@@ -45,7 +45,7 @@ def parse_arguments() -> argparse.Namespace:
         '--max-datasets', type=int, default=0,
         help='Maximum number of datasets to process'
     )
-    parser.add_argument(   # TODO: implement => https://github.com/alexdobin/STAR/blob/master/extras/scripts/soloBasicCellFilter.awk
+    parser.add_argument( 
         '--multi-mapper', default='None', choices=['None', 'EM', 'uniform'],
         help='Multi-mapper strategy to use' 
     )
@@ -151,11 +151,8 @@ def find_matrix_files(
 
     # account for all 3 matrix files if feature_type is Velocyto
     if feature_type == "Velocyto":
-        feature_type = ["Velocyto", "Gene"]
         if max_datasets > 0:
             max_datasets = max_datasets * 4
-    else:
-        feature_type = [feature_type]
     
     # Determine which matrix file to look for based on multi_mapper
     if multi_mapper == 'None':
@@ -204,7 +201,7 @@ def find_matrix_files(
             # check for `feature_type/subdir` in file path
             for i,x in enumerate(mtx_file.parts):
                 try:
-                    if any(ft == x for ft in feature_type) and mtx_file.parts[i+1] == subdir:
+                    if feature_type == x and mtx_file.parts[i+1] == subdir:
                         hit = True
                         break
                 except IndexError:
@@ -269,10 +266,10 @@ def main():
     df["basename"] = df["matrix_path"].apply(lambda x: x.name)
     df = df.drop_duplicates(subset=['srx', 'basename'], keep='last').drop(columns=['basename'])
 
-    # if feature_type is Velocyto, check for 4 per SRX and filter incomplete records
+    # if feature_type is Velocyto, check for 3 per SRX and filter incomplete records
     if args.feature_type == "Velocyto":
-        # identify SRX with complete records (4 files)
-        complete_srx = df.groupby('srx').filter(lambda x: len(x) == 4)
+        # identify SRX with complete records (3 files)
+        complete_srx = df.groupby('srx').filter(lambda x: len(x) == 3)
         # filter to keep only complete records
         df = complete_srx.copy()
         num_filtered = len(set(df['srx'])) - len(set(complete_srx['srx']))

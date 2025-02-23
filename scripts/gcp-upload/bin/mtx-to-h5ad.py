@@ -69,11 +69,9 @@ def parse_arguments() -> argparse.Namespace:
 
 def buildAnndataFromStarCurr():
     """Generate an anndata object from the STAR aligner output folder"""
-    # Load Read Counts
-    X = sc.read_mtx('matrix.mtx.gz')
-
     # Transpose counts matrix to have Cells as rows and Genes as cols as expected by AnnData objects
-    X = X.X.transpose()
+    #X = sc.read_mtx('matrix.mtx.gz').X.transpose()
+    X = sc.read_mtx('spliced.mtx.gz').X.transpose()
 
     # Load the 3 matrices containing Spliced, Unspliced and Ambigous reads
     mtxU = np.loadtxt('unspliced.mtx.gz', skiprows=3, delimiter=' ')
@@ -201,9 +199,9 @@ def load_matrix_as_anndata(
             var_names="gene_ids",
             make_unique=True
         )
-    elif len(matrix_path) == 4:
+    elif len(matrix_path) == 3:
         if feature_type != "Velocyto":
-            raise ValueError("Invalid feature type for STAR curr")
+            raise ValueError("Expecting Velocyto feature type for 3 matrix paths")
         adata = buildAnndataFromStarCurr()
     else:
         raise ValueError("Invalid number of matrix paths")
