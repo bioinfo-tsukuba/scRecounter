@@ -3,7 +3,8 @@
 ## batteries
 import os
 import logging
-import argparse 
+import argparse
+from uuid import uuid4 
 from pathlib import Path
 from itertools import chain, repeat
 from typing import List, Set, Tuple, Optional
@@ -56,6 +57,11 @@ def parse_arguments() -> argparse.Namespace:
         help="How do handle missing metadata?"
     )
     parser.add_argument(
+        '--feature-type', default='GeneFull_Ex50pAS', 
+        choices=['Gene', 'GeneFull', 'GeneFull_Ex50pAS', 'GeneFull_ExonOverIntron', 'Velocyto'], 
+        help='Feature type to process'
+    )
+    parser.add_argument(
         '--update-database', action="store_true", default=False, 
         help="Update the database?"
     )
@@ -63,8 +69,6 @@ def parse_arguments() -> argparse.Namespace:
 
 def buildAnndataFromStarCurr():
     """Generate an anndata object from the STAR aligner output folder"""
-    logging.info(f"  Assuming a Velocyto dataset...")
-
     # Load Read Counts
     X = sc.read_mtx('matrix.mtx.gz')
 
@@ -113,6 +117,7 @@ def load_matrix_as_anndata(
         publish_path: str,
         tissue_categories_path: str,
         missing_metadata: str="error",
+        feature_type: str="GeneFull_Ex50pAS",
         update_database: bool=False
     ) -> sc.AnnData:
     """
@@ -122,6 +127,7 @@ def load_matrix_as_anndata(
         matrix_path: >=1 Path to *.mtx.gz file
         publish_path: Path to publish the h5ad
         missing_metadata: How to handle missing metadata
+        feature_type: Feature type to process
         update_database: Update the database?
     Returns:
         AnnData object
@@ -188,13 +194,16 @@ def load_matrix_as_anndata(
     # load count matrix
     logging.info("Loading count matrix...")
     if len(matrix_path) == 1:
-        
+        if feature_type == "Velocyto":
+            raise ValueError("Invalid feature type for 1 matrix path")
         adata = sc.read_10x_mtx(
-            os.path.dirname(matrix_path),
+            os.path.dirname(matrix_path[0]),
             var_names="gene_ids",
             make_unique=True
         )
     elif len(matrix_path) == 4:
+        if feature_type != "Velocyto":
+            raise ValueError("Invalid feature type for STAR curr")
         adata = buildAnndataFromStarCurr()
     else:
         raise ValueError("Invalid number of matrix paths")
@@ -217,11 +226,21 @@ def load_matrix_as_anndata(
     metadata["obs_count"] = adata.shape[0]
 
     ## write to h5ad
-    outdir = os.path.join("h5ad", metadata["organism"].values[0].replace(" ", "_"))
+    outdir = os.path.join("h5ad", metadata["organism"].values[0].replace(" ", "_"), feature_type)
     os.makedirs(outdir, exist_ok=True)
     outfile = os.path.join(outdir, f"{srx_id}.h5ad.gz")
     logging.info(f"Writing to {outfile}...")
     adata.write_h5ad(outfile, compression="gzip")
+
+    # write out obs dataframe as csv
+    os.makedirs("metadata", exist_ok=True)
+    outfile = os.path.join("metadata", f"{srx_id}.csv.gz")
+    adata.obs["cell_barcode"] = adata.obs.index
+    adata.obs["organism"] = metadata["organism"].values[0]
+    adata.obs.to_csv(outfile, index=False, compression="gzip")
+
+    # add feature type
+    metadata["feature_type"] = feature_type
 
     # upsert metadata to postgresql database
     if update_database:
@@ -242,6 +261,7 @@ def main():
         publish_path = args.publish_path, 
         tissue_categories_path = args.tissue_categories,
         missing_metadata = args.missing_metadata, 
+        feature_type = args.feature_type,
         update_database = args.update_database
     )
 

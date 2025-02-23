@@ -21,43 +21,49 @@ workflow {
     MTX_TO_H5AD( mtx_files, Channel.fromPath(params.tissue_categories) )
 
     // write parquet after all MTX_TO_H5AD jobs complete
-    DB_TO_PARQUET( MTX_TO_H5AD.out.h5ad.collect() )
+    DB_TO_PARQUET( MTX_TO_H5AD.out.csv.collect() )
 }
 
 process DB_TO_PARQUET {
-    publishDir file(params.output_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "metadata/*/*.parquet.gz"
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "metadata/*/${params.feature_type}/sample_metadata.parquet.gz"
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "metadata_TMP/${params.feature_type}/*.csv.gz"
     publishDir file(params.log_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "*.log"
     label "process_low"
 
     input:
-    path h5ad_files
+    path csv_files
 
     output:
-    path "metadata/*/*.parquet.gz", emit: parquet
-    path "db-to-parquet.log",       emit: log
+    path "metadata/*/${params.feature_type}/sample_metadata.parquet.gz", emit: samp_meta
+    path "metadata_TMP/${params.feature_type}/*.csv.gz",                 emit: obs_meta
+    path "db-to-parquet.log",                                            emit: log
 
     script:
+    def use_db = params.update_db ? "--use-database" : ""
     """
     export GCP_SQL_DB_HOST="${params.db_host}"
     export GCP_SQL_DB_NAME="${params.db_name}"
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
-    db-to-parquet.py 2>&1 | tee db-to-parquet.log
+    db-to-parquet.py ${use_db} \\
+      --feature-type ${params.feature_type} \\
+      ${csv_files} 2>&1 | tee db-to-parquet.log
     """
 }
 
 process MTX_TO_H5AD {
-    publishDir file(params.output_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "h5ad/*/*.h5ad.gz"
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, pattern: "h5ad/*/${params.feature_type}/*.h5ad.gz"
     publishDir file(params.log_dir) / params.feature_type, mode: "copy", overwrite: true, pattern: "*.log"
     label "process_high"
-    maxForks 50
+    maxForks 100
 
     input:
     tuple val(srx), path(mtx_path), path(features_path), path(barcodes_path)
     each path(tissue_categories)
 
     output:
-    path "h5ad/*/${srx}.h5ad.gz",  emit: h5ad
+    path "h5ad/*/${params.feature_type}/${srx}.h5ad.gz",  emit: h5ad
+    path "metadata/${srx}.csv.gz", emit: csv
     path "mtx-to-h5ad_${srx}.log", emit: log
 
     script:
@@ -68,6 +74,7 @@ process MTX_TO_H5AD {
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
     mtx-to-h5ad.py ${update_db} \\
+      --feature-type ${params.feature_type} \\
       --missing-metadata "${params.missing_metadata}" \\
       --tissue-categories "${tissue_categories}" \\
       --srx ${srx} \\
@@ -86,12 +93,13 @@ process FIND_MTX {
     path "find-mtx.log",  emit: log
 
     script:
+    def organisms = params.organisms != "" ? "--organisms \"${params.organisms}\"" : ""
     """
     export GCP_SQL_DB_HOST="${params.db_host}"
     export GCP_SQL_DB_NAME="${params.db_name}"
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
-    find-mtx.py \\
+    find-mtx.py ${organisms} \\
       --feature-type ${params.feature_type} \\
       --max-datasets ${params.max_datasets} \\
       ${params.input_dir} \\

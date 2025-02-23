@@ -49,11 +49,17 @@ def parse_arguments() -> argparse.Namespace:
         '--multi-mapper', default='None', choices=['None', 'EM', 'uniform'],
         help='Multi-mapper strategy to use' 
     )
+    parser.add_argument(
+        '--organisms', type=str, default=None,
+        help="Comma-separated list of organisms to process; if none, process all"
+    )
     return parser.parse_args()
 
-def load_srx_metadata() -> Set[str]:
+def load_srx_metadata(organisms: str) -> Set[str]:
     """
     Load metadata from scBasecamp database.
+    Args:
+        organisms: Comma-separated list of organisms to process; if none, process all
     """
     logging.info("Obtaining srx metadata...")
 
@@ -64,6 +70,7 @@ def load_srx_metadata() -> Set[str]:
         .from_(srx_metadata)
         .select(
             srx_metadata.srx_accession,
+            srx_metadata.organism,
         ).where(
             Criterion.all([
                 ~srx_metadata.is_illumina.isnull(),
@@ -72,8 +79,17 @@ def load_srx_metadata() -> Set[str]:
             ])
         )
     )
+    
+    # load metadata
     with db_connect() as conn:
         metadata = pd.read_sql(str(stmt), conn)
+
+    # filter by organism
+    if organisms:
+        organisms = organisms.split(',')
+        metadata = metadata[metadata['organism'].isin(organisms)]
+        
+    # return set of SRX accessions
     return set(metadata['srx_accession'].tolist())
 
 def load_scbasecamp_metadata(feature_type: str) -> Set[str]:
@@ -101,17 +117,18 @@ def find_matrix_files(
         base_dir: str, 
         feature_type: str, 
         has_srx_metadata: Set[str],
-        existing_srx: Set[str],
+        processed_srx: Set[str],
         multi_mapper: str='None',
         raw: bool=False, 
         max_datasets: Optional[int]=0
     ) -> List[tuple]:
     """
-    Recursively find matrix.mtx.gz files and extract SRX/ERX IDs.
+    Recursively find *.mtx.gz files and extract SRX/ERX IDs.
     Args:
         base_dir: Base directory to search
         feature_type: 'Gene' or 'GeneFull'
-        existing_srx: Set of existing SRX IDs
+        has_srx_metadata: Set of SRX IDs with metadata; records skipped if no metadata
+        processed_srx: Set of existing SRX IDs
         multi_mapper: 'EM', 'uniform', or 'None'
         raw: Use raw count matrix files instead of filtered
         max_datasets: Maximum number of datasets to process
@@ -167,7 +184,7 @@ def find_matrix_files(
             logging.info(f"  Searched {num_dirs} SRX directories so far...")
 
         # Check if SRX directory exists in database
-        if srx_dir.name in existing_srx:
+        if srx_dir.name in processed_srx:
             stats['already_processed'] += 1
             continue
 
@@ -227,7 +244,7 @@ def main():
     args = parse_arguments()
 
     # Load metadata
-    has_srx_metadata = load_srx_metadata()
+    has_srx_metadata = load_srx_metadata(args.organisms)
     
     # Load metadata
     processed_srx = load_scbasecamp_metadata(args.feature_type)
@@ -235,7 +252,8 @@ def main():
     # Find all matrix files and their corresponding SRX IDs
     matrix_files = find_matrix_files(
         args.base_dir, args.feature_type, 
-        has_srx_metadata, processed_srx,
+        has_srx_metadata = has_srx_metadata, 
+        processed_srx = processed_srx,
         multi_mapper=args.multi_mapper,
         raw=args.raw, 
         max_datasets=args.max_datasets,
