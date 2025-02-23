@@ -66,7 +66,9 @@ process DB_TO_PARQUET {
     export GCP_SQL_DB_NAME="${params.db_name}"
     export GCP_SQL_DB_USERNAME="${params.db_username}"
 
-    db-to-parquet.py 2>&1 | tee db-to-parquet.log
+    db-to-parquet.py \\
+      --feature-type ${params.feature_type} \\
+      2>&1 | tee db-to-parquet.log
     """
 }
 
