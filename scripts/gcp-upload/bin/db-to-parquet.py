@@ -63,18 +63,21 @@ def load_scbasecamp_metadata() -> Set[str]:
 
 def merge_csv_files(csv_files: List[str], feature_type: str):
     """
-    Iteratively load and append to output csv
+    Load all CSV files into memory and write them together
     """
     outdir = os.path.join("metadata_TMP", feature_type)
     os.makedirs(outdir, exist_ok=True)
     outfile = os.path.join(outdir, f"{uuid4()}.csv.gz")
-    for i,csv_file in enumerate(csv_files):
+    
+    # Load all dataframes into a list
+    data = []
+    for csv_file in csv_files:
         logging.info(f"Processing {csv_file}...")
         df = pd.read_csv(csv_file)
-        if i == 0:
-            df.to_csv(outfile, index=False, compression='gzip')
-        else:
-            df.to_csv(outfile, index=False, compression='gzip', mode='a', header=False)
+        data.append(df)
+    
+    # Concatenate all dataframes and write to file
+    pd.concat(data, axis=0, ignore_index=True).to_csv(outfile, index=False, compression='gzip')
     logging.info(f"Saved merged csv to {outfile}")
     
 def main():
