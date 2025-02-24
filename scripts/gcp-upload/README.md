@@ -56,14 +56,13 @@ nextflow run main.nf \
   --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs
 ```
 
-**HERE**
-
-
 ### SRA
 
 ```bash
 nextflow run main.nf -profile conda,slurm --feature_type Velocyto
 ```
+
+**HERE**
 
 ### Clean up
 
@@ -83,7 +82,6 @@ nextflow run main.nf \
   --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs
 ```
 
-
 ### SRA
 
 ```bash
@@ -95,3 +93,54 @@ nextflow run main.nf -profile conda,slurm --feature_type Gene
 ```bash
 rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/gcp-loader/
 ```
+
+### GeneFull
+
+### CZI
+
+```bash
+nextflow run main.nf \
+  -profile conda,slurm \
+  --feature_type GeneFull \
+  --organisms "Mus musculus,Homo sapiens,Macaca mulatta" \
+  --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs
+```
+
+### SRA
+
+```bash
+nextflow run main.nf -profile conda,slurm --feature_type GeneFull
+```
+
+### Clean up
+
+```bash
+rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/gcp-loader/
+```
+
+### GeneFull_ExonOverIntron
+
+### CZI
+
+```bash
+nextflow run main.nf \
+  -profile conda,slurm \
+  --feature_type GeneFull_ExonOverIntron \
+  --organisms "Mus musculus,Homo sapiens,Macaca mulatta" \
+  --input_dir /processed_datasets/scRecount/cellxgene/counted_SRXs
+```
+
+### SRA
+
+```bash
+nextflow run main.nf -profile conda,slurm --feature_type GeneFull_ExonOverIntron
+```
+
+### Clean up
+
+```bash
+rm -rf /scratch/multiomics/nickyoungblut/nextflow-work/gcp-loader/
+```
+
+
+
