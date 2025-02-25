@@ -53,6 +53,10 @@ def parse_arguments() -> argparse.Namespace:
         '--organisms', type=str, default=None,
         help="Comma-separated list of organisms to process; if none, process all"
     )
+    parser.add_argument(
+        '--redo-processed', action='store_true', default=False,
+        help="Do not skip already procssed SRX IDs, but instead include them in the output"
+    )
     return parser.parse_args()
 
 def load_srx_metadata(organisms: str) -> Set[str]:
@@ -244,7 +248,10 @@ def main():
     has_srx_metadata = load_srx_metadata(args.organisms)
     
     # Load metadata
-    processed_srx = load_scbasecamp_metadata(args.feature_type)
+    if args.redo_processed:
+        processed_srx = set()
+    else:
+        processed_srx = load_scbasecamp_metadata(args.feature_type)
 
     # Find all matrix files and their corresponding SRX IDs
     matrix_files = find_matrix_files(

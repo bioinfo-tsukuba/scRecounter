@@ -37,9 +37,13 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_scbasecamp_metadata() -> Set[str]:
+def load_scbasecamp_metadata(feature_type: str) -> pd.DataFrame:
     """
     Load metadata from scBasecamp database.
+    Args:
+        feature_type: Feature type to filter on.
+    Returns:
+        DataFrame with metadata.
     """
     logging.info("Obtaining scbasecamp metadata...")
 
@@ -49,6 +53,7 @@ def load_scbasecamp_metadata() -> Set[str]:
         Query
         .from_(srx_metadata)
         .select("*")
+        .where(srx_metadata.feature_type == feature_type)
     )
     with db_connect() as conn:
         metadata = pd.read_sql(str(stmt), conn)
@@ -59,14 +64,14 @@ def main():
     args = parse_arguments()
 
     # Load metadata
-    metadata = load_scbasecamp_metadata()
-    
+    metadata = load_scbasecamp_metadata(feature_type=args.feature_type)
+
     ## split by organism and save to parquet
     for organism, df in metadata.groupby('organism'):
         logging.info(f"Processing metadata for {organism}...")
         organism_str = organism.replace(" ", "_")
         # create directory
-        out_dir = Path("metadata") / Path(organism_str) / Path(args.feature_type)
+        out_dir = Path("metadata") / Path(args.feature_type) / Path(organism_str)
         out_dir.mkdir(parents=True, exist_ok=True)
         # write to parquet
         outfile = out_dir / 'sample_metadata.parquet.gz'
@@ -74,6 +79,4 @@ def main():
         logging.info(f"Saved metadata for {organism} to {outfile}")
 
 if __name__ == "__main__":
-    #from dotenv import load_dotenv
-    #load_dotenv(override=True)
     main()

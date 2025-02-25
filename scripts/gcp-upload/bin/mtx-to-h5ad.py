@@ -186,7 +186,7 @@ def load_matrix_as_anndata(
 
     # add publish path
     metadata["file_path"] = metadata["organism"].apply(
-        lambda x: os.path.join(publish_path, "h5ad", str(x).replace(" ", "_"), f"{srx_id}.h5ad.gz")
+        lambda org: os.path.join(publish_path, "h5ad", feature_type, str(org).replace(" ", "_"), f"{srx_id}.h5ad.gz")
     )
 
     # load count matrix
@@ -224,7 +224,7 @@ def load_matrix_as_anndata(
     metadata["obs_count"] = adata.shape[0]
 
     ## write to h5ad
-    outdir = os.path.join("h5ad", metadata["organism"].values[0].replace(" ", "_"), feature_type)
+    outdir = os.path.join("h5ad", feature_type, metadata["organism"].values[0].replace(" ", "_"))
     os.makedirs(outdir, exist_ok=True)
     outfile = os.path.join(outdir, f"{srx_id}.h5ad.gz")
     logging.info(f"Writing to {outfile}...")
