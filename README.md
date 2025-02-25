@@ -22,6 +22,10 @@ A Nextflow pipeline to re-process single-cell RNA-seq data from the Sequence Rea
       * If download fails, try again with `fastq-dump` using a max of `fallback_max_spots` reads (see `nextflow.config`).
     * Map the reads with STARsolo using the "best" STAR parameters
 
+# Manuscript
+
+[scBaseCamp: an AI agent-curated, uniformly processed, and continually expanding single cell data repository](https://arc-website-git-ben-virtual-cell-atlas-tool-arc-institute.vercel.app/manuscripts/scBaseCamp)
+
 # Installation
 
 ## Conda & mamba install
