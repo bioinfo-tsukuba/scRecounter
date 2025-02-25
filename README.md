@@ -24,7 +24,7 @@ A Nextflow pipeline to re-process single-cell RNA-seq data from the Sequence Rea
 
 # Manuscript
 
-[scBaseCamp: an AI agent-curated, uniformly processed, and continually expanding single cell data repository](https://arc-website-git-ben-virtual-cell-atlas-tool-arc-institute.vercel.app/manuscripts/scBaseCamp)
+[scBaseCamp: an AI agent-curated, uniformly processed, and continually expanding single cell data repository](https://arcinstitute.org/manuscripts/scBaseCamp)
 
 # Installation
 
