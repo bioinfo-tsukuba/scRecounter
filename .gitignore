@@ -10,6 +10,7 @@ work/
 results/
 archive/
 star_ref/
+ignore/
 .nextflow/
 .nextflow*
 screenlog.*
