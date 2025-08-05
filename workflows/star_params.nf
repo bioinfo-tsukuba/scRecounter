@@ -77,7 +77,7 @@ workflow STAR_PARAMS_WF{
     }
 
     // Save the final STAR parameters to the database
-    STAR_SAVE_FINAL_PARAMS(ch_star_params)
+    // STAR_SAVE_FINAL_PARAMS(ch_star_params)
 
     emit:
     star_params = ch_star_params
