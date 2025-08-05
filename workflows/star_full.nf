@@ -46,14 +46,14 @@ workflow STAR_FULL_WF{
     // run STAR
     STAR_FULL(ch_fastq)
 
-    // summarize the STAR results
-    STAR_FULL_SUMMARY(
-        STAR_FULL.out.gene_summary,
-        STAR_FULL.out.gene_full_summary,
-        STAR_FULL.out.gene_ex50_summary,
-        STAR_FULL.out.gene_ex_int_summary,
-        STAR_FULL.out.velocyto_summary
-    )
+    // // summarize the STAR results
+    // STAR_FULL_SUMMARY(
+    //     STAR_FULL.out.gene_summary,
+    //     STAR_FULL.out.gene_full_summary,
+    //     STAR_FULL.out.gene_ex50_summary,
+    //     STAR_FULL.out.gene_ex_int_summary,
+    //     STAR_FULL.out.velocyto_summary
+    // )
 }
 
 process STAR_FULL_SUMMARY {
