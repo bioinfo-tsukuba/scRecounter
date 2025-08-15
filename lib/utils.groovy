@@ -96,6 +96,25 @@ def saveAsLog(filename, sample=null, accession=null) {
     return null
 }
 
+def loadSrxMapping(mapping_file) {
+    // Load SRX to server path mapping from CSV file
+    return Channel
+        .fromPath(mapping_file, checkIfExists: true)
+        .splitCsv(header: true, sep: ',')
+        .map { row ->
+            return [
+                row.srx_id, 
+                [
+                    server_host: row.server_host,
+                    file_path: row.file_path,
+                    file_prefix: row.get('file_prefix', ''),
+                    user: row.get('user', 'datauser')
+                ]
+            ]
+        }
+        .collectEntries()
+}
+
 def subsampleByGroup(ch_accessions, max_per_group, seed) {
     ch_accessions
         .groupTuple()

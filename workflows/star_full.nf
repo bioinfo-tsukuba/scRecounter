@@ -13,28 +13,69 @@ workflow STAR_FULL_WF{
         ch_star_params.map{ it[0] }.unique(), by: 0
     )
 
-    // fasterq-dump to download all reads
-    ch_fastq = FASTERQ_DUMP(ch_accessions_filt)
-    ch_fastq = joinReads(ch_fastq.R1, ch_fastq.R2)
+    if (params.enable_scp == true) {
+        println "Using SCP download as primary method"
+        // Try SCP download first
+        ch_fastq_scp = SCP_DOWNLOAD(ch_accessions_filt)
+        ch_fastq_scp = joinReads(ch_fastq_scp.R1, ch_fastq_scp.R2)
+        
+        // For accessions lacking paired reads from SCP, fallback to fasterq-dump
+        ch_scp_failed = ch_accessions_filt
+            .join(
+                ch_fastq_scp.map{ it -> [it[0], it[1], true] }, 
+                by: [0,1],
+                remainder: true
+            )
+            .filter{ it -> it[4] != true }
+            .map{ it -> it[0..3] }
+        
+        // fasterq-dump as first fallback
+        ch_fastq_fasterq = FASTERQ_DUMP(ch_scp_failed)
+        ch_fastq_fasterq = joinReads(ch_fastq_fasterq.R1, ch_fastq_fasterq.R2)
+        ch_fastq_fasterq.count().view{ count -> "No. of fasterq-dump fallback accessions: $count" }
+        
+        // For final fallback to fastq-dump
+        ch_fasterq_failed = ch_scp_failed
+            .join(
+                ch_fastq_fasterq.map{ it -> [it[0], it[1], true] }, 
+                by: [0,1],
+                remainder: true
+            )
+            .filter{ it -> it[4] != true }
+            .map{ it -> it[0..3] }
+        
+        ch_fastq_final_fallback = FASTQ_DUMP(ch_fasterq_failed)
+        ch_fastq_final_fallback = joinReads(ch_fastq_final_fallback.R1, ch_fastq_final_fallback.R2)
+        ch_fastq_final_fallback.count().view{ count -> "No. of fastq-dump final fallback accessions: $count" }
+        
+        // combine all download results
+        ch_fastq = ch_fastq_scp.mix(ch_fastq_fasterq).mix(ch_fastq_final_fallback)
+        ch_fastq.count().view{ count -> "No. of total downloaded accessions: $count" }
+    } else {
+        println "Using traditional fasterq-dump/fastq-dump method"
+        // Original fasterq-dump to download all reads
+        ch_fastq = FASTERQ_DUMP(ch_accessions_filt)
+        ch_fastq = joinReads(ch_fastq.R1, ch_fastq.R2)
 
-    // For accessions lacking paired reads from fasterq-dump, fallback to fastq-dump
-    ch_accessions_fallback = ch_accessions_filt
-        .join(
-            ch_fastq.map{ it -> [it[0], it[1], true] }, 
-            by: [0,1],
-            remainder: true
-        )
-        .filter{ it -> it[4] != true }
-        .map{ it -> it[0..3] }
+        // For accessions lacking paired reads from fasterq-dump, fallback to fastq-dump
+        ch_accessions_fallback = ch_accessions_filt
+            .join(
+                ch_fastq.map{ it -> [it[0], it[1], true] }, 
+                by: [0,1],
+                remainder: true
+            )
+            .filter{ it -> it[4] != true }
+            .map{ it -> it[0..3] }
 
-    // run fastq-dump on the fallback accessions
-    ch_fastq_fallback = FASTQ_DUMP(ch_accessions_fallback)
-    ch_fastq_fallback = joinReads(ch_fastq_fallback.R1, ch_fastq_fallback.R2)
-    ch_fastq_fallback.count().view{ count -> "No. of fastq-dump fallback accessions: $count" }
+        // run fastq-dump on the fallback accessions
+        ch_fastq_fallback = FASTQ_DUMP(ch_accessions_fallback)
+        ch_fastq_fallback = joinReads(ch_fastq_fallback.R1, ch_fastq_fallback.R2)
+        ch_fastq_fallback.count().view{ count -> "No. of fastq-dump fallback accessions: $count" }
 
-    // combine the fasterq-dump and fastq-dump results
-    ch_fastq = ch_fastq.mix(ch_fastq_fallback)
-    ch_fastq.count().view{ count -> "No. of fast(er)q-dump accessions: $count" }
+        // combine the fasterq-dump and fastq-dump results
+        ch_fastq = ch_fastq.mix(ch_fastq_fallback)
+        ch_fastq.count().view{ count -> "No. of fast(er)q-dump accessions: $count" }
+    }
 
     // combine reads and star params
     ch_fastq = ch_fastq
@@ -171,6 +212,40 @@ def saveAsSTAR(sample, filename) {
         }
     } 
     return null
+}
+
+process SCP_DOWNLOAD {
+    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
+    label "download_env"
+    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    
+    input:
+    tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
+    
+    output:
+    tuple val(sample), val(accession), val(metadata), path("read_*.fastq", arity: "1..*"), emit: R1
+    tuple val(sample), val(accession), val(metadata), path("read_*.fastq", arity: "1..*"), emit: R2, optional: true
+    path "${task.process}.log", emit: log
+    
+    script:
+    def srx_mapping_file = params.srx_mapping ?: "data/srx_file_mapping.csv"
+    def scp_key = params.scp_key_path ?: ""
+    def scp_timeout = params.scp_timeout ?: 3600
+    
+    """
+    export GCP_SQL_DB_HOST="${params.db_host}"
+    export GCP_SQL_DB_NAME="${params.db_name}"
+    export GCP_SQL_DB_USERNAME="${params.db_username}"
+    
+    scp-download.py \\
+        --srx-id ${sample} \\
+        --srr-id ${accession} \\
+        --mapping-file ${srx_mapping_file} \\
+        --scp-key "${scp_key}" \\
+        --timeout ${scp_timeout} \\
+        --output-dir . \\
+        2>&1 | tee ${task.process}.log
+    """
 }
 
 process FASTQ_DUMP {
