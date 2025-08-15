@@ -19,3 +19,9 @@ SRAgent/
 scripts/db_utils.py
 notebooks/tiledb/
 docker/sc-recounter-run/db_utils.py
+*.gz
+250806_results_test53_head20/
+results_test53/
+results_test53_head20/
+results_test53_next20/
+results_test/

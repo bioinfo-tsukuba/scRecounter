@@ -1,0 +1,1 @@
+../remove_recursive.sh
