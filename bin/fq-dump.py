@@ -165,26 +165,45 @@ def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, 
 
     return read_files_filt
 
-def check_output(sra_file: str, outdir: str, min_read_length: int) -> None:
+def check_output(sra_file: str, outdir: str, min_read_length: int, accession_id: str = None) -> None:
     """
     Check the output of fastq-dump.
     Args:
-        sra_file: SRA file
+        sra_file: SRA file or URL
         outdir: Output directory
         min_read_length: Minimum read length
+        accession_id: Override accession ID (for URL downloads)
     """
-    # get accession
-    accession = os.path.splitext(os.path.basename(sra_file))[0]
-    logging.info(f"Checking output for {accession}")
+    # Use provided accession_id if available, otherwise extract from file
+    if accession_id:
+        accession = accession_id
+        accession_full = accession_id
+        logging.info(f"Checking output for {accession} (accession provided)")
+    else:
+        # get accession from filename
+        accession_full = os.path.splitext(os.path.basename(sra_file))[0]
+        
+        # Handle URL-based SRA files: remove .lite suffix if present
+        if accession_full.endswith('.lite'):
+            accession = accession_full[:-5]  # Remove '.lite'
+        else:
+            accession = accession_full
+        
+        logging.info(f"Checking output for {accession} (from file: {accession_full})")
 
     # list all files in outdir
     out_files_str = ", ".join(glob(os.path.join(outdir, "*")))
     logging.info(f"Files in outdir: {out_files_str}")
 
-    # list output files
+    # list output files - try both accession patterns
     read_files = []
     for file_ext in ['fastq', 'fastq.gz', 'fq', 'fq.gz']:
+        # Try the processed accession first
         read_files += glob(os.path.join(outdir, f"{accession}*.{file_ext}"))
+        # If no files found, try the full accession name
+        if not read_files:
+            read_files += glob(os.path.join(outdir, f"{accession_full}*.{file_ext}"))
+    
     if not read_files:
         msg = f"No read files found; files present: {out_files_str}"
         logging.warning(msg)
@@ -329,7 +348,7 @@ def main(args, log_df):
         return None
 
     # Check the fq-dump output
-    status,msg = check_output(args.sra_file, args.outdir, args.min_read_length)
+    status,msg = check_output(args.sra_file, args.outdir, args.min_read_length, args.accession)
     add_to_log(log_df, args.sample, args.accession, "fq-dump", f"check_{cmd[0]}_output", status, msg)
 
     # unlink temp files

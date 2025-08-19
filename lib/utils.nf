@@ -4,7 +4,7 @@ process SRA_STAT {
     disk 10.GB
 
     input:
-    tuple val(sample), val(accession), val(metadata)
+    tuple val(sample), val(accession), val(download_url), val(metadata)
 
     output:
     tuple val(sample), val(accession), path("sra-stat.csv")

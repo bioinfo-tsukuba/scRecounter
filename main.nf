@@ -26,7 +26,7 @@ workflow {
     ch_accessions = addStats(ch_accessions, ch_sra_stat)
 
     // filter out any accessions with max SRA file size greater than the user-specified size
-    ch_accessions = ch_accessions.filter { it[3] <= params.max_sra_size }
+    ch_accessions = ch_accessions.filter { it[4] <= params.max_sra_size }
     
     // determine best STAR parameters on a subset of reads
     ch_star_params = STAR_PARAMS_WF(ch_accessions, ch_sra_stat)

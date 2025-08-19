@@ -75,6 +75,7 @@ process STAR_FULL_SUMMARY {
     path "${task.process}.log",             emit: "log"
 
     script:
+    def sra_input = download_url ?: accession
     """
     export GCP_SQL_DB_HOST="${params.db_host}"
     export GCP_SQL_DB_NAME="${params.db_name}"
@@ -188,7 +189,7 @@ process FASTQ_DUMP {
     }
     
     input:
-    tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
+    tuple val(sample), val(accession), val(download_url), val(metadata), val(sra_file_size_gb)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
@@ -196,6 +197,7 @@ process FASTQ_DUMP {
     path "${task.process}.log",                                                   emit: "log"
 
     script:
+    def sra_input = download_url ?: accession
     """
     export GCP_SQL_DB_HOST="${params.db_host}"
     export GCP_SQL_DB_NAME="${params.db_name}"
@@ -212,7 +214,7 @@ process FASTQ_DUMP {
       --min-read-length ${params.min_read_len} \\
       --outdir reads \\
       --maxSpotId ${params.fallback_max_spots} \\
-      ${accession} \\
+      ${sra_input} \\
       2>&1 | tee -a ${task.process}.log
     """
 
@@ -249,7 +251,7 @@ process FASTERQ_DUMP {
     }
     
     input:
-    tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
+    tuple val(sample), val(accession), val(download_url), val(metadata), val(sra_file_size_gb)
 
     output:
     tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1", optional: true
@@ -257,6 +259,7 @@ process FASTERQ_DUMP {
     path "${task.process}.log",                                                   emit: "log"
 
     script:
+    def sra_input = download_url ?: accession
     """
     export GCP_SQL_DB_HOST="${params.db_host}"
     export GCP_SQL_DB_NAME="${params.db_name}"
@@ -277,7 +280,7 @@ process FASTERQ_DUMP {
       --min-read-length ${params.min_read_len} \\
       --temp ${params.fasterq_tmp} \\
       --outdir reads \\
-      ${accession} \\
+      ${sra_input} \\
       2>&1 | tee -a ${task.process}.log
     """
 

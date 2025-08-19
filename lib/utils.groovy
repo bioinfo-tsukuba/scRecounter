@@ -30,6 +30,14 @@ def readAccessions(accessions_input){
             // remove special characters from the sample name
             row.sample = row.sample.replaceAll("\\s", "_")
             def result = [row.sample, row.accession]
+            
+            // add download_url if present
+            if (row.containsKey("download_url") && row.download_url) {
+                result << row.download_url
+            } else {
+                result << null
+            }
+            
             // add optional, metadata columns
             def metadata = [:]
             ["organism", "tech_10x"].each { col ->
@@ -41,7 +49,7 @@ def readAccessions(accessions_input){
 
     // print srx values
     ch_acc
-        .map{ sample, accession, metadata -> sample }
+        .map{ sample, accession, download_url, metadata -> sample }
         .distinct()
         .collect() 
         .map{ it.join(',') }
@@ -58,7 +66,8 @@ def addStats(ch_accessions, ch_sra_stat){
         .map{ row -> [row.accession, row.file_size_gb.toDouble()] }
         .join(ch_sra_stat.map{ sample,acc,csv -> [acc, sample] }, by: [0])
         .map{ acc, size, sample -> [sample, acc, size] }
-    return ch_accessions.join(ch_stats, by: [0,1]) // sample, acc, metadata, size
+    return ch_accessions.join(ch_stats, by: [0,1]).map{ sample, acc, download_url, metadata, size -> 
+        [sample, acc, download_url, metadata, size] } // sample, acc, download_url, metadata, size
 }
 
 def joinReads(ch_read1, ch_read2){
@@ -99,8 +108,9 @@ def saveAsLog(filename, sample=null, accession=null) {
 def subsampleByGroup(ch_accessions, max_per_group, seed) {
     ch_accessions
         .groupTuple()
-        .map { samples, accessions, meta, sra_stat ->
+        .map { samples, accessions, download_urls, meta, sra_stat ->
             accessions = accessions.toList()
+            download_urls = download_urls.toList()
             meta = meta.toList()
             sra_stat = sra_stat.toList()
         
@@ -109,23 +119,25 @@ def subsampleByGroup(ch_accessions, max_per_group, seed) {
                 indices.shuffle(new Random(seed)) // Shuffle indices with seed
             
                 def shuffledAcc = indices.collect { accessions[it] } // Shuffle accessions based on indices
+                def shuffledUrls = indices.collect { download_urls[it] } // Shuffle download_urls based on indices
                 def shuffledMeta = indices.collect { meta[it] } // Shuffle meta based on the same indices
                 def shuffledStat = indices.collect { sra_stat[it] } // Shuffle meta based on the same indices
             
                 def maxSize = Math.min(shuffledAcc.size(), max_per_group)
                 shuffledAcc = maxSize > 0 ? shuffledAcc[0..<maxSize] : []
+                shuffledUrls = maxSize > 0 ? shuffledUrls[0..<maxSize] : []
                 shuffledMeta = maxSize > 0 ? shuffledMeta[0..<maxSize] : []
                 shuffledStat = maxSize > 0 ? shuffledStat[0..<maxSize] : []
             
-                [samples, shuffledAcc, shuffledMeta, shuffledStat]
+                [samples, shuffledAcc, shuffledUrls, shuffledMeta, shuffledStat]
             } else {
-                [samples, [], [], []] // Handle empty groups gracefully
+                [samples, [], [], [], []] // Handle empty groups gracefully
             }
         }
-        .flatMap { samples, accessions, meta, sra_stat ->
+        .flatMap { samples, accessions, download_urls, meta, sra_stat ->
             def flattened = []
             for (int i = 0; i < accessions.size(); i++) {
-                flattened << [samples, accessions[i], meta[i], sra_stat[i]]
+                flattened << [samples, accessions[i], download_urls[i], meta[i], sra_stat[i]]
             }
             flattened
         }
