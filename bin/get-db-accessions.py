@@ -146,10 +146,10 @@ def main(args):
     process = "Get db accessions"
 
     # get unprocessed records
-    with db_connect() as conn:
-        df = db_get_unprocessed_records(
-            conn, process, args.database, max_srx=args.max_srx, organisms=args.organisms
-        )
+    # with db_connect() as conn:
+    #     df = db_get_unprocessed_records(
+    #         conn, process, args.database, max_srx=args.max_srx, organisms=args.organisms
+    #     )
 
     # remove spaces from organism
     df["organism"] = df["organism"].str.replace(" ", "_")
@@ -177,8 +177,8 @@ def main(args):
 
     ## upsert log to database
     logging.info("Updating scRecounter log table...")
-    with db_connect() as conn:
-        db_upsert(df, "screcounter_log", conn)
+    # with db_connect() as conn:
+    #     db_upsert(df, "screcounter_log", conn)
 
 ## script main
 if __name__ == '__main__':

@@ -289,5 +289,5 @@ if __name__ == '__main__':
     #logging.info(f'Log written to: {log_file}')
     
     # upsert log to database
-    with db_connect() as conn:
-        db_upsert(log_df, "screcounter_log", conn)
+    # with db_connect() as conn:
+    #     db_upsert(log_df, "screcounter_log", conn)

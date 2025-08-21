@@ -86,8 +86,8 @@ def main(args):
 
     # upsert results to database
     logging.info("Updating screcounter_star_results...")
-    with db_connect() as conn:
-        db_upsert(df, "screcounter_star_results", conn)
+    # with db_connect() as conn:
+    #     db_upsert(df, "screcounter_star_results", conn)
 
     # write output table
     outdir = os.path.dirname(args.outfile)
@@ -105,8 +105,8 @@ def main(args):
         "status": ["Success"],
         "message": ["STAR summary table generated"]
     })
-    with db_connect() as conn:
-        db_upsert(log_df, "screcounter_log", conn)
+    # with db_connect() as conn:
+    #     db_upsert(log_df, "screcounter_log", conn)
 
 
 ## script main

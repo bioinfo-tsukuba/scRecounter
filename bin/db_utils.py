@@ -334,5 +334,5 @@ def get_srx_metadata_limit5(conn):
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
-    with db_connect() as conn:
-        print(get_srx_metadata_limit5(conn))
+    # with db_connect() as conn:
+    #     print(get_srx_metadata_limit5(conn))

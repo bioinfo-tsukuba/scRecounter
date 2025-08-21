@@ -61,8 +61,8 @@ def main(args):
     df.to_csv(args.outfile, index=False)
 
     # upload to the scRecounter database
-    with db_connect() as conn:
-        db_upsert(df, "screcounter_star_params", conn)
+    # with db_connect() as conn:
+    #     db_upsert(df, "screcounter_star_params", conn)
 
     # update screcounter log
     log_df = pd.DataFrame({
@@ -73,8 +73,8 @@ def main(args):
         "status": ["Success"],
         "message": ["STAR final parameters saved to database"],
     })
-    with db_connect() as conn:
-        db_upsert(log_df, "screcounter_log", conn)
+    # with db_connect() as conn:
+    #     db_upsert(log_df, "screcounter_log", conn)
    
 
 ## script main
