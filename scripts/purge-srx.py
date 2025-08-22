@@ -117,14 +117,14 @@ def delete_srx(srx_accessions: List[str], conn: connection, dry_run: bool=False)
         return None
     print("Purging SRX accessions from scRecounter DB tables...", file=sys.stderr)
     target_tables = ["screcounter_log", "screcounter_star_params", "screcounter_star_results"]
-    with db_connect() as conn:
-        for srx in srx_accessions:
-            if not dry_run:
-                for tbl_name in target_tables:
-                    with conn.cursor() as cur:
-                        cur.execute(f"DELETE FROM {tbl_name} WHERE sample = '{srx}'")
-                        conn.commit()
-            print(f"  Deleted: {srx}", file=sys.stderr)
+    # with db_connect() as conn:
+    #     for srx in srx_accessions:
+    #         if not dry_run:
+    #             for tbl_name in target_tables:
+    #                 with conn.cursor() as cur:
+    #                     cur.execute(f"DELETE FROM {tbl_name} WHERE sample = '{srx}'")
+    #                     conn.commit()
+    #         print(f"  Deleted: {srx}", file=sys.stderr)
 
 def delete_srx_star_dirs(srx_dirs: Dict[str,str], bucket: storage.bucket.Bucket, dry_run: bool=False):
     """
@@ -173,8 +173,8 @@ def main(args: argparse.Namespace) -> None:
     delete_srx_star_dirs(srx_dirs, bucket, dry_run=args.dry_run)
 
     # Selete SRX accessions from scRecounter tables
-    with db_connect() as conn:
-        delete_srx(args.srx_accession, conn, dry_run=args.dry_run)
+    # with db_connect() as conn:
+    #     delete_srx(args.srx_accession, conn, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":

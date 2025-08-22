@@ -212,6 +212,7 @@ def saveAsValid(sample, filename) {
 
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_PARAM_SEARCH {
+    tag "${sample}_${accession}_${barcode_name}"
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
     label "process_medium"
@@ -290,6 +291,7 @@ process SEQKIT_STATS {
 }
 
 process FASTQ_DUMP {
+    tag "${sample}_${accession}"
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
     maxRetries 1

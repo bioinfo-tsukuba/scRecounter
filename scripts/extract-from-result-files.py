@@ -197,8 +197,8 @@ def main(args: argparse.Namespace) -> None:
 
     # Upsert data into database
     print("Updating data...", file=sys.stderr)
-    with db_connect() as conn:
-        db_update(merged_df,  "screcounter_star_results", conn)
+    # with db_connect() as conn:
+    #     db_update(merged_df,  "screcounter_star_results", conn)
 
 
 if __name__ == "__main__":

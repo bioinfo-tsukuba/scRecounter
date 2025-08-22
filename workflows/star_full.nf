@@ -93,6 +93,7 @@ process STAR_FULL_SUMMARY {
 }
 
 process STAR_FULL {
+    tag "${sample}_${accession}"
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
@@ -175,6 +176,7 @@ def saveAsSTAR(sample, filename) {
 }
 
 process FASTQ_DUMP {
+    tag "${sample}_${accession}"
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
     maxRetries 1
@@ -226,6 +228,7 @@ process FASTQ_DUMP {
 }
 
 process FASTERQ_DUMP {
+    tag "${sample}_${accession}"
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
     maxRetries 1

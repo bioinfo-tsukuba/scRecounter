@@ -1,4 +1,5 @@
 process SRA_STAT {
+    tag "${sample}_${accession}"
     label "download_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 10.GB
