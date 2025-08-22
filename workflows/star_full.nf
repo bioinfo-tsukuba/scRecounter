@@ -24,8 +24,8 @@ workflow STAR_FULL_WF{
             by: [0,1],
             remainder: true
         )
-        .filter{ it -> it[4] != true }
-        .map{ it -> it[0..3] }
+        .filter{ it -> it[5] != true }
+        .map{ it -> it[0..4] }
 
     // run fastq-dump on the fallback accessions
     ch_fastq_fallback = FASTQ_DUMP(ch_accessions_fallback)
