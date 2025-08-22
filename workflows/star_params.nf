@@ -234,6 +234,7 @@ process STAR_PARAM_SEARCH {
     # run STAR
     STAR \\
       --readFilesIn $fastq_2 $fastq_1 \\
+      --readFilesCommand zcat \\
       --runThreadN ${task.cpus} \\
       --genomeDir ${star_index} \\
       --soloCBwhitelist ${barcodes_file} \\
@@ -304,8 +305,8 @@ process FASTQ_DUMP {
     tuple val(sample), val(accession), val(download_url), val(metadata), val(sra_file_size_gb)
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
-    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
+    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq.gz"), emit: "R1"
+    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq.gz"), emit: "R2", optional: true
     path "${task.process}.log",                                                   emit: "log"
 
     script:
@@ -336,6 +337,6 @@ process FASTQ_DUMP {
     stub:
     """
     mkdir -p reads
-    touch reads/read1.fastq reads/read_2.fastq ${task.process}.log
+    touch reads/read_1.fastq.gz reads/read_2.fastq.gz ${task.process}.log
     """
 }

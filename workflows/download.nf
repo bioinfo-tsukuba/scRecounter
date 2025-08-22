@@ -48,8 +48,8 @@ process FASTQ_DUMP {
     tuple val(sample), val(accession), val(metadata), val(sra_file_size_gb)
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
-    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
+    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq.gz"), emit: "R1"
+    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq.gz"), emit: "R2", optional: true
     path "reads/fq-dump_log.csv", emit: "log"
 
     script:
@@ -78,6 +78,6 @@ process FASTQ_DUMP {
     stub:
     """
     mkdir -p reads
-    touch reads/${accession}_1.fastq reads/${accession}_2.fastq
+    touch reads/${accession}_1.fastq.gz reads/${accession}_2.fastq.gz
     """
 }

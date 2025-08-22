@@ -140,10 +140,10 @@ def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, 
         top_two.sort(key=lambda x: x[0])
 
         # Rename in ascending order:
-        #  - first becomes read_1.fastq
-        #  - second becomes read_2.fastq
+        #  - first becomes read_1.fastq.gz
+        #  - second becomes read_2.fastq.gz
         for i, (old_name, _) in enumerate(top_two, start=1):
-            new_name = os.path.join(outdir, f"read_{i}.fastq")
+            new_name = os.path.join(outdir, f"read_{i}.fastq.gz")
             if old_name == new_name:
                 raise ValueError(f"New fastq name is the same as old name: {new_name}")
             os.rename(old_name, new_name)
@@ -154,7 +154,7 @@ def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, 
         # Assign read_2 to the largest read, read_1 to the second largest
         for i, (old_name, _) in enumerate(top_two, start=1):
             read_num = 2 if i == 1 else 1
-            new_name = os.path.join(outdir, f"read_{read_num}.fastq")
+            new_name = os.path.join(outdir, f"read_{read_num}.fastq.gz")
 
             if old_name == new_name:
                 raise ValueError(f"New fastq name is the same as old name: {new_name}")
@@ -290,6 +290,7 @@ def main(args, log_df):
             cmd = [
                 "parallel-fastq-dump.py",
                 "--split-files",
+                "--gzip",
                 "--outdir", args.outdir,
                 "--threads", args.threads,
                 "--maxSpotId", args.maxSpotId,
@@ -299,6 +300,7 @@ def main(args, log_df):
             cmd = [
                 "fastq-dump",
                 "--split-files",
+                "--gzip",
                 "--outdir", args.outdir,  
                 "--maxSpotId", args.maxSpotId,
                 args.sra_file
@@ -321,6 +323,7 @@ def main(args, log_df):
             "fasterq-dump",  
             "--split-files", 
             "--force",
+            "--gzip",
             "--include-technical",
             "--threads", args.threads, 
             "--bufsize", args.bufsize, 

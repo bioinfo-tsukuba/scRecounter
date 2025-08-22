@@ -25,14 +25,14 @@ process SEQKIT_STATS {
     label "process_low"
 
     input:
-    tuple val(sample), val(read), path("${sample}_${read}.fastq")
+    tuple val(sample), val(read), path("${sample}_${read}.fastq.gz")
 
     output:
     path "${sample}_${read}.tsv"
 
     script:
     """
-    seqkit -j $task.cpus stats -a -T ${sample}_${read}.fastq > ${sample}_${read}.tsv
+    seqkit -j $task.cpus stats -a -T ${sample}_${read}.fastq.gz > ${sample}_${read}.tsv
     """
 
     stub:
