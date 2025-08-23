@@ -1,5 +1,6 @@
 # Run the Nextflow pipeline with the specified parameters
 target_acc="250823_test_set"
+# target_acc="250823_test_set_ddbj"
 
 # 出力ファイル
 outdir="${HOME}/CellIO/${target_acc}"    
