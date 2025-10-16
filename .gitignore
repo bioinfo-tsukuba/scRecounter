@@ -6,10 +6,12 @@
 tmp/
 TMP/
 logs/
+claude_log/
 work/
 results/
 archive/
 star_ref/
+Test_files/
 ignore/
 .nextflow/
 .nextflow*

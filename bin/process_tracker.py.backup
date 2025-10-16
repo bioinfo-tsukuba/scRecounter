@@ -3,7 +3,6 @@
 import hashlib
 import json
 import logging
-import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Union
 ## 3rd party
@@ -25,10 +24,6 @@ class ProcessTracker:
         CREATE TABLE IF NOT EXISTS experiment_process (
             id INTEGER PRIMARY KEY,
             experiment_id VARCHAR(50) NOT NULL,
-            sample_id VARCHAR(200),
-            srx_accession VARCHAR(50),
-            organism VARCHAR(50),
-            analysis_date DATE,
             process_type VARCHAR(50) NOT NULL,
             status INTEGER DEFAULT NULL,
             start_datetime TIMESTAMP,
@@ -45,19 +40,11 @@ class ProcessTracker:
         
         CREATE INDEX IF NOT EXISTS idx_experiment_process_status ON experiment_process(status);
         CREATE INDEX IF NOT EXISTS idx_experiment_process_experiment_id ON experiment_process(experiment_id);
-        CREATE INDEX IF NOT EXISTS idx_experiment_process_sample_id ON experiment_process(sample_id);
-        CREATE INDEX IF NOT EXISTS idx_experiment_process_srx_accession ON experiment_process(srx_accession);
         CREATE INDEX IF NOT EXISTS idx_experiment_process_process_type ON experiment_process(process_type);
         """
         with self.conn.cursor() as cur:
             cur.execute(create_table_sql)
             self.conn.commit()
-    
-    def _generate_sample_id(self, srx_accession: str, organism: str) -> str:
-        """SRXアクセッションからユニークなサンプルIDを生成"""
-        analysis_date = datetime.now().strftime('%Y%m%d')
-        timestamp = int(time.time())
-        return f"{srx_accession}_{organism}_{analysis_date}_{timestamp}"
     
     def _generate_id(self, experiment_id: str, process_type: str) -> int:
         """Experiment IDとProcess TypeからハッシュIDを生成"""
@@ -66,23 +53,13 @@ class ProcessTracker:
     
     def start_process(self, experiment_id: str, process_type: str = "scRecounter", 
                      process_id: Optional[str] = None, path: Optional[str] = None,
-                     metadata: Optional[Dict[str, Any]] = None,
-                     srx_accession: Optional[str] = None, organism: Optional[str] = None) -> int:
+                     metadata: Optional[Dict[str, Any]] = None) -> int:
         """プロセス開始"""
         id = self._generate_id(experiment_id, process_type)
-        
-        # サンプルIDを生成（新しいパラメータが提供された場合のみ）
-        sample_id = None
-        if srx_accession and organism:
-            sample_id = self._generate_sample_id(srx_accession, organism)
         
         process_data = pd.DataFrame([{
             'id': id,
             'experiment_id': experiment_id,
-            'sample_id': sample_id,
-            'srx_accession': srx_accession,
-            'organism': organism,
-            'analysis_date': datetime.now().date() if srx_accession else None,
             'process_type': process_type,
             'process_id': process_id,
             'path': path,
@@ -159,24 +136,6 @@ class ProcessTracker:
         else:
             query = "SELECT * FROM experiment_process ORDER BY created_at DESC"
             return pd.read_sql(query, self.conn)
-    
-    def get_processes_by_srx(self, srx_accession: str) -> pd.DataFrame:
-        """SRXアクセッションで全プロセス取得"""
-        query = """
-        SELECT * FROM experiment_process 
-        WHERE srx_accession = %s 
-        ORDER BY created_at DESC
-        """
-        return pd.read_sql(query, self.conn, params=[srx_accession])
-    
-    def get_processes_by_sample_id(self, sample_id: str) -> pd.DataFrame:
-        """サンプルIDで全プロセス取得"""
-        query = """
-        SELECT * FROM experiment_process 
-        WHERE sample_id = %s 
-        ORDER BY created_at DESC
-        """
-        return pd.read_sql(query, self.conn, params=[sample_id])
     
     def start_batch_processes(self, processes: List[Dict[str, Any]]) -> List[int]:
         """複数プロセスの一括開始"""
