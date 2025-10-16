@@ -53,6 +53,50 @@ def migrate_database():
                 END IF;
             END $$;
             
+            -- Remove unused columns if they exist
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.columns 
+                          WHERE table_name='experiment_process' AND column_name='metadata') THEN
+                    ALTER TABLE experiment_process DROP COLUMN metadata;
+                END IF;
+            END $$;
+            
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.columns 
+                          WHERE table_name='experiment_process' AND column_name='execution_time_seconds') THEN
+                    ALTER TABLE experiment_process DROP COLUMN execution_time_seconds;
+                END IF;
+            END $$;
+            
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.columns 
+                          WHERE table_name='experiment_process' AND column_name='created_at') THEN
+                    ALTER TABLE experiment_process DROP COLUMN created_at;
+                END IF;
+            END $$;
+            
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.columns 
+                          WHERE table_name='experiment_process' AND column_name='updated_at') THEN
+                    ALTER TABLE experiment_process DROP COLUMN updated_at;
+                END IF;
+            END $$;
+            
+            -- Remove UNIQUE constraint if it exists
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.table_constraints 
+                          WHERE table_name='experiment_process' 
+                          AND constraint_type='UNIQUE'
+                          AND constraint_name='experiment_process_experiment_id_process_type_process_id_key') THEN
+                    ALTER TABLE experiment_process DROP CONSTRAINT experiment_process_experiment_id_process_type_process_id_key;
+                END IF;
+            END $$;
+            
             -- Add new indexes
             CREATE INDEX IF NOT EXISTS idx_experiment_process_sample_id ON experiment_process(sample_id);
             CREATE INDEX IF NOT EXISTS idx_experiment_process_srx_accession ON experiment_process(srx_accession);

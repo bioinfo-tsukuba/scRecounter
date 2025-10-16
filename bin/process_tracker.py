@@ -35,12 +35,7 @@ class ProcessTracker:
             finish_datetime TIMESTAMP,
             path VARCHAR(500),
             process_id VARCHAR(100),
-            error_message TEXT,
-            execution_time_seconds INTEGER,
-            metadata JSONB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(experiment_id, process_type, process_id)
+            error_message TEXT
         );
         
         CREATE INDEX IF NOT EXISTS idx_experiment_process_status ON experiment_process(status);
@@ -66,7 +61,6 @@ class ProcessTracker:
     
     def start_process(self, experiment_id: str, process_type: str = "scRecounter", 
                      process_id: Optional[str] = None, path: Optional[str] = None,
-                     metadata: Optional[Dict[str, Any]] = None,
                      srx_accession: Optional[str] = None, organism: Optional[str] = None) -> int:
         """プロセス開始"""
         id = self._generate_id(experiment_id, process_type)
@@ -87,8 +81,7 @@ class ProcessTracker:
             'process_id': process_id,
             'path': path,
             'start_datetime': datetime.now(),
-            'status': None,  # 実行中
-            'metadata': json.dumps(metadata) if metadata else None
+            'status': None  # 実行中
         }])
         
         db_upsert(process_data, 'experiment_process', self.conn)
@@ -97,18 +90,10 @@ class ProcessTracker:
     
     def finish_process(self, experiment_id: str, process_type: str = "scRecounter", 
                       status: int = 0, path: Optional[str] = None, 
-                      error_message: Optional[str] = None,
-                      metadata: Optional[Dict[str, Any]] = None):
+                      error_message: Optional[str] = None):
         """プロセス完了"""
         id = self._generate_id(experiment_id, process_type)
         finish_time = datetime.now()
-        
-        # 実行時間を計算
-        start_record = self.get_process_status(experiment_id, process_type)
-        execution_time = None
-        if start_record and 'start_datetime' in start_record and start_record['start_datetime']:
-            start_time = pd.to_datetime(start_record['start_datetime'])
-            execution_time = int((finish_time - start_time.to_pydatetime()).total_seconds())
         
         update_data = pd.DataFrame([{
             'id': id,
@@ -117,9 +102,7 @@ class ProcessTracker:
             'status': status,
             'finish_datetime': finish_time,
             'path': path,
-            'error_message': error_message,
-            'execution_time_seconds': execution_time,
-            'metadata': json.dumps(metadata) if metadata else None
+            'error_message': error_message
         }])
         
         db_upsert(update_data, 'experiment_process', self.conn)
