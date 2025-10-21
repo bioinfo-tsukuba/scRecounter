@@ -8,6 +8,20 @@ include { readAccessions; addStats; } from './lib/utils.groovy'
 
 // Main workflow
 workflow { 
+    // PROCESS TRACKER INTEGRATION - COMMENTED OUT
+    // Initialize ProcessTracker for experiment tracking
+    // experiment_id = "${workflow.runName}_${workflow.start.format('yyyyMMdd_HHmmss')}"
+    // process_type = "scRecounter"
+    // process_id = "version_0.1"
+    // 
+    // // Start process tracking
+    // """
+    // python3 ${projectDir}/bin/process_tracker_start.py \\
+    //     --experiment_id ${experiment_id} \\
+    //     --process_type ${process_type} \\
+    //     --process_id ${process_id}
+    // """
+    
     if (params.accessions == "" || params.accessions == true) {
         // Obtain accessions from SRA
         println "No accessions provided. Accessions will be obtained from SRA."
@@ -41,4 +55,25 @@ workflow {
 workflow.onComplete {
     println "Pipeline completed at: $workflow.complete"
     println "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
+    
+    // PROCESS TRACKER INTEGRATION - COMMENTED OUT
+    // Finish process tracking with comprehensive error reporting
+    // def status = workflow.success ? 0 : 1
+    // def error_message = ""
+    // if (!workflow.success) {
+    //     // Collect error information from multiple sources
+    //     def errorSources = []
+    //     if (workflow.errorMessage) errorSources.add("Workflow: ${workflow.errorMessage}")
+    //     if (workflow.errorReport) errorSources.add("Report: ${workflow.errorReport}")
+    //     error_message = errorSources.join(" | ")
+    // }
+    // 
+    // """
+    // python3 ${projectDir}/bin/process_tracker_finish.py \\
+    //     --experiment_id ${experiment_id} \\
+    //     --process_type ${process_type} \\
+    //     --process_id ${process_id} \\
+    //     --status ${status} \\
+    //     --error_message "${error_message}"
+    // """
 }
