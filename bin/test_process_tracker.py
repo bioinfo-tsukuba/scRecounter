@@ -8,6 +8,10 @@ import logging
 import sys
 from datetime import datetime
 from process_tracker import ProcessTracker
+from dotenv import load_dotenv
+
+# Load environment variables for local database
+load_dotenv('.env.local')
 
 def test_legacy_functionality():
     """Test existing functionality remains intact"""

@@ -1,22 +1,19 @@
 # import
-## batteries
 import hashlib
 import json
 import logging
 import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Union
-## 3rd party
 import pandas as pd
 from psycopg2.extensions import connection
-## local
-from db_utils import db_connect, db_upsert, db_update
+from db_utils import db_connect, db_connect_local, db_upsert, db_update
 
 class ProcessTracker:
     """scRecounter プロセス実行管理クラス"""
     
     def __init__(self, conn: Optional[connection] = None):
-        self.conn = conn or db_connect()
+        self.conn = conn or db_connect_local()
         self._ensure_table_exists()
     
     def _ensure_table_exists(self):

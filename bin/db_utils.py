@@ -20,6 +20,26 @@ logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 logging.getLogger("google.auth").setLevel(logging.CRITICAL)
 
 # functions
+def db_connect_local() -> connection:
+    """
+    Connect to the local PostgreSQL database.
+    Uses environment variables or default values for connection.
+    """
+    db_params = {
+        'host': os.environ.get("LOCAL_DB_HOST", "localhost"),
+        'database': os.environ.get("LOCAL_DB_NAME", "screcounter"),
+        'user': os.environ.get("LOCAL_DB_USER", "postgres"),
+        'password': os.environ.get("LOCAL_DB_PASSWORD", ""),
+        'port': os.environ.get("LOCAL_DB_PORT", "5432"),
+        'sslmode': 'disable'
+    }
+    try:
+        conn = psycopg2.connect(**db_params)
+        return conn
+    except psycopg2.OperationalError as e:
+        logging.error(f"Failed to connect to local database: {e}")
+        raise Exception(f"Database connection failed: {e}")
+
 def db_connect() -> connection:
     """
     Connect to the sql database using SSL certificates.
