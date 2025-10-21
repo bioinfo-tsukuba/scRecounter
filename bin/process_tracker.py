@@ -24,7 +24,6 @@ class ProcessTracker:
         CREATE TABLE IF NOT EXISTS experiment_process (
             id INTEGER PRIMARY KEY,
             experiment_id VARCHAR(50) NOT NULL,
-            sample_id VARCHAR(200),
             srx_accession VARCHAR(50),
             organism VARCHAR(50),
             analysis_date DATE,
@@ -39,13 +38,13 @@ class ProcessTracker:
         
         CREATE INDEX IF NOT EXISTS idx_experiment_process_status ON experiment_process(status);
         CREATE INDEX IF NOT EXISTS idx_experiment_process_experiment_id ON experiment_process(experiment_id);
-        CREATE INDEX IF NOT EXISTS idx_experiment_process_sample_id ON experiment_process(sample_id);
+        CREATE INDEX IF NOT EXISTS idx_experiment_process_sample_id ON experiment_process(id);
         CREATE INDEX IF NOT EXISTS idx_experiment_process_srx_accession ON experiment_process(srx_accession);
         CREATE INDEX IF NOT EXISTS idx_experiment_process_process_type ON experiment_process(process_type);
         """
         with self.conn.cursor() as cur:
-            cur.execute(create_table_sql)
-            self.conn.commit()
+            cur.execute(create_table_sql) # create table if not exists
+            self.conn.commit() # commit changes, commitしないと変更が反映されない
     
     def _generate_sample_id(self, srx_accession: str, organism: str) -> str:
         """SRXアクセッションからユニークなサンプルIDを生成"""
@@ -53,26 +52,20 @@ class ProcessTracker:
         timestamp = int(time.time())
         return f"{srx_accession}_{organism}_{analysis_date}_{timestamp}"
     
-    def _generate_id(self, experiment_id: str, process_type: str) -> int:
-        """Experiment IDとProcess TypeからハッシュIDを生成"""
-        hash_str = f"{experiment_id}_{process_type}"
-        return int(hashlib.md5(hash_str.encode()).hexdigest()[:8], 16) % (2**31 - 1)
+    def _generate_id(self, experiment_id: str, process_type: str, process_id: str) -> int:
+        """Experiment IDとProcess Typeを組み合わせてユニークなIDを生成"""
+        process_str = f"{experiment_id}_{process_type}_{process_id}"
+        return process_str
     
     def start_process(self, experiment_id: str, process_type: str = "scRecounter", 
                      process_id: Optional[str] = None, path: Optional[str] = None,
                      srx_accession: Optional[str] = None, organism: Optional[str] = None) -> int:
-        """プロセス開始"""
-        id = self._generate_id(experiment_id, process_type)
-        
-        # サンプルIDを生成（新しいパラメータが提供された場合のみ）
-        sample_id = None
-        if srx_accession and organism:
-            sample_id = self._generate_sample_id(srx_accession, organism)
+        """プロセス開始時に呼び出し、新しいレコードを作成"""
+        id = self._generate_id(experiment_id, process_type, process_id)
         
         process_data = pd.DataFrame([{
             'id': id,
             'experiment_id': experiment_id,
-            'sample_id': sample_id,
             'srx_accession': srx_accession,
             'organism': organism,
             'analysis_date': datetime.now().date() if srx_accession else None,
@@ -84,14 +77,14 @@ class ProcessTracker:
         }])
         
         db_upsert(process_data, 'experiment_process', self.conn)
-        logging.info(f"Started process: {experiment_id} - {process_type}")
+        logging.info(f"Started process: {experiment_id} - {process_type} - {process_id}")
         return id
     
     def finish_process(self, experiment_id: str, process_type: str = "scRecounter", 
                       status: int = 0, path: Optional[str] = None, 
                       error_message: Optional[str] = None):
         """プロセス完了"""
-        id = self._generate_id(experiment_id, process_type)
+        id = self._generate_id(experiment_id, process_type, process_id)
         finish_time = datetime.now()
         
         update_data = pd.DataFrame([{
@@ -106,16 +99,17 @@ class ProcessTracker:
         
         db_upsert(update_data, 'experiment_process', self.conn)
         status_text = "SUCCESS" if status == 0 else "ERROR"
-        logging.info(f"Finished process: {experiment_id} - {process_type} - {status_text}")
+        logging.info(f"Finished process: {experiment_id} - {process_type} - {process_id} - {status_text}")
     
-    def get_process_status(self, experiment_id: str, process_type: str = "scRecounter") -> Dict[str, Any]:
+    # Getters for process information
+    def get_process_status(self, experiment_id: str, process_type: str = "scRecounter", process_id: str) -> Dict[str, Any]:
         """プロセス状態取得"""
         query = """
         SELECT * FROM experiment_process 
-        WHERE experiment_id = %s AND process_type = %s
+        WHERE experiment_id = %s AND process_type = %s　AND process_id = %s
         ORDER BY created_at DESC LIMIT 1
         """
-        result = pd.read_sql(query, self.conn, params=[experiment_id, process_type])
+        result = pd.read_sql(query, self.conn, params=[experiment_id, process_type, process_id])
         return result.to_dict('records')[0] if not result.empty else {}
     
     def get_failed_processes(self) -> pd.DataFrame:
@@ -151,14 +145,14 @@ class ProcessTracker:
         """
         return pd.read_sql(query, self.conn, params=[srx_accession])
     
-    def get_processes_by_sample_id(self, sample_id: str) -> pd.DataFrame:
+    def get_processes_by_sample_id(self, id: str) -> pd.DataFrame:
         """サンプルIDで全プロセス取得"""
         query = """
         SELECT * FROM experiment_process 
-        WHERE sample_id = %s 
+        WHERE id = %s 
         ORDER BY created_at DESC
         """
-        return pd.read_sql(query, self.conn, params=[sample_id])
+        return pd.read_sql(query, self.conn, params=[id])
     
     def start_batch_processes(self, processes: List[Dict[str, Any]]) -> List[int]:
         """複数プロセスの一括開始"""
@@ -249,6 +243,7 @@ class ProcessTracker:
         logging.info(f"Cleaned up {deleted_count} old process records")
         return deleted_count
     
+    # Close the database connection
     def close(self):
         """データベース接続を閉じる"""
         if self.conn:
