@@ -7,7 +7,9 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Union
 import pandas as pd
 from psycopg2.extensions import connection
-from db_utils import db_connect, db_connect_local, db_upsert, db_update
+from db_utils import db_connect_local, db_upsert, db_update
+# GCP connection import commented out for local development
+# from db_utils import db_connect
 
 class ProcessTracker:
     """scRecounter プロセス実行管理クラス"""

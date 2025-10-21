@@ -15,9 +15,10 @@ from tempfile import NamedTemporaryFile
 # Suppress notifications
 warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable")
 logging.getLogger("psycopg2").setLevel(logging.CRITICAL)
-logging.getLogger("google.auth.transport.requests").setLevel(logging.CRITICAL)
-logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-logging.getLogger("google.auth").setLevel(logging.CRITICAL)
+# GCP-related logging suppression - COMMENTED OUT for local development
+# logging.getLogger("google.auth.transport.requests").setLevel(logging.CRITICAL)
+# logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+# logging.getLogger("google.auth").setLevel(logging.CRITICAL)
 
 # functions
 def db_connect_local() -> connection:
@@ -40,30 +41,31 @@ def db_connect_local() -> connection:
         logging.error(f"Failed to connect to local database: {e}")
         raise Exception(f"Database connection failed: {e}")
 
-def db_connect() -> connection:
-    """
-    Connect to the sql database using SSL certificates.
-    """
-    # get certs
-    certs = get_db_certs()
-    # connect
-    db_params = {
-        'host': os.environ["GCP_SQL_DB_HOST"],
-        'database': os.environ["GCP_SQL_DB_NAME"],
-        'user': os.environ["GCP_SQL_DB_USERNAME"],
-        'password': os.getenv("GCP_SQL_DB_PASSWORD", get_secret("GCP_SQL_DB_PASSWORD")),
-        'sslmode': 'verify-ca',
-        'sslrootcert': certs["server-ca.pem"],
-        'sslcert': certs["client-cert.pem"],
-        'sslkey': certs["client-key.pem"],
-        'port': '5432',
-        'connect_timeout': 30
-    }
-    conn = psycopg2.connect(**db_params)
-    # delete certs
-    for cert in certs.values():
-        os.remove(cert)
-    return conn
+# GCP Cloud SQL connection - COMMENTED OUT for local development
+# def db_connect() -> connection:
+#     """
+#     Connect to the sql database using SSL certificates.
+#     """
+#     # get certs
+#     certs = get_db_certs()
+#     # connect
+#     db_params = {
+#         'host': os.environ["GCP_SQL_DB_HOST"],
+#         'database': os.environ["GCP_SQL_DB_NAME"],
+#         'user': os.environ["GCP_SQL_DB_USERNAME"],
+#         'password': os.getenv("GCP_SQL_DB_PASSWORD", get_secret("GCP_SQL_DB_PASSWORD")),
+#         'sslmode': 'verify-ca',
+#         'sslrootcert': certs["server-ca.pem"],
+#         'sslcert': certs["client-cert.pem"],
+#         'sslkey': certs["client-key.pem"],
+#         'port': '5432',
+#         'connect_timeout': 30
+#     }
+#     conn = psycopg2.connect(**db_params)
+#     # delete certs
+#     for cert in certs.values():
+#         os.remove(cert)
+#     return conn
 
 def add_to_log(
         df, sample: str, accession: str, process: str, step: str, status: str, msg: str
@@ -286,63 +288,64 @@ def get_unique_columns(table: str, conn: connection) -> List[str]:
     # Fall back to primary key if no other suitable constraint found
     return constraints[0][1]
 
-def get_secret(secret_id: str) -> str:
-    """
-    Fetch secret from GCP Secret Manager.
-    Rquired environment variables: GCP_PROJECT_ID, GOOGLE_APPLICATION_CREDENTIALS
-    Args:
-        secret_id: The secret id
-    Returns:
-        The secret value
-    """
-    from google.auth import default, load_credentials_from_file
-    from google.cloud import secretmanager
-    # Load credentials
-    try:
-        credentials, project_id = load_credentials_from_file(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
-    except KeyError:
-        credentials, project_id = default()
-    # if project_id is not provided, use the environment variable
-    if not project_id:
-        project_id = os.environ["GCP_PROJECT_ID"]
-    # Access secret
-    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-    client = secretmanager.SecretManagerServiceClient(credentials=credentials)
-    response = client.access_secret_version(request={"name": name})
-    return response.payload.data.decode('UTF-8')
+# GCP Secret Manager functions - COMMENTED OUT for local development
+# def get_secret(secret_id: str) -> str:
+#     """
+#     Fetch secret from GCP Secret Manager.
+#     Required environment variables: GCP_PROJECT_ID, GOOGLE_APPLICATION_CREDENTIALS
+#     Args:
+#         secret_id: The secret id
+#     Returns:
+#         The secret value
+#     """
+#     from google.auth import default, load_credentials_from_file
+#     from google.cloud import secretmanager
+#     # Load credentials
+#     try:
+#         credentials, project_id = load_credentials_from_file(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
+#     except KeyError:
+#         credentials, project_id = default()
+#     # if project_id is not provided, use the environment variable
+#     if not project_id:
+#         project_id = os.environ["GCP_PROJECT_ID"]
+#     # Access secret
+#     name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+#     client = secretmanager.SecretManagerServiceClient(credentials=credentials)
+#     response = client.access_secret_version(request={"name": name})
+#     return response.payload.data.decode('UTF-8')
 
-def get_db_certs(certs=["server-ca.pem", "client-cert.pem", "client-key.pem"]) -> dict:
-    """
-    Download certificates from GCP Secret Manager and save them to temporary files.
-    Args:
-        certs: A list of certificate ids
-    Returns:
-        A dictionary containing the paths to the temporary files
-    """
-    idx = {
-        "server-ca.pem": "SRAgent_db_server_ca",
-        "client-cert.pem": "SRAgent_db_client_cert",
-        "client-key.pem": "SRAgent_db_client_key"
-    }
-    cert_files = {}
-    for cert in certs:
-        cert_files[cert] = download_secret(idx[cert])
-    return cert_files
+# def get_db_certs(certs=["server-ca.pem", "client-cert.pem", "client-key.pem"]) -> dict:
+#     """
+#     Download certificates from GCP Secret Manager and save them to temporary files.
+#     Args:
+#         certs: A list of certificate ids
+#     Returns:
+#         A dictionary containing the paths to the temporary files
+#     """
+#     idx = {
+#         "server-ca.pem": "SRAgent_db_server_ca",
+#         "client-cert.pem": "SRAgent_db_client_cert",
+#         "client-key.pem": "SRAgent_db_client_key"
+#     }
+#     cert_files = {}
+#     for cert in certs:
+#         cert_files[cert] = download_secret(idx[cert])
+#     return cert_files
 
-def download_secret(secret_id: str) -> str:
-    """
-    Download a secret from GCP Secret Manager and save it to a temporary file.
-    Args:
-        secret_id: The secret id
-    Returns:
-        The path to the temporary file containing the secret
-    """
-    secret_value = get_secret(secret_id)
-    temp_file = NamedTemporaryFile(delete=False, mode='w', encoding='utf-8')
-    with temp_file as f:
-        f.write(secret_value)
-        f.flush()
-    return temp_file.name
+# def download_secret(secret_id: str) -> str:
+#     """
+#     Download a secret from GCP Secret Manager and save it to a temporary file.
+#     Args:
+#         secret_id: The secret id
+#     Returns:
+#         The path to the temporary file containing the secret
+#     """
+#     secret_value = get_secret(secret_id)
+#     temp_file = NamedTemporaryFile(delete=False, mode='w', encoding='utf-8')
+#     with temp_file as f:
+#         f.write(secret_value)
+#         f.flush()
+#     return temp_file.name
 
 def get_srx_metadata_limit5(conn):
     query = """
@@ -353,6 +356,7 @@ def get_srx_metadata_limit5(conn):
 # main
 if __name__ == "__main__":
     from dotenv import load_dotenv
-    load_dotenv()
-    # with db_connect() as conn:
+    load_dotenv('.env.local')
+    # Test local connection instead of GCP
+    # with db_connect_local() as conn:
     #     print(get_srx_metadata_limit5(conn))
