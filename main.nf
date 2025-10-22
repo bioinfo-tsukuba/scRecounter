@@ -33,35 +33,35 @@ workflow {
     // Run SRA_STAT with error tracking
     ch_sra_results = SRA_STAT_WITH_TRACKING(ch_accessions, process_type, process_id)
     
-    // Collect all results for final reporting
-    ch_all_results = ch_sra_results.error.mix(ch_sra_results.success)
+    // Initialize final results with SRA_STAT errors (they stop here)
+    ch_final_results = ch_sra_results.error
 
-    // Run STAR_PARAMS_WF with error tracking
+    // Run STAR_PARAMS_WF with error tracking (only on SRA_STAT successes)
     ch_star_params_results = STAR_PARAMS_WF_WITH_TRACKING(
         ch_sra_results.success.map { accession, status -> accession },
         process_type, 
         process_id
     )
     
-    // Add STAR_PARAMS results to collection
-    ch_all_results = ch_all_results.mix(ch_star_params_results.error).mix(ch_star_params_results.success)
+    // Add STAR_PARAMS_WF errors to final results (they stop here)
+    ch_final_results = ch_final_results.mix(ch_star_params_results.error)
 
-    // Run STAR_FULL_WF with error tracking
+    // Run STAR_FULL_WF with error tracking (only on STAR_PARAMS_WF successes)
     ch_star_full_results = STAR_FULL_WF_WITH_TRACKING(
         ch_star_params_results.success.map { accession, status -> accession },
         process_type, 
         process_id
     )
     
-    // Add STAR_FULL results to collection
-    ch_all_results = ch_all_results.mix(ch_star_full_results.error).mix(ch_star_full_results.success)
+    // Add STAR_FULL_WF results to final results (both success and error are final)
+    ch_final_results = ch_final_results.mix(ch_star_full_results.error).mix(ch_star_full_results.success)
 
-    // Single PROCESS_TRACKER_FINISH call with all results
+    // Single PROCESS_TRACKER_FINISH call with final status only
     PROCESS_TRACKER_FINISH(
-        ch_all_results.map { accession, status -> accession },
+        ch_final_results.map { accession, status -> accession },
         process_type, 
         process_id, 
-        ch_all_results.map { accession, status -> status == "error" ? 1 : 0 }
+        ch_final_results.map { accession, status -> status == "error" ? 1 : 0 }
     )
 }
 
