@@ -16,35 +16,7 @@ class ProcessTracker:
     
     def __init__(self, conn: Optional[connection] = None):
         self.conn = conn or db_connect_local()
-        self._ensure_table_exists()
-    
-    def _ensure_table_exists(self):
-        """テーブルが存在しない場合は作成"""
-        create_table_sql = """
-        CREATE TABLE IF NOT EXISTS experiment_process (
-            id INTEGER PRIMARY KEY,
-            experiment_id VARCHAR(50) NOT NULL,
-            srx_accession VARCHAR(50),
-            organism VARCHAR(50),
-            analysis_date DATE,
-            process_type VARCHAR(50) NOT NULL,
-            status INTEGER DEFAULT NULL,
-            start_datetime TIMESTAMP,
-            finish_datetime TIMESTAMP,
-            path VARCHAR(500),
-            process_id VARCHAR(100),
-            error_message TEXT
-        );
-        
-        CREATE INDEX IF NOT EXISTS idx_experiment_process_status ON experiment_process(status);
-        CREATE INDEX IF NOT EXISTS idx_experiment_process_experiment_id ON experiment_process(experiment_id);
-        CREATE INDEX IF NOT EXISTS idx_experiment_process_sample_id ON experiment_process(id);
-        CREATE INDEX IF NOT EXISTS idx_experiment_process_srx_accession ON experiment_process(srx_accession);
-        CREATE INDEX IF NOT EXISTS idx_experiment_process_process_type ON experiment_process(process_type);
-        """
-        with self.conn.cursor() as cur:
-            cur.execute(create_table_sql) # create table if not exists
-            self.conn.commit() # commit changes, commitしないと変更が反映されない
+        # self._ensure_table_exists()
     
     def _generate_sample_id(self, srx_accession: str, organism: str) -> str:
         """SRXアクセッションからユニークなサンプルIDを生成"""
@@ -76,14 +48,18 @@ class ProcessTracker:
             'status': None  # 実行中
         }])
         
+        # print("DEBUG: DataFrame columns:", process_data.columns.tolist())
+        # print("DEBUG: DataFrame values:", process_data.values.tolist())
         db_upsert(process_data, 'experiment_process', self.conn)
         logging.info(f"Started process: {experiment_id} - {process_type} - {process_id}")
         return id
     
-    def finish_process(self, experiment_id: str, process_type: str = "scRecounter", 
-                      status: int = 0, path: Optional[str] = None, 
+    def finish_process(self, experiment_id: str, process_type: str = "scRecounter",
+                      process_id: Optional[str] = None, status: int = 0, path: Optional[str] = None, 
                       error_message: Optional[str] = None):
         """プロセス完了"""
+        if process_id is None:
+            process_id = "version_0.1"
         id = self._generate_id(experiment_id, process_type, process_id)
         finish_time = datetime.now()
         
@@ -100,9 +76,9 @@ class ProcessTracker:
         db_upsert(update_data, 'experiment_process', self.conn)
         status_text = "SUCCESS" if status == 0 else "ERROR"
         logging.info(f"Finished process: {experiment_id} - {process_type} - {process_id} - {status_text}")
-    
+
     # Getters for process information
-    def get_process_status(self, experiment_id: str, process_type: str = "scRecounter", process_id: str) -> Dict[str, Any]:
+    def get_process_status(self, experiment_id: str, process_id: str, process_type: str = "scRecounter") -> Dict[str, Any]:
         """プロセス状態取得"""
         query = """
         SELECT * FROM experiment_process 

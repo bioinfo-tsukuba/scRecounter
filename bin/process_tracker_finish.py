@@ -16,12 +16,15 @@ def main():
     parser.add_argument('--process_id', default='version_0.1', help='Process ID (default: version_0.1)')
     parser.add_argument('--status', type=int, default=0, help='Process exit status (0=success, 1=error)')
     parser.add_argument('--path', help='Optional path information')
-    parser.add_argument('--error_message', help='Error message if status != 0 (most recent error for this experimental_id)')
+    parser.add_argument('--error_message', help='Optional error message')
     
     args = parser.parse_args()
     
     # Load local database environment
-    load_dotenv('.env.local')
+    import os
+    project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env_file = os.path.join(project_dir, '.env.local')
+    load_dotenv(env_file)
     
     try:
         # Initialize ProcessTracker with local database connection

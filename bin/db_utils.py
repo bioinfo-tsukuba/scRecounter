@@ -127,7 +127,12 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
             raise Exception(f"Error converting input to DataFrame: {str(e)}")
 
     # filter to overlapping target columns
-    df = df[list(set(get_table_columns(table_name, conn)).intersection(df.columns))]
+    table_columns = get_table_columns(table_name, conn)
+    # print(f"DEBUG: Table columns: {table_columns}")
+    # print(f"DEBUG: DataFrame columns: {df.columns.tolist()}")
+    overlapping_columns = list(set(table_columns).intersection(df.columns))
+    # print(f"DEBUG: Overlapping columns: {overlapping_columns}")
+    df = df[overlapping_columns]
 
     # Sanitize integer columns
     df = sanitize_int_columns(df.copy())
@@ -135,33 +140,21 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
     # Get DataFrame columns
     columns = list(df.columns)
     
-    # Create ON CONFLICT clause based on unique constraints
-    unique_columns = get_unique_columns(table_name, conn)
+    # Keep 'id' column since it's manually generated in ProcessTracker
+    # if "id" in columns:
+    #     df = df.drop(columns=["id"])
+    #     columns.remove("id")
 
-    # Exclude 'id' column from the upsert
-    if "id" in columns:
-        df = df.drop(columns=["id"])
-        columns.remove("id")
-
-    # Drop duplicate records based on unique columns
-    df.drop_duplicates(subset=unique_columns, keep='first').copy()
+    # Remove duplicates within the DataFrame
+    df = df.drop_duplicates(keep='first').copy()
 
     # Convert DataFrame to list of tuples
     values = [tuple(x) for x in df.to_numpy()]
 
-    # Create the INSERT statement with ON CONFLICT clause
+    # Create simple INSERT statement with DO NOTHING on conflict
     insert_stmt = f"INSERT INTO {table_name} ({', '.join(columns)})"
     insert_stmt += f"\nVALUES %s"
-
-    # Add DO UPDATE SET clause for non-unique columns
-    do_update_set = [col for col in columns if col not in unique_columns]
-    if do_update_set:
-        do_update_set = ', '.join(f"{col} = EXCLUDED.{col}" for col in do_update_set)
-        insert_stmt += f"\nON CONFLICT ({', '.join(unique_columns)})"
-        insert_stmt += f"\nDO UPDATE SET {do_update_set}"
-    else:
-        # if no non-unique columns, add DO NOTHING clause
-        insert_stmt += f"\nON CONFLICT ({', '.join(unique_columns)}) DO NOTHING"
+    insert_stmt += f"\nON CONFLICT DO NOTHING"
 
     # Execute the query
     try:

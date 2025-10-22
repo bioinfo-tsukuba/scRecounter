@@ -21,7 +21,10 @@ def main():
     args = parser.parse_args()
     
     # Load local database environment
-    load_dotenv('.env.local')
+    import os
+    project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env_file = os.path.join(project_dir, '.env.local')
+    load_dotenv(env_file)
     
     try:
         # Initialize ProcessTracker with local database connection

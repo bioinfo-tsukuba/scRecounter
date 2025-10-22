@@ -1,5 +1,7 @@
 // Process tracker processes
 process PROCESS_TRACKER_START {
+    label "tracker_env"
+    
     input:
     val accession
     val process_type
@@ -16,6 +18,8 @@ process PROCESS_TRACKER_START {
 }
 
 process PROCESS_TRACKER_FINISH {
+    label "tracker_env"
+    
     input:
     val accession
     val process_type

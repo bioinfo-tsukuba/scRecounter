@@ -28,7 +28,7 @@ workflow {
     ch_accessions = readAccessions(ch_accessions)
 
     // Start process tracking for each accession
-    PROCESS_TRACKER_START(ch_accessions, process_type, process_id)
+    PROCESS_TRACKER_START(ch_accessions.map { it[0] }, process_type, process_id)
 
     // run sra-stat on accessions
     ch_sra_stat = SRA_STAT(ch_accessions)
@@ -41,13 +41,11 @@ workflow {
     ch_star_params = STAR_PARAMS_WF(ch_accessions, ch_sra_stat)
 
     // run STAR on all reads with selected parameters
-    if (! params.define && ! params.params_only){
-        ch_star_results = STAR_FULL_WF(ch_accessions, ch_star_params)
-    }
+    ch_star_results = STAR_FULL_WF(ch_accessions, ch_star_params)
 
     // Collect final results - all accessions that made it this far are successful
     // Accessions that failed earlier would have been filtered out by Nextflow
-    ch_final_results = ch_accessions.map { accession -> [accession[1], "success"] }
+    ch_final_results = ch_accessions.map { accession -> [accession[0], "success"] }
 
     // Single PROCESS_TRACKER_FINISH call with final status
     PROCESS_TRACKER_FINISH(

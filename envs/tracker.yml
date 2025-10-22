@@ -1,0 +1,14 @@
+name: tracker
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.9
+  - psycopg2
+  - sqlalchemy
+  - pandas
+  - pip
+  - psycopg2-binary
+  - python-dotenv
+    
+
