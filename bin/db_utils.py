@@ -186,8 +186,8 @@ def db_update(df: pd.DataFrame, table_name: str, conn: connection) -> None:
     unique_columns = get_unique_columns(table_name, conn)
     
     # Remove "id" 
-    if "id" in df.columns:
-        df = df.drop(columns=["id"])
+    # if "id" in df.columns:
+    #     df = df.drop(columns=["id"])
     
     # Get non-unique columns
     columns = list(df.columns)
@@ -280,65 +280,6 @@ def get_unique_columns(table: str, conn: connection) -> List[str]:
     
     # Fall back to primary key if no other suitable constraint found
     return constraints[0][1]
-
-# GCP Secret Manager functions - COMMENTED OUT for local development
-# def get_secret(secret_id: str) -> str:
-#     """
-#     Fetch secret from GCP Secret Manager.
-#     Required environment variables: GCP_PROJECT_ID, GOOGLE_APPLICATION_CREDENTIALS
-#     Args:
-#         secret_id: The secret id
-#     Returns:
-#         The secret value
-#     """
-#     from google.auth import default, load_credentials_from_file
-#     from google.cloud import secretmanager
-#     # Load credentials
-#     try:
-#         credentials, project_id = load_credentials_from_file(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
-#     except KeyError:
-#         credentials, project_id = default()
-#     # if project_id is not provided, use the environment variable
-#     if not project_id:
-#         project_id = os.environ["GCP_PROJECT_ID"]
-#     # Access secret
-#     name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-#     client = secretmanager.SecretManagerServiceClient(credentials=credentials)
-#     response = client.access_secret_version(request={"name": name})
-#     return response.payload.data.decode('UTF-8')
-
-# def get_db_certs(certs=["server-ca.pem", "client-cert.pem", "client-key.pem"]) -> dict:
-#     """
-#     Download certificates from GCP Secret Manager and save them to temporary files.
-#     Args:
-#         certs: A list of certificate ids
-#     Returns:
-#         A dictionary containing the paths to the temporary files
-#     """
-#     idx = {
-#         "server-ca.pem": "SRAgent_db_server_ca",
-#         "client-cert.pem": "SRAgent_db_client_cert",
-#         "client-key.pem": "SRAgent_db_client_key"
-#     }
-#     cert_files = {}
-#     for cert in certs:
-#         cert_files[cert] = download_secret(idx[cert])
-#     return cert_files
-
-# def download_secret(secret_id: str) -> str:
-#     """
-#     Download a secret from GCP Secret Manager and save it to a temporary file.
-#     Args:
-#         secret_id: The secret id
-#     Returns:
-#         The path to the temporary file containing the secret
-#     """
-#     secret_value = get_secret(secret_id)
-#     temp_file = NamedTemporaryFile(delete=False, mode='w', encoding='utf-8')
-#     with temp_file as f:
-#         f.write(secret_value)
-#         f.flush()
-#     return temp_file.name
 
 def get_srx_metadata_limit5(conn):
     query = """

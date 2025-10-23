@@ -13,7 +13,7 @@ from shutil import which, rmtree
 from typing import Dict
 from subprocess import Popen, PIPE
 import pandas as pd
-from db_utils import db_connect, db_upsert, add_to_log
+from db_utils import db_upsert, add_to_log # db_connect, 
 from prefetch import prefetch_workflow
 
 # logging
@@ -308,7 +308,7 @@ def main(args, log_df):
     else:
         # prefetch
         prefetch_outdir = prefetch_workflow(
-            sample=args.sample, 
+            sample=args.sample,
             accession=args.accession, 
             log_df=log_df,
             max_size_gb=args.max_size_gb,

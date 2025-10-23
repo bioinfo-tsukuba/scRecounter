@@ -9,7 +9,7 @@ import argparse
 import logging
 from typing import List, Dict, Any, Tuple
 import pandas as pd
-from db_utils import db_connect, db_upsert
+from db_utils import db_upsert # db_connect, 
 
 # logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)

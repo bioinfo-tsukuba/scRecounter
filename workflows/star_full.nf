@@ -46,50 +46,13 @@ workflow STAR_FULL_WF{
     // run STAR
     STAR_FULL(ch_fastq)
 
-    // // summarize the STAR results
-    // STAR_FULL_SUMMARY(
-    //     STAR_FULL.out.gene_summary,
-    //     STAR_FULL.out.gene_full_summary,
-    //     STAR_FULL.out.gene_ex50_summary,
-    //     STAR_FULL.out.gene_ex_int_summary,
-    //     STAR_FULL.out.velocyto_summary
-    // )
-}
-
-process STAR_FULL_SUMMARY {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
-    label "star_env"
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
-    disk 10.GB
-
-    input:
-    tuple val(sample), path("gene_summary.csv")
-    tuple val(sample), path("gene_full_summary.csv")
-    tuple val(sample), path("gene_ex50_summary.csv")
-    tuple val(sample), path("gene_ex_int_summary.csv")
-    tuple val(sample), path("velocyto_summary.csv")
-
-    output:
-    tuple val(sample), path("Summary.csv"), emit: "csv"
-    path "${task.process}.log",             emit: "log"
-
-    script:
-    def sra_input = download_url ?: accession
-    """
-    export GCP_SQL_DB_HOST="${params.db_host}"
-    export GCP_SQL_DB_NAME="${params.db_name}"
-    export GCP_SQL_DB_USERNAME="${params.db_username}"
-
-    star-summary.py \\
-      --sample ${sample} \\
-      gene_summary.csv \\
-      gene_full_summary.csv \\
-      gene_ex50_summary.csv \\
-      gene_ex_int_summary.csv \\
-      velocyto_summary.csv \\
-      2>&1 | tee ${task.process}.log
-    """
+    emit:
+    // 成功したサンプルのリスト
+    success_results = STAR_FULL.out.gene_summary
+        .join(
+            ch_accessions.map { sample, accession, download_url, metadata, size -> [sample, accession] }
+        )
+        .map { sample, summary, accession -> [sample, accession, 0] } // [sample, accession, status=0]
 }
 
 process STAR_FULL {

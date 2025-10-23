@@ -11,7 +11,7 @@ from time import sleep
 from shutil import which
 from subprocess import Popen, PIPE
 import pandas as pd
-from db_utils import db_connect, db_upsert, add_to_log
+from db_utils import db_upsert, add_to_log #  db_connect,
 
 # logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)

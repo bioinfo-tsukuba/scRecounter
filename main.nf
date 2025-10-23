@@ -43,16 +43,13 @@ workflow {
     // run STAR on all reads with selected parameters
     ch_star_results = STAR_FULL_WF(ch_accessions, ch_star_params)
 
-    // Collect final results - all accessions that made it this far are successful
-    // Accessions that failed earlier would have been filtered out by Nextflow
-    ch_final_results = ch_accessions.map { accession -> [accession[0], "success"] }
-
-    // Single PROCESS_TRACKER_FINISH call with final status
+    // Process results from STAR_FULL_WF
+    // ch_star_results.success_results contains [sample, accession, status] where status=0 for success
     PROCESS_TRACKER_FINISH(
-        ch_final_results.map { accession, status -> accession },
+        ch_star_results.success_results.map { sample, accession, status -> accession },
         process_type, 
         process_id, 
-        ch_final_results.map { accession, status -> status == "error" ? 1 : 0 }
+        ch_star_results.success_results.map { sample, accession, status -> status }
     )
 }
 

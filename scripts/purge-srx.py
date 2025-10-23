@@ -6,7 +6,7 @@ from typing import Tuple, List, Dict
 import pandas as pd
 from google.cloud import storage
 from psycopg2.extensions import connection
-from db_utils import db_connect, db_update
+from db_utils import db_update # db_connect, 
 
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter): pass

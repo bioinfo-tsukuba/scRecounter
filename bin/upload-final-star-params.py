@@ -8,7 +8,7 @@ import sys
 import argparse
 import logging
 import pandas as pd
-from db_utils import db_connect, db_upsert
+from db_utils import db_upsert # db_connect, 
 
 # logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)

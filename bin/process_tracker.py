@@ -8,8 +8,6 @@ from typing import Optional, Dict, Any, List, Union
 import pandas as pd
 from psycopg2.extensions import connection
 from db_utils import db_connect_local, db_upsert, db_update
-# GCP connection import commented out for local development
-# from db_utils import db_connect
 
 class ProcessTracker:
     """scRecounter プロセス実行管理クラス"""
@@ -28,7 +26,7 @@ class ProcessTracker:
         """Experiment IDとProcess Typeを組み合わせてユニークなIDを生成"""
         process_str = f"{experiment_id}_{process_type}_{process_id}"
         return process_str
-    
+
     def start_process(self, experiment_id: str, process_type: str = "scRecounter", 
                      process_id: Optional[str] = None, path: Optional[str] = None,
                      srx_accession: Optional[str] = None, organism: Optional[str] = None) -> int:
@@ -40,7 +38,7 @@ class ProcessTracker:
             'experiment_id': experiment_id,
             'srx_accession': srx_accession,
             'organism': organism,
-            'analysis_date': datetime.now().date() if srx_accession else None,
+            'analysis_date': datetime.now().date(),
             'process_type': process_type,
             'process_id': process_id,
             'path': path,
@@ -73,7 +71,7 @@ class ProcessTracker:
             'error_message': error_message
         }])
         
-        db_upsert(update_data, 'experiment_process', self.conn)
+        db_update(update_data, 'experiment_process', self.conn)
         status_text = "SUCCESS" if status == 0 else "ERROR"
         logging.info(f"Finished process: {experiment_id} - {process_type} - {process_id} - {status_text}")
 
