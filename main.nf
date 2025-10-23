@@ -28,7 +28,7 @@ workflow {
     ch_accessions = readAccessions(ch_accessions)
 
     // Start process tracking for each accession
-    PROCESS_TRACKER_START(ch_accessions.map { it[0] }, process_type, process_id)
+    PROCESS_TRACKER_START(ch_accessions, process_type, process_id)
 
     // run sra-stat on accessions
     ch_sra_stat = SRA_STAT(ch_accessions)
