@@ -8,7 +8,7 @@ process PROCESS_TRACKER_START {
     val process_id
 
     script:
-    def experiment_id = "${accession}"
+    def experiment_id = "${sample}_${accession}"
     def organism = metadata.organism ?: ""
     """
     python3 ${projectDir}/bin/process_tracker_start.py \\
@@ -24,13 +24,14 @@ process PROCESS_TRACKER_FINISH {
     label "tracker_env"
     
     input:
+    val sample
     val accession
     val process_type
     val process_id
     val status
 
     script:
-    def experiment_id = "${accession}"
+    def experiment_id = "${sample}_${accession}"
     """
     python3 ${projectDir}/bin/process_tracker_finish.py \\
         --experiment_id ${experiment_id} \\

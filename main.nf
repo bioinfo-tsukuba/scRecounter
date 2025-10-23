@@ -43,13 +43,14 @@ workflow {
     // run STAR on all reads with selected parameters
     ch_star_results = STAR_FULL_WF(ch_accessions, ch_star_params)
 
-    // Process results from STAR_FULL_WF
-    // ch_star_results.success_results contains [sample, accession, status] where status=0 for success
+    // Process results from STAR_FULL_WF - 個別accessionでトラッキング
+    // ch_star_results.individual_results contains [sample, accession, status] for each accession
     PROCESS_TRACKER_FINISH(
-        ch_star_results.success_results.map { sample, accession, status -> accession },
+        ch_star_results.individual_results.map { sample, accession, status -> sample },
+        ch_star_results.individual_results.map { sample, accession, status -> accession },
         process_type, 
         process_id, 
-        ch_star_results.success_results.map { sample, accession, status -> status }
+        ch_star_results.individual_results.map { sample, accession, status -> status }
     )
 }
 

@@ -36,6 +36,10 @@ workflow STAR_FULL_WF{
     ch_fastq = ch_fastq.mix(ch_fastq_fallback)
     ch_fastq.count().view{ count -> "No. of fast(er)q-dump accessions: $count" }
 
+    // 個別accessionデータを保持（groupTuple前）
+    ch_individual_accessions = ch_fastq
+        .map{ sample, accession, metadata, R1, R2 -> [sample, accession, metadata] }
+
     // combine reads and star params
     ch_fastq = ch_fastq
         .map{ sample, accession, metadata, R1, R2 -> [sample, R1, R2] }
@@ -47,12 +51,26 @@ workflow STAR_FULL_WF{
     STAR_FULL(ch_fastq)
 
     emit:
-    // 成功したサンプルのリスト
-    success_results = STAR_FULL.out.gene_summary
-        .join(
-            ch_accessions.map { sample, accession, download_url, metadata, size -> [sample, accession] }
-        )
-        .map { sample, summary, accession -> [sample, accession, 0] } // [sample, accession, status=0]
+    // 個別accessionの結果（成功・失敗両方を追跡）
+    individual_results = STAR_FULL.out.status
+        .join(ch_individual_accessions.groupTuple(by: 0))  // sampleでグループ化されたaccessionとjoin
+        .flatMap { sample, exit_status, accessions, metadatas ->
+            // exit_statusに基づいて全accessionのステータスを設定
+            def results = []
+            def status = (exit_status as Integer) == 0 ? 0 : 1
+            for (int i = 0; i < accessions.size(); i++) {
+                results << [sample, accessions[i], status]  // [sample, accession, status]
+            }
+            return results
+        }
+    
+    // 既存互換性のためのsample集約結果（成功のみ）
+    success_results = individual_results
+        .filter { sample, accession, status -> status == 0 }
+        .groupTuple(by: 0)
+        .map { sample, accessions, statuses -> 
+            [sample, accessions[0], 0]  // 代表accessionを使用
+        }
 }
 
 process STAR_FULL {
@@ -61,7 +79,7 @@ process STAR_FULL {
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
     label "process_high"
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    errorStrategy 'ignore'  // エラーでもワークフローを継続
     disk { [request: (375 * (task.attempt > 1 ? 2 : 1)).GB, type: 'local-ssd'] }
     machineType { 
         def options = ['n2-*', 'n2d-*']
@@ -74,20 +92,24 @@ process STAR_FULL {
           val(cell_barcode_length), val(umi_length), val(strand)
 
     output: 
-    tuple val(sample), path("resultsSolo.out/Gene/Summary.csv"),                    emit: gene_summary
-    tuple val(sample), path("resultsSolo.out/GeneFull/Summary.csv"),                emit: gene_full_summary
-    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/Summary.csv"),        emit: gene_ex50_summary
-    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/Summary.csv"), emit: gene_ex_int_summary
-    tuple val(sample), path("resultsSolo.out/Velocyto/Summary.csv"),                emit: velocyto_summary
-    tuple val(sample), path("resultsSolo.out/*/raw/*"),                             emit: raw
+    tuple val(sample), path("resultsSolo.out/Gene/Summary.csv"),                    emit: gene_summary, optional: true
+    tuple val(sample), path("resultsSolo.out/GeneFull/Summary.csv"),                emit: gene_full_summary, optional: true
+    tuple val(sample), path("resultsSolo.out/GeneFull_Ex50pAS/Summary.csv"),        emit: gene_ex50_summary, optional: true
+    tuple val(sample), path("resultsSolo.out/GeneFull_ExonOverIntron/Summary.csv"), emit: gene_ex_int_summary, optional: true
+    tuple val(sample), path("resultsSolo.out/Velocyto/Summary.csv"),                emit: velocyto_summary, optional: true
+    tuple val(sample), path("resultsSolo.out/*/raw/*"),                             emit: raw, optional: true
     tuple val(sample), path("resultsSolo.out/*/filtered/*"),                        emit: filt, optional: true
     tuple val(sample), path("resultsSolo.out/*/*.stats.gz"),                        emit: stats, optional: true
     tuple val(sample), path("resultsSolo.out/*/*.txt.gz"),                          emit: txt, optional: true
+    tuple val(sample), env(EXIT_STATUS),                                            emit: status
     path "${task.process}.log",                                                     emit: "log"
 
     script:
     """
     echo "Running STAR for ${sample}" > ${task.process}.log
+    
+    # Initialize EXIT_STATUS
+    EXIT_STATUS=0
 
     R1=\$(printf "%s," input*_R1.fastq.gz)
     R1=\${R1%,} 
@@ -115,14 +137,22 @@ process STAR_FULL {
       --soloBarcodeReadLength 0 \\
       --outFileNamePrefix results \\
       2>&1 | tee -a ${task.process}.log
-
-
-    # gzip the results
-    mkdir -p resultsSolo.out
-    find resultsSolo.out -type f -name "*.stats" | xargs -P ${task.cpus} gzip
-    find resultsSolo.out -type f -name "*.txt" | xargs -P ${task.cpus} gzip
-    find resultsSolo.out -type f -name "*.tsv" | xargs -P ${task.cpus} gzip
-    find resultsSolo.out -type f -name "*.mtx" | xargs -P ${task.cpus} gzip
+    
+    # Capture STAR exit status
+    EXIT_STATUS=\$?
+    
+    if [ \$EXIT_STATUS -eq 0 ]; then
+        # gzip the results only on success
+        mkdir -p resultsSolo.out
+        find resultsSolo.out -type f -name "*.stats" | xargs -P ${task.cpus} gzip
+        find resultsSolo.out -type f -name "*.txt" | xargs -P ${task.cpus} gzip
+        find resultsSolo.out -type f -name "*.tsv" | xargs -P ${task.cpus} gzip
+        find resultsSolo.out -type f -name "*.mtx" | xargs -P ${task.cpus} gzip
+    else
+        # Create empty output directories on failure
+        mkdir -p resultsSolo.out/Gene resultsSolo.out/GeneFull resultsSolo.out/GeneFull_Ex50pAS resultsSolo.out/GeneFull_ExonOverIntron resultsSolo.out/Velocyto
+        echo "STAR failed with exit code \$EXIT_STATUS" >> ${task.process}.log
+    fi
     """
 }
 
