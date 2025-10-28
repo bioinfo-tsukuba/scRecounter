@@ -35,13 +35,31 @@ workflow {
     ch_accessions = addStats(ch_accessions, ch_sra_stat)
 
     // filter out any accessions with max SRA file size greater than the user-specified size
-    ch_accessions = ch_accessions.filter { it[4] <= params.max_sra_size }
+    // ch_accessions = ch_accessions.filter { it[4] <= params.max_sra_size }
+    ch_accessions
+        .branch { 
+            too_large: it[4] > params.max_sra_size
+            ok: it[4] <= params.max_sra_size  
+        }
+        .set { ch_accessions_branched }
+
+    // Call PROCESS_TRACKER_FINISH for excluded accessions
+    PROCESS_TRACKER_FINISH(
+        ch_accessions_branched.too_large.map { it[0] }, // sample
+        ch_accessions_branched.too_large.map { it[1] }, // accession
+        process_type,
+        process_id, 
+        Channel.value(1) // status 1 = skipped due to size limit
+    )
+
+    // Set channel for downstream processing
+    ch_accessions_ok = ch_accessions_branched.ok
     
     // determine best STAR parameters on a subset of reads
-    ch_star_params = STAR_PARAMS_WF(ch_accessions, ch_sra_stat)
+    ch_star_params = STAR_PARAMS_WF(ch_accessions_ok, ch_sra_stat)
 
     // run STAR on all reads with selected parameters
-    ch_star_results = STAR_FULL_WF(ch_accessions, ch_star_params)
+    ch_star_results = STAR_FULL_WF(ch_accessions_ok, ch_star_params)
 
     // Process results from STAR_FULL_WF - 個別accessionでトラッキング
     // ch_star_results.individual_results contains [sample, accession, status] for each accession
