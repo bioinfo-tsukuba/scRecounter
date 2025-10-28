@@ -17,7 +17,7 @@ workflow {
     if (params.accessions == "" || params.accessions == true) {
         // Obtain accessions from SRA
         println "No accessions provided. Accessions will be obtained from SRA."
-        ch_accessions = DB_ACC_WF()
+        // ch_accessions = DB_ACC_WF()
     } else {
         // Use the provided accessions
         println "Using provided accessions."

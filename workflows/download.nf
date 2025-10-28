@@ -54,9 +54,9 @@ process FASTQ_DUMP {
 
     script:
     """
-    export GCP_SQL_DB_HOST="${params.db_host}"
-    export GCP_SQL_DB_NAME="${params.db_name}"
-    export GCP_SQL_DB_USERNAME="${params.db_username}"
+    # export GCP_SQL_DB_HOST="${params.db_host}"
+    # export GCP_SQL_DB_NAME="${params.db_name}"
+    # export GCP_SQL_DB_USERNAME="${params.db_username}"
 
     fq-dump.py \\
       --sample ${sample} \\
@@ -79,5 +79,21 @@ process FASTQ_DUMP {
     """
     mkdir -p reads
     touch reads/${accession}_1.fastq.gz reads/${accession}_2.fastq.gz
+    
+    # Capture STAR exit status
+    EXIT_STATUS=\$?
+    
+    if [ \$EXIT_STATUS -eq 0 ]; then
+        # gzip the results only on success
+        mkdir -p resultsSolo.out
+        find resultsSolo.out -type f -name "*.stats" | xargs -P ${task.cpus} gzip
+        find resultsSolo.out -type f -name "*.txt" | xargs -P ${task.cpus} gzip
+        find resultsSolo.out -type f -name "*.tsv" | xargs -P ${task.cpus} gzip
+        find resultsSolo.out -type f -name "*.mtx" | xargs -P ${task.cpus} gzip
+    else
+        # Create empty output directories on failure
+        mkdir -p resultsSolo.out/Gene resultsSolo.out/GeneFull resultsSolo.out/GeneFull_Ex50pAS resultsSolo.out/GeneFull_ExonOverIntron resultsSolo.out/Velocyto
+        echo "STAR failed with exit code \$EXIT_STATUS" >> ${task.process}.log
+    fi
     """
 }
