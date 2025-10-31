@@ -35,28 +35,6 @@ class Bin:
     experiments: List[str]
     total_mb: float
 
-
-def load_sra_csv(path: str) -> pd.DataFrame:
-    df = pd.read_csv(
-        path,
-        usecols=["Experiment", "Run", "size_MB"],
-        dtype={"Experiment": "string", "Run": "string"},
-    )
-    df["size_MB"] = pd.to_numeric(df["size_MB"], errors="coerce")
-    if df["size_MB"].isna().any():
-        bad = int(df["size_MB"].isna().sum())
-        raise ValueError(f"Found {bad} rows with non-numeric size_MB")
-    return df
-
-
-def experiments_in_input_order(df: pd.DataFrame) -> List[str]:
-    return df["Experiment"].drop_duplicates(keep="first").tolist()
-
-
-def per_experiment_totals(df: pd.DataFrame) -> Dict[str, float]:
-    return df.groupby("Experiment", sort=False)["size_MB"].sum().to_dict()
-
-
 def pack_inorder(exp_order: List[str],
                  exp_totals: Dict[str, float],
                  limit_mb: float,
@@ -126,53 +104,60 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "-i",
-        "--input",
-        dest="input_csv",
-        required=True,
+        "-i", "--input",
+        dest="input_csv", required=True,
         help="Path to SraRunInfo.csv",
     )
     parser.add_argument(
-        "-l",
-        "--limit-gb",
-        dest="limit_gb",
-        type=float,
-        required=True,
-        help="Per-file size limit in GB (1 GB = 1000 MB)",
+        "-l", "--limit-gb",
+        dest="limit_gb", type=float,
+        required=True, help="Per-file size limit in GB (1 GB = 1000 MB)",
     )
     parser.add_argument(
-        "-p",
-        "--prefix",
-        dest="prefix",
-        required=True,
+        "-p", "--prefix",
+        dest="prefix", required=True,
         help="Output filename prefix (e.g., subset)",
     )
     parser.add_argument(
-        "-a",
-        "--allow-oversized",
+        "-a", "--allow-oversized",
         action="store_true",
         help="Place an oversized Experiment alone in its own file",
     )
     parser.add_argument(
-        "-o",
-        "--organism",
-        dest="organism",
-        default="human",
+        "-o", "--organism",
+        dest="organism", default="human",
         help='Value to write into the "organism" column (default: "human")',
     )
     return parser.parse_args(argv)
 
+# Main
 def main(argv: List[str] | None = None) -> int:
     args = parse_args(argv)
 
     limit_mb = args.limit_gb * 1000.0  # 1 GB = 1000 MB (fixed)
 
     # Dataframeの読み込み
-    df         = load_sra_csv(args.input_csv)
+    df         = pd.read_csv(
+        args.input_csv,
+        usecols=["Experiment", "Run", "size_MB", "TaxID"],
+        dtype={"Experiment": "string", "Run": "string", size_MB: "float", "TaxID": "Int64"},
+    )
+    # TaxID→organismのフィルタリング
+    if args.organism.lower() == "human":
+        df = df[df["organism"] == 9606]
+    elif args.organism.lower() == "mouse":
+        df = df[df["organism"] == 10090]
+    elif args.organism.lower() == "rat":
+        df = df[df["organism"] == 10116]
+    else:
+        print(f"Warning: Unrecognized organism '{args.organism}'. No filtering applied.", file=sys.stderr)
+    #  TaxID列の削除
+    df = df.drop(columns=["TaxID"])
+
     # Experiment list
-    exp_order  = experiments_in_input_order(df)
+    exp_order  = df["Experiment"].drop_duplicates(keep="first").tolist()
     # Experimentの合計サイズ
-    exp_totals = per_experiment_totals(df)
+    exp_totals = df.groupby("Experiment", sort=False)["size_MB"].sum().to_dict()
 
     # ファイルサイズごとにExperimentの分離
     bins = pack_inorder(exp_order,

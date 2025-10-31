@@ -30,6 +30,15 @@ def main():
         # Initialize ProcessTracker with local database connection
         tracker = ProcessTracker()
         
+        # 重複チェック
+        if tracker.check_existing_process(
+            experiment_id=args.experiment_id,
+            process_type=args.process_type,
+            process_id=args.process_id
+        ):
+            print(f"Process already exists, skipping: {args.experiment_id} - {args.process_type} - {args.process_id}")
+            return 0  # 正常終了として扱う
+        
         # Start process tracking
         process_id = tracker.start_process(
             experiment_id=args.experiment_id,

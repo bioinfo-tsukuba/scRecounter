@@ -27,6 +27,18 @@ class ProcessTracker:
         process_str = f"{experiment_id}_{process_type}_{process_id}"
         return process_str
 
+    def check_existing_process(self, experiment_id: str, process_type: str = "scRecounter", 
+                              process_id: Optional[str] = None) -> bool:
+        """既存のプロセスが存在するかチェック"""
+        id = self._generate_id(experiment_id, process_type, process_id)
+        
+        query = """
+        SELECT COUNT(*) as count FROM experiment_process 
+        WHERE id = %s
+        """
+        result = pd.read_sql(query, self.conn, params=[id])
+        return result['count'].iloc[0] > 0
+
     def start_process(self, experiment_id: str, process_type: str = "scRecounter", 
                      process_id: Optional[str] = None, path: Optional[str] = None,
                      srx_accession: Optional[str] = None, organism: Optional[str] = None) -> int:

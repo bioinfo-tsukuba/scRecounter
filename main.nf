@@ -27,12 +27,39 @@ workflow {
     // read accessions file
     ch_accessions = readAccessions(ch_accessions)
 
-    // Start process tracking for each accession
-    PROCESS_TRACKER_START(ch_accessions, process_type, process_id)
+    // Filter out accessions that already exist in the database
+    ch_accessions
+        .filter { sample, accession, download_url, metadata ->
+            def experiment_id = "${sample}_${accession}"
+            def check_result = null
+            try {
+                def proc = [
+                    'python3', "${projectDir}/bin/check_duplicate.py",
+                    '--experiment_id', experiment_id,
+                    '--process_type', process_type,
+                    '--process_id', process_id
+                ].execute()
+                proc.waitFor()
+                check_result = proc.exitValue() == 1 // 1 = duplicate exists, skip
+            } catch (Exception e) {
+                println "Warning: Failed to check duplicates for ${experiment_id}: ${e.message}"
+                check_result = false // エラー時は実行を継続
+            }
+            
+            if (check_result) {
+                println "Skipping duplicate: ${experiment_id}"
+                return false
+            }
+            return true
+        }
+        .set { ch_accessions_filtered }
 
-    // run sra-stat on accessions
-    ch_sra_stat = SRA_STAT(ch_accessions)
-    ch_accessions = addStats(ch_accessions, ch_sra_stat)
+    // Start process tracking for each accession (only non-duplicates)
+    PROCESS_TRACKER_START(ch_accessions_filtered, process_type, process_id)
+
+    // run sra-stat on accessions (use filtered accessions)
+    ch_sra_stat = SRA_STAT(ch_accessions_filtered)
+    ch_accessions = addStats(ch_accessions_filtered, ch_sra_stat)
 
     // filter out any accessions with max SRA file size greater than the user-specified size
     // ch_accessions = ch_accessions.filter { it[4] <= params.max_sra_size }
