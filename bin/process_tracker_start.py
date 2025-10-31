@@ -36,7 +36,7 @@ def main():
             process_type=args.process_type,
             process_id=args.process_id
         ):
-            print(f"Process already exists, skipping: {args.experiment_id} - {args.process_type} - {args.process_id}")
+            print("SKIP", end="")  # Nextflowで判定できるよう標準出力に出力
             return 0  # 正常終了として扱う
         
         # Start process tracking
@@ -49,8 +49,7 @@ def main():
             organism=args.organism
         )
         
-        print(f"Process tracking started: {args.experiment_id} - {args.process_type} - {args.process_id}")
-        print(f"Database record ID: {process_id}")
+        print("PROCEED", end="")  # Nextflowで判定できるよう標準出力に出力
         
         return 0
         

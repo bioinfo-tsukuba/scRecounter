@@ -7,6 +7,9 @@ process PROCESS_TRACKER_START {
     val process_type
     val process_id
 
+    output:
+    tuple val(sample), val(accession), val(download_url), val(metadata), stdout
+
     script:
     def experiment_id = "${sample}_${accession}"
     def organism = metadata.organism ?: ""

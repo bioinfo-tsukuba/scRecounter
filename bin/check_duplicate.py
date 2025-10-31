@@ -32,10 +32,10 @@ def main():
         )
         
         if exists:
-            print(f"Duplicate found: {args.experiment_id}")
+            print(f"Already exist: {args.experiment_id}_{args.process_type}_{args.process_id}\n Skip execution.")
             sys.exit(1)  # 重複あり
         else:
-            print(f"No duplicate: {args.experiment_id}")
+            print(f"New data: {args.experiment_id}_{args.process_type}_{args.process_id}\n Proceed execution.")
             sys.exit(0)  # 重複なし
             
     except Exception as e:

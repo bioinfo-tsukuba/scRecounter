@@ -27,37 +27,23 @@ workflow {
     // read accessions file
     ch_accessions = readAccessions(ch_accessions)
 
-    // Filter out accessions that already exist in the database
-    ch_accessions
-        .filter { sample, accession, download_url, metadata ->
-            def experiment_id = "${sample}_${accession}"
-            def check_result = null
-            try {
-                def proc = [
-                    'python3', "${projectDir}/bin/check_duplicate.py",
-                    '--experiment_id', experiment_id,
-                    '--process_type', process_type,
-                    '--process_id', process_id
-                ].execute()
-                proc.waitFor()
-                check_result = proc.exitValue() == 1 // 1 = duplicate exists, skip
-            } catch (Exception e) {
-                println "Warning: Failed to check duplicates for ${experiment_id}: ${e.message}"
-                check_result = false // エラー時は実行を継続
+    // Start process tracking for each accession (duplicate check is handled in PROCESS_TRACKER_START)
+    ch_tracker_results = PROCESS_TRACKER_START(ch_accessions, process_type, process_id)
+
+    // Filter out skipped accessions based on tracker results
+    ch_accessions_filtered = ch_tracker_results
+        .filter { sample, accession, download_url, metadata, tracker_output ->
+            def should_proceed = tracker_output.trim() == "PROCEED"
+            if (!should_proceed) {
+                println "Skipping duplicate: ${sample}_${accession}"
             }
-            
-            if (check_result) {
-                println "Skipping duplicate: ${experiment_id}"
-                return false
-            }
-            return true
+            return should_proceed
         }
-        .set { ch_accessions_filtered }
+        .map { sample, accession, download_url, metadata, tracker_output ->
+            [sample, accession, download_url, metadata]
+        }
 
-    // Start process tracking for each accession (only non-duplicates)
-    PROCESS_TRACKER_START(ch_accessions_filtered, process_type, process_id)
-
-    // run sra-stat on accessions (use filtered accessions)
+    // run sra-stat on accessions (only non-duplicates)
     ch_sra_stat = SRA_STAT(ch_accessions_filtered)
     ch_accessions = addStats(ch_accessions_filtered, ch_sra_stat)
 
