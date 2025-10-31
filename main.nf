@@ -12,7 +12,12 @@ include { readAccessions; addStats; } from './lib/utils.groovy'
 workflow { 
     // Initialize ProcessTracker for experiment tracking
     process_type = "scRecounter"
-    process_id = "version_0.1"
+    // Read version from VERSION file
+    version_file = file("${projectDir}/VERSION")
+    process_id = version_file.text.trim()
+    
+    // Debug: Print version being used
+    println "DEBUG: Using process_id: ${process_id}"
     
     if (params.accessions == "" || params.accessions == true) {
         // Obtain accessions from SRA
@@ -56,15 +61,6 @@ workflow {
         }
         .set { ch_accessions_branched }
 
-    // Call PROCESS_TRACKER_FINISH for excluded accessions
-    PROCESS_TRACKER_FINISH(
-        ch_accessions_branched.too_large.map { it[0] }, // sample
-        ch_accessions_branched.too_large.map { it[1] }, // accession
-        process_type,
-        process_id, 
-        Channel.value(1) // status 1 = skipped due to size limit
-    )
-
     // Set channel for downstream processing
     ch_accessions_ok = ch_accessions_branched.ok
     
@@ -74,14 +70,22 @@ workflow {
     // run STAR on all reads with selected parameters
     ch_star_results = STAR_FULL_WF(ch_accessions_ok, ch_star_params)
 
-    // Process results from STAR_FULL_WF - 個別accessionでトラッキング
-    // ch_star_results.individual_results contains [sample, accession, status] for each accession
+    // Combine results: excluded accessions (status 1) and STAR results
+    ch_excluded_results = ch_accessions_branched.too_large
+        .map { sample, accession, download_url, metadata, size -> 
+            [sample, accession, 1] // status 1 = skipped due to size limit
+        }
+    
+    ch_all_results = ch_star_results.individual_results
+        .mix(ch_excluded_results)
+
+    // Process all results with single PROCESS_TRACKER_FINISH call
     PROCESS_TRACKER_FINISH(
-        ch_star_results.individual_results.map { sample, accession, status -> sample },
-        ch_star_results.individual_results.map { sample, accession, status -> accession },
+        ch_all_results.map { sample, accession, status -> sample },
+        ch_all_results.map { sample, accession, status -> accession },
         process_type, 
         process_id, 
-        ch_star_results.individual_results.map { sample, accession, status -> status }
+        ch_all_results.map { sample, accession, status -> status }
     )
 }
 

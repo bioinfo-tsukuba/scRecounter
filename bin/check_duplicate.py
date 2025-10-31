@@ -13,7 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description='Check for duplicate process tracking')
     parser.add_argument('--experiment_id', required=True, help='Unique experiment identifier')
     parser.add_argument('--process_type', default='scRecounter', help='Process type (default: scRecounter)')
-    parser.add_argument('--process_id', default='version_0.1', help='Process ID (default: version_0.1)')
+    parser.add_argument('--process_id', help='Process ID (will read from VERSION file if not provided)')
     
     args = parser.parse_args()
     
@@ -22,6 +22,15 @@ def main():
     project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env_file = os.path.join(project_dir, '.env.local')
     load_dotenv(env_file)
+    
+    # Read version from VERSION file if not provided
+    if not args.process_id:
+        version_file = os.path.join(project_dir, 'VERSION')
+        try:
+            with open(version_file, 'r') as f:
+                args.process_id = f.read().strip()
+        except FileNotFoundError:
+            args.process_id = 'version_0.1'  # fallback
     
     try:
         tracker = ProcessTracker()

@@ -1,5 +1,5 @@
 organism,star_index
-human,/home/kariyayama/CellIO/Reference/Reference/gencode.v49/Index
-mouse,/home/kariyayama/CellIO/Reference/Reference/GRCm39/Index
-rat,/home/kariyayama/CellIO/Reference/Reference/GRCr8/Index
+human,/home/kariyayama/CellIO/Reference/gencode.v49/Index
+mouse,/home/kariyayama/CellIO/Reference/GRCm39/Index
+rat,/home/kariyayama/CellIO/Reference/GRCr8/Index
 

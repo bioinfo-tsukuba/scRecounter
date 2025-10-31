@@ -69,7 +69,16 @@ class ProcessTracker:
                       error_message: Optional[str] = None):
         """プロセス完了"""
         if process_id is None:
-            process_id = "version_0.1"
+            # Read version from VERSION file if not provided
+            import os
+            try:
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                project_dir = os.path.dirname(script_dir)
+                version_file = os.path.join(project_dir, 'VERSION')
+                with open(version_file, 'r') as f:
+                    process_id = f.read().strip()
+            except FileNotFoundError:
+                process_id = "version_0.1"  # fallback
         id = self._generate_id(experiment_id, process_type, process_id)
         finish_time = datetime.now()
         
