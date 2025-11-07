@@ -1,14 +1,11 @@
 # Run the Nextflow pipeline with the specified parameters
-dataset_dir="${HOME}/CellIO/cell-io-mappingctl/data/sra_metadata_split"
+dataset_dir="${HOME}/CellIO/cell-io-mappingctl/data/sra_metadata_split_url"
 tmp_dir="/data01/kariyayama/CellIO/tmp"
 
 version=`cat VERSION`
-target_acc="1_brain_20251007_085438_human_166_urls"
+target_acc="15_pons_20251104_181944_mouse_PAIRED_019_urls"
 acc_file="${dataset_dir}/${target_acc}.csv"
-# target_acc="250825_test_set_ddbj"
-# acc_file=`pwd`/${target_acc}.csv
 
-# outprefix="${HOME}/CellIO/251031_test_set_ddbj"
 outprefix="/cell-io/${version}/${target_acc}"
 cur_tmp="${tmp_dir}/work_${target_acc}"
 

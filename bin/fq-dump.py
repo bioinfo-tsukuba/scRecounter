@@ -115,9 +115,9 @@ def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, 
 
     # Handle only 1 file
     if num_files == 1:
-        logging.info("Only one read file found; renaming to read_1.fastq")
+        logging.info("Only one read file found; renaming to read_1.fastq.gz")
         old_name = list(read_lens_filt.keys())[0]
-        new_name = os.path.join(outdir, "read_1.fastq")
+        new_name = os.path.join(outdir, "read_1.fastq.gz")
 
         if old_name == new_name:
             raise ValueError(f"New fastq name is the same as old name: {new_name}")
