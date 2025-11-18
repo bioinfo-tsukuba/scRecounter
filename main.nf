@@ -33,7 +33,7 @@ workflow {
     ch_accessions = readAccessions(ch_accessions)
 
     // Start process tracking for each accession (duplicate check is handled in PROCESS_TRACKER_START)
-    ch_tracker_results = PROCESS_TRACKER_START(ch_accessions, process_type, process_id)
+    ch_tracker_results = PROCESS_TRACKER_START(ch_accessions, process_type, process_id, params.accessions)
 
     // Filter out skipped accessions based on tracker results
     ch_accessions_filtered = ch_tracker_results

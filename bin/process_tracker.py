@@ -41,7 +41,8 @@ class ProcessTracker:
 
     def start_process(self, experiment_id: str, process_type: str = "scRecounter", 
                      process_id: Optional[str] = None, path: Optional[str] = None,
-                     srx_accession: Optional[str] = None, organism: Optional[str] = None) -> int:
+                     srx_accession: Optional[str] = None, organism: Optional[str] = None,
+                     accessions_file: Optional[str] = None) -> int:
         """プロセス開始時に呼び出し、新しいレコードを作成"""
         id = self._generate_id(experiment_id, process_type, process_id)
         
@@ -55,7 +56,8 @@ class ProcessTracker:
             'process_id': process_id,
             'path': path,
             'start_datetime': datetime.now(),
-            'status': None  # 実行中
+            'status': None,  # 実行中
+            'accessions_file': accessions_file
         }])
         
         # print("DEBUG: DataFrame columns:", process_data.columns.tolist())

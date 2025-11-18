@@ -6,6 +6,7 @@ process PROCESS_TRACKER_START {
     tuple val(sample), val(accession), val(download_url), val(metadata)
     val process_type
     val process_id
+    val accessions_file
 
     output:
     tuple val(sample), val(accession), val(download_url), val(metadata), stdout
@@ -19,7 +20,8 @@ process PROCESS_TRACKER_START {
         --process_type ${process_type} \\
         --process_id ${process_id} \\
         --srx_accession ${accession} \\
-        --organism "${organism}"
+        --organism "${organism}" \\
+        --accessions_file "${accessions_file}"
     """
 }
 

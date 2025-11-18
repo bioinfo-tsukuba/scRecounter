@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--path', help='Optional path information')
     parser.add_argument('--srx_accession', help='SRX accession number')
     parser.add_argument('--organism', help='Organism name')
+    parser.add_argument('--accessions_file', help='Accessions file path')
     
     args = parser.parse_args()
     
@@ -55,7 +56,8 @@ def main():
             process_id=args.process_id,
             path=args.path,
             srx_accession=args.srx_accession,
-            organism=args.organism
+            organism=args.organism,
+            accessions_file=args.accessions_file
         )
         
         print("PROCEED", end="")  # Nextflowで判定できるよう標準出力に出力
