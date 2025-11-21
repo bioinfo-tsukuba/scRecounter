@@ -6,12 +6,12 @@ version=`cat VERSION`
 target_label="3_telencephalon_20251104_181829"
 
 # create analysis target list
-ls ${dataset_dir}/${target_label}_* | \
-    xargs wc -l | \
-    awk '{if($1 > 1) print $2}' | \
-    grep PAIRED | \
-    grep -v .not_found.csv \
-    > 251107_analysis_target_${target_label}.txt
+# ls ${dataset_dir}/${target_label}_* | \
+#     xargs wc -l | \
+#     awk '{if($1 > 1) print $2}' | \
+#     grep PAIRED | \
+#     grep -v .not_found.csv \
+#     > 251107_analysis_target_${target_label}.txt
 
 # target_acc="26_immune_20251104_182046_human_PAIRED_1028_urls"
 cat 251107_analysis_target_${target_label}.txt | \
