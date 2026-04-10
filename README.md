@@ -138,7 +138,7 @@ Example format:
 | human    | /PATH/TO/genomes/Index        |
 | mouse    | /PATH/TO/genomes/Index  |
 
-You need to prepare index files. 
+You need to prepare index files using STAR. 
 We downloaded the genome annotations from gencode.
 
 Prepare STAR index
