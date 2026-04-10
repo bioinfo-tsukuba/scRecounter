@@ -1,19 +1,22 @@
 scRecounter
 ===========
 
+# This code folked from https://github.com/ArcInstitute/scRecounter
+
 A Nextflow pipeline to re-process single-cell RNA-seq data from the Sequence Read Archive (SRA) with integrated process tracking and error handling.
 
 # Workflow
 
 * **User provides:**
   * A table of samples & associated accessions (CSV format)
-    * Alternatively, the pipeline can pull accessions from the scRecounter SQL database
   * Associated files required:
-    * A table of barcodes to use for cell barcode and UMI identification (`barcodes.csv`)
-    * A table of STAR index directories to use for mapping (`star_indices.csv`)
+    * A table of barcodes to use for cell barcode and UMI identification (`data/barcodes.csv`)
+    * A table of STAR index directories to use for mapping (`data/star_indices.csv`)
+    * A .env.local file including DB information
+
 * **Pipeline:**
-  * Initialize process tracking for experiment monitoring (optional)
-  * Load accessions from provided table or SQL database
+  * Initialize process tracking for experiment monitoring in SQL
+  * Load accessions from provided table
   * Run `sra-stat` to check file sizes and filter out files exceeding the maximum size limit
   * For each accession:
     * Use `fastq-dump` to download a subset of reads as fastq files from the SRA
@@ -23,10 +26,10 @@ A Nextflow pipeline to re-process single-cell RNA-seq data from the Sequence Rea
     * Download all reads with `fasterq-dump`
       * If download fails, try again with `fastq-dump` using a max of `fallback_max_spots` reads (see `nextflow.config`)
     * Map the reads with STARsolo using the "best" STAR parameters
-  * Track individual accession results and completion status
+  * Track individual accession results and completion status in SQL
 
 # Manuscript
-
+## Original paper
 **scBaseCamp: An AI agent-curated, uniformly processed, and continually expanding single cell data repository**.
 Nicholas D Youngblut, Christopher Carpenter, Jaanak Prashar, Chiara Ricci-Tam, Rajesh Ilango, Noam Teyssier,
 Silvana Konermann, Patrick Hsu, Alexander Dobin, David P Burke, Hani Goodarzi, Yusuf H Roohani.
@@ -63,7 +66,7 @@ All other dependencies will be installed by Nextflow.
 ### Clone the repo
 
 ```bash
-git clone https://github.com/ArcInstitute/scRecounter.git \
+git clone https://github.com/bioinfo-tsukuba/scRecounter \
   && cd scRecounter
 ```
 
@@ -73,13 +76,6 @@ The pipeline uses conda environments to manage dependencies.
 Nextflow will automatically create the environments as long as `mamba` is installed.
 
 **Note:** it can take a while to create the environments, even with `mamba`.
-
-### Pipeline Docker containers (if running on GCP) 
-
-The pipeline defaults to using custom Docker containers hosted on Google Artifact Registry.
-
-You can build the Docker containers yourself. See [./docker/README.md](./docker/README.md) for details.
-Be sure to update the [profiles.config](./config/profiles.config) file to point to the new containers.
 
 # Usage
 
@@ -95,7 +91,7 @@ Key parameters in `nextflow.config`:
 
 ## Input Files
 
-### Accessions table (Optional)
+### Accessions table (Required)
 
 CSV file listing samples and their associated SRA experiment accessions.
 
@@ -109,7 +105,15 @@ Example format:
 | SRX22716300 | SRR27024456 | human    |
 | SRX25994842 | SRR30571763 | mouse    |
 
-> The `organism` column is optional and helps reduce parameter search space by pre-filtering STAR indices.
+or 
+
+| sample | accession | download_url | organism |
+|-------------|-------------|----------|----------|
+| SRX12280794 | SRR15992285 | https://ddbj.nig.ac.jp/public/ddbj_database/dra/sralite/ByExp/litesra/SRX/SRX122/SRX12280794/SRR15992285/SRR15992285.sra | human
+| SRX12101437 | SRR15808974 | https://ddbj.nig.ac.jp/public/ddbj_database/dra/sralite/ByExp/litesra/SRX/SRX121/SRX12101437/SRR15808974/SRR15808974.sra | human
+| SRX12101437 | SRR15808975 | https://ddbj.nig.ac.jp/public/ddbj_database/dra/sralite/ByExp/litesra/SRX/SRX121/SRX12101437/SRR15808975/SRR15808975.sra | human
+
+If you provide download_url, scRecounter tries to download from the url.
 
 ### Barcode table (Required)
 
@@ -131,10 +135,25 @@ Example format:
 
 | Organism | Star Index Path                                                                   |
 |----------|-----------------------------------------------------------------------------------|
-| human    | /large_storage/goodarzilab/public/scRecount/genomes/star_refData_2020_hg38        |
-| mouse    | /large_storage/goodarzilab/public/scRecount/genomes/star2.7.11_refData_2020_mm10  |
+| human    | /PATH/TO/genomes/Index        |
+| mouse    | /PATH/TO/genomes/Index  |
 
-> When `organism` is specified in the accessions table, only matching STAR indices are tested, reducing computation time.
+You need to prepare index files. 
+We downloaded the genome annotations from gencode.
+
+Prepare STAR index
+```bash
+STAR --runMode genomeGenerate \
+    --runThreadN 20 \
+    --genomeDir "Index/" \
+    --genomeFastaFiles "path/to/genome.fa" \
+    --genomeSAindexNbases 14 \
+    --genomeChrBinNbits 18 \
+    --genomeSAsparseD 3 \
+    --limitGenomeGenerateRAM 17179869184 \
+    --sjdbGTFfile "path/to/gtf" \
+    --sjdbOverhang 100
+```
 
 ## Running the Pipeline
 
@@ -144,42 +163,33 @@ Example format:
 ```bash
 nextflow run main.nf \
   -work-dir tmp/work \
-  -profile conda,trace,report,vm,vm_dev,dev,acc_dev \
+  -profile conda,trace,report,vm,vm_dev,dev \
   --accessions data/my_accessions.csv
-```
-
-**Local execution using database accessions:**
-```bash
-nextflow run main.nf \
-  -work-dir tmp/work \
-  -profile conda,trace,report,vm,vm_dev,dev,no_acc_dev
-```
-
-**GCP execution with Docker containers:**
-```bash
-nextflow run main.nf \
-  -profile docker,trace,report,gcp,gcp_dev,dev,acc_dev \
-  --accessions gs://my-bucket/accessions.csv \
-  --output_dir gs://my-bucket/results/
 ```
 
 ### Testing and Development
 
 **Small test with problematic datasets:**
+Use sample ID
 ```bash
 nextflow run main.nf \
   -work-dir tmp/work \
   -profile conda,trace,report,vm,vm_dev,dev,acc_dev_problems
+  --barcodes     path/to/barcodes.csv     \
+  --star_indices path/to/star_indices.csv \
+  --accessions   data/accessions_small_n3.csv \
+  --output_dir   OUTPUTDIR
 ```
 
-**Parameter characterization (small subset):**
+Use URL
 ```bash
 nextflow run main.nf \
   -work-dir tmp/work \
-  -profile conda,trace,report,vm,vm_dev,dev \
-  --max_spots 100000 \
-  --accessions data/test_accessions.csv \
-  --define true
+  -profile conda,trace,report,vm,vm_dev,dev,acc_dev_problems
+  --barcodes     path/to/barcodes.csv     \
+  --star_indices path/to/star_indices.csv \
+  --accessions   data/accessions_url_n6.csv \
+  --output_dir   OUTPUTDIR
 ```
 
 ### Advanced Configuration
@@ -195,39 +205,34 @@ nextflow run main.nf \
   --output_dir custom_results/
 ```
 
-### Cloud Deployment
-
-For GCP Cloud Run deployment, see [./docker/sc-recounter-run/README.md](./docker/sc-recounter-run/README.md).
-
-
-# Process Tracking (Optional)
+# Process Tracking
 
 scRecounter includes optional PostgreSQL-based process tracking for monitoring pipeline execution status. This feature tracks experiment progress and error states in a local database.
 
 ## Process Tracking Setup
 
-1. **Install PostgreSQL:**
+1. **Prepare PostgreSQL:**
 ```bash
-sudo apt update
-sudo apt install postgresql postgresql-contrib
+docker pull pg16
+docker compose up -d
 ```
 
 2. **Create database and user:**
 ```bash
-sudo -u postgres createdb experimentprocess
-sudo -u postgres createuser cellio
-sudo -u postgres psql -c "ALTER USER cellio PASSWORD 'cEllIo_process';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE experimentprocess TO cellio;"
+sudo -u postgres createdb DATABASE_NAME
+sudo -u postgres createuser USER_NAME
+sudo -u postgres psql -c "ALTER USER USER_NAME PASSWORD 'PASSWORD';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE experimentprocess TO USER_NAME;"
 ```
 
 3. **Configure environment:**
 The `.env.local` file contains database connection settings:
 ```
 LOCAL_DB_HOST=localhost
-LOCAL_DB_NAME=experimentprocess
-LOCAL_DB_USER=cellio
-LOCAL_DB_PASSWORD=cEllIo_process
-LOCAL_DB_PORT=5432
+LOCAL_DB_NAME=DATABASE_NAME
+LOCAL_DB_USER=USER_NAME
+LOCAL_DB_PASSWORD=PASSWORD
+LOCAL_DB_PORT=PORT_ID
 ```
 
 4. **Enable tracking:**
@@ -257,8 +262,3 @@ results/
 ├── nf-report/
 └── nf-trace/
 ```
-
-# Contributing
-
-Feel free to fork the repository and submit a pull request. 
-The priority is maintaining compatibility with the ongoing scBaseCamp project.
