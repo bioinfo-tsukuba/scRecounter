@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16
+    container_name: pg16
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: PLEASE_SET_ADMIN_PASSWARD
+      POSTGRES_DB: appdb
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./db:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - ./data:/data:ro
+      - ./sql:/sql:ro
+    command: ["postgres","-c","password_encryption=scram-sha-256"]
+    restart: unless-stopped
