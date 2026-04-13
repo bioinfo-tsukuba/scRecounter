@@ -135,8 +135,8 @@ Example format:
 
 | Organism | Star Index Path                                                                   |
 |----------|-----------------------------------------------------------------------------------|
-| human    | /PATH/TO/genomes/Index        |
-| mouse    | /PATH/TO/genomes/Index  |
+| human    | /path/to/genomes/Index        |
+| mouse    | /path/to/genomes/Index  |
 
 You need to prepare index files using STAR. 
 We downloaded the genome annotations from gencode.
@@ -155,13 +155,50 @@ STAR --runMode genomeGenerate \
     --sjdbOverhang 100
 ```
 
+## Process Tracking
+
+scRecounter includes PostgreSQL-based process tracking for monitoring pipeline execution status. This feature tracks experiment progress and error states in a local database.
+
+### Process Tracking Setup (Required)
+
+1. **Prepare PostgreSQL:**
+```bash
+docker pull postgres:16
+docker compose up -d
+```
+
+2. **Create database and user:**
+```bash
+# Add account
+psql "host=localhost user=admin dbname=appdb password=PLEASE_SET_ADMIN_PASSWARD" -c "CREATE USER YOURACCOUNT WITH PASSWORD 'YOURPASSWORD';"
+# Add table
+psql "host=localhost user=admin dbname=appdb password=PLEASE_SET_ADMIN_PASSWARD" -c "CREATE TABLE IF NOT EXISTS public.experiment_process (id text primary key, experiment_id text, srx_accession text, organism text, analysis_date date, process_type text, status integer, start_datetime timestamp, finish_datetime timestamp, path text, process_id text, accessions_file text);"
+# Add permission
+psql "host=localhost user=admin dbname=appdb password=PLEASE_SET_ADMIN_PASSWARD" -c "GRANT SELECT, INSERT, UPDATE, DELETE ON public.experiment_process TO YOURACCOUNT;"
+```
+
+3. **Configure environment:**
+The `.env.local` file contains database connection settings:
+```
+LOCAL_DB_HOST=localhost
+LOCAL_DB_NAME=appdb
+LOCAL_DB_USER=USER_NAME
+LOCAL_DB_PASSWORD=PASSWORD
+LOCAL_DB_PORT=PORT_ID
+```
+
+4. **Enable tracking:**
+Process tracking is currently implemented but commented out in `main.nf`. To enable, uncomment the relevant PROCESS_TRACKER sections.
+
+For detailed process tracking documentation, see [PROCESS_TRACKER_INTEGRATION.md](./PROCESS_TRACKER_INTEGRATION.md).
+
 ## Running the Pipeline
 
 ### Basic Usage
 
 **Local execution with provided accessions:**
 ### Run command example in Cell-IO mapping
-**Small test with problematic datasets:**
+**Small test:**
 Use sample ID
 ```bash
 nextflow run main.nf \
@@ -183,41 +220,6 @@ nextflow run main.nf \
   --accessions   data/accessions_url_n6.csv \
   --output_dir   OUTPUTDIR
 ```
-
-# Process Tracking
-
-scRecounter includes optional PostgreSQL-based process tracking for monitoring pipeline execution status. This feature tracks experiment progress and error states in a local database.
-
-## Process Tracking Setup (Required)
-
-1. **Prepare PostgreSQL:**
-```bash
-docker pull pg16
-docker compose up -d
-```
-
-2. **Create database and user:**
-```bash
-sudo -u postgres createdb DATABASE_NAME
-sudo -u postgres createuser USER_NAME
-sudo -u postgres psql -c "ALTER USER USER_NAME PASSWORD 'PASSWORD';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE experimentprocess TO USER_NAME;"
-```
-
-3. **Configure environment:**
-The `.env.local` file contains database connection settings:
-```
-LOCAL_DB_HOST=localhost
-LOCAL_DB_NAME=DATABASE_NAME
-LOCAL_DB_USER=USER_NAME
-LOCAL_DB_PASSWORD=PASSWORD
-LOCAL_DB_PORT=PORT_ID
-```
-
-4. **Enable tracking:**
-Process tracking is currently implemented but commented out in `main.nf`. To enable, uncomment the relevant PROCESS_TRACKER sections.
-
-For detailed process tracking documentation, see [PROCESS_TRACKER_INTEGRATION.md](./PROCESS_TRACKER_INTEGRATION.md).
 
 # Output Structure
 
