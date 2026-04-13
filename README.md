@@ -123,9 +123,9 @@ Example format:
 
 | name             | cell_barcode_length | umi_length | file_path                                                                |
 |------------------|---------------------|------------|--------------------------------------------------------------------------|
-| 737K-arc-v1      | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-arc-v1.txt      |
-| 737K-august-2016 | 16                  | 12         | /large_storage/goodarzilab/public/scRecount/genomes/737K-august-2016.txt |
-| 3M-february-2018 | 16                  | 10         | /large_storage/goodarzilab/public/scRecount/genomes/3M-february-2018.txt |
+| 737K-arc-v1      | 16                  | 12         | /path/to/barcodes/737K-arc-v1.txt      |
+| 737K-august-2016 | 16                  | 12         | /path/to/barcodes/737K-august-2016.txt |
+| 3M-february-2018 | 16                  | 10         | /path/to/barcodes/3M-february-2018.txt |
 
 ### STAR index table (Required)
 
@@ -160,15 +160,7 @@ STAR --runMode genomeGenerate \
 ### Basic Usage
 
 **Local execution with provided accessions:**
-```bash
-nextflow run main.nf \
-  -work-dir tmp/work \
-  -profile conda,trace,report,vm,vm_dev,dev \
-  --accessions data/my_accessions.csv
-```
-
-### Testing and Development
-
+### Run command example in Cell-IO mapping
 **Small test with problematic datasets:**
 Use sample ID
 ```bash
@@ -192,24 +184,11 @@ nextflow run main.nf \
   --output_dir   OUTPUTDIR
 ```
 
-### Advanced Configuration
-
-**Custom parameters:**
-```bash
-nextflow run main.nf \
-  -profile conda,trace,report \
-  --max_samples 10 \
-  --max_sra_size 500 \
-  --min_read_len 30 \
-  --organisms "human" \
-  --output_dir custom_results/
-```
-
 # Process Tracking
 
 scRecounter includes optional PostgreSQL-based process tracking for monitoring pipeline execution status. This feature tracks experiment progress and error states in a local database.
 
-## Process Tracking Setup
+## Process Tracking Setup (Required)
 
 1. **Prepare PostgreSQL:**
 ```bash
