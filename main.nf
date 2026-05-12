@@ -8,14 +8,15 @@ include { PROCESS_TRACKER_START; PROCESS_TRACKER_FINISH } from './workflows/proc
 // util functions
 include { readAccessions; addStats; } from './lib/utils.groovy'
 
+// スクリプトレベルで process_id を定義（workflow.onComplete からアクセスするため）
+def _process_id = file("${projectDir}/VERSION").text.trim()
+
 // Main workflow
-workflow { 
+workflow {
     // Initialize ProcessTracker for experiment tracking
     process_type = "scRecounter"
-    // Read version from VERSION file
-    version_file = file("${projectDir}/VERSION")
-    process_id = version_file.text.trim()
-    
+    process_id = _process_id
+
     // Debug: Print version being used
     println "DEBUG: Using process_id: ${process_id}"
     
@@ -93,4 +94,20 @@ workflow {
 workflow.onComplete {
     println "Pipeline completed at: $workflow.complete"
     println "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
+
+    // チャンネルドロップ（errorStrategy 'ignore' による失敗など）で
+    // PROCESS_TRACKER_FINISH が呼ばれなかった accession を確実に終了状態にする。
+    // status=2 のままのレコードのみ対象のため、正常完了済みレコードは上書きされない。
+    def since = workflow.start.format("yyyy-MM-dd'T'HH:mm:ss")
+    def cmd = [
+        "python3", "${projectDir}/bin/process_tracker_interrupt.py",
+        "--process_type", "scRecounter",
+        "--process_id", _process_id,
+        "--since", since
+    ]
+    def proc = cmd.execute()
+    proc.waitFor()
+    if (proc.exitValue() != 0) {
+        println "WARNING: Failed to mark interrupted processes: ${proc.err.text}"
+    }
 }

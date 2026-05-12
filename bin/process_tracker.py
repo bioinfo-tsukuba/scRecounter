@@ -27,42 +27,43 @@ class ProcessTracker:
         process_str = f"{experiment_id}_{process_type}_{process_id}"
         return process_str
 
-    def check_existing_process(self, experiment_id: str, process_type: str = "scRecounter", 
+    def check_existing_process(self, experiment_id: str, process_type: str = "scRecounter",
                               process_id: Optional[str] = None) -> bool:
-        """既存のプロセスが存在するかチェック"""
+        """正常完了済みのプロセスのみ存在チェック（status=1/2は再実行対象のためFalseを返す）"""
         id = self._generate_id(experiment_id, process_type, process_id)
-        
+
         query = """
-        SELECT COUNT(*) as count FROM experiment_process 
-        WHERE id = %s
+        SELECT COUNT(*) as count FROM experiment_process
+        WHERE id = %s AND status = 0
         """
         result = pd.read_sql(query, self.conn, params=[id])
         return result['count'].iloc[0] > 0
 
-    def start_process(self, experiment_id: str, process_type: str = "scRecounter", 
+    def start_process(self, experiment_id: str, process_type: str = "scRecounter",
                      process_id: Optional[str] = None, path: Optional[str] = None,
                      srx_accession: Optional[str] = None, organism: Optional[str] = None,
-                     accessions_file: Optional[str] = None) -> int:
-        """プロセス開始時に呼び出し、新しいレコードを作成"""
+                     accessions_file: Optional[str] = None) -> str:
+        """プロセス開始時に呼び出し、新しいレコードを作成または再実行用にリセット"""
         id = self._generate_id(experiment_id, process_type, process_id)
-        
-        process_data = pd.DataFrame([{
-            'id': id,
-            'experiment_id': experiment_id,
-            'srx_accession': srx_accession,
-            'organism': organism,
-            'analysis_date': datetime.now().date(),
-            'process_type': process_type,
-            'process_id': process_id,
-            'path': path,
-            'start_datetime': datetime.now(),
-            'status': None,  # 実行中
-            'accessions_file': accessions_file
-        }])
-        
-        # print("DEBUG: DataFrame columns:", process_data.columns.tolist())
-        # print("DEBUG: DataFrame values:", process_data.values.tolist())
-        db_upsert(process_data, 'experiment_process', self.conn)
+        now = datetime.now()
+
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO experiment_process
+                    (id, experiment_id, srx_accession, organism, analysis_date,
+                     process_type, process_id, path, start_datetime, status, accessions_file)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    start_datetime  = EXCLUDED.start_datetime,
+                    status          = EXCLUDED.status,
+                    finish_datetime = NULL,
+                    error_message   = NULL
+                WHERE experiment_process.status != 0
+            """, [id, experiment_id, srx_accession, organism,
+                  now.date(), process_type, process_id,
+                  path, now, 2, accessions_file])
+            self.conn.commit()
+
         logging.info(f"Started process: {experiment_id} - {process_type} - {process_id}")
         return id
     
@@ -115,8 +116,8 @@ class ProcessTracker:
         return pd.read_sql(query, self.conn)
     
     def get_pending_processes(self) -> pd.DataFrame:
-        """未完了プロセス一覧"""
-        query = "SELECT * FROM experiment_process WHERE status IS NULL"
+        """実行中/中断プロセス一覧 (status=2)"""
+        query = "SELECT * FROM experiment_process WHERE status = 2"
         return pd.read_sql(query, self.conn)
     
     def get_successful_processes(self) -> pd.DataFrame:
@@ -175,7 +176,7 @@ class ProcessTracker:
             COUNT(*) as total_processes,
             COUNT(CASE WHEN status = 0 THEN 1 END) as successful,
             COUNT(CASE WHEN status = 1 THEN 1 END) as failed,
-            COUNT(CASE WHEN status IS NULL THEN 1 END) as pending,
+            COUNT(CASE WHEN status = 2 THEN 1 END) as running,
             AVG(execution_time_seconds) as avg_execution_time,
             MAX(execution_time_seconds) as max_execution_time,
             MIN(execution_time_seconds) as min_execution_time
@@ -217,20 +218,40 @@ class ProcessTracker:
         return self.start_process(experiment_id, process_type, new_process_id)
     
     def get_running_processes(self) -> pd.DataFrame:
-        """実行中プロセス一覧（24時間以上実行中のものを含む）"""
+        """実行中プロセス一覧 (status=2)"""
         query = """
         SELECT *,
                EXTRACT(EPOCH FROM (NOW() - start_datetime))/3600 as hours_running
-        FROM experiment_process 
-        WHERE status IS NULL
+        FROM experiment_process
+        WHERE status = 2
         ORDER BY start_datetime DESC
         """
         return pd.read_sql(query, self.conn)
     
+    def mark_as_interrupted(self, process_type: str, process_id: str, since: datetime) -> int:
+        """指定ワークフロー実行で開始されたstatus=2のレコードをFAILED(1)に変更する。
+        workflow.onComplete から呼び出し、チャンネルドロップ等で finish_process が
+        呼ばれなかった accession を確実に終了状態にする。"""
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                UPDATE experiment_process
+                SET status          = 1,
+                    finish_datetime = NOW(),
+                    error_message   = 'Process interrupted (workflow terminated without finish)'
+                WHERE status        = 2
+                  AND process_type  = %s
+                  AND process_id    = %s
+                  AND start_datetime >= %s
+            """, [process_type, process_id, since])
+            updated = cur.rowcount
+            self.conn.commit()
+        logging.info(f"Marked {updated} processes as interrupted")
+        return updated
+
     def cleanup_old_records(self, days_to_keep: int = 90) -> int:
         """古いレコードのクリーンアップ"""
         cutoff_date = datetime.now() - timedelta(days=days_to_keep)
-        query = "DELETE FROM experiment_process WHERE created_at < %s AND status IS NOT NULL"
+        query = "DELETE FROM experiment_process WHERE created_at < %s AND status IN (0, 1)"
         
         with self.conn.cursor() as cur:
             cur.execute(query, [cutoff_date])
