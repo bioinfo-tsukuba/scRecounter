@@ -10,6 +10,16 @@ from dotenv import load_dotenv
 from process_tracker import ProcessTracker
 
 def main():
+    """Parse arguments and record the final status of a process.
+
+    Updates the database record for the given experiment ID with the provided
+    exit status (0 = success, 1 = error) and an optional error message.
+
+    Returns
+    -------
+    int
+        0 on success, 1 if an unexpected error occurs.
+    """
     parser = argparse.ArgumentParser(description='Finish process tracking for scRecounter')
     parser.add_argument('--experiment_id', required=True, help='Unique experiment identifier')
     parser.add_argument('--process_type', default='scRecounter', help='Process type (default: scRecounter)')

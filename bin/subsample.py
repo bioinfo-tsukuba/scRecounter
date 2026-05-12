@@ -36,6 +36,19 @@ parser.add_argument('--out-file', type=str, default='subsampled.fastq',
 
 # functions
 def subsample(infile: str, num_seqs: int, outF, is_gzip: bool=False) -> None:
+    """Write the first ``num_seqs`` reads from a FASTQ file to an open file handle.
+
+    Parameters
+    ----------
+    infile : str
+        Path to the input FASTQ file (plain text or gzip-compressed).
+    num_seqs : int
+        Maximum number of reads to write.
+    outF : file-like object
+        Open text-mode file handle to write reads to.
+    is_gzip : bool, optional
+        Whether to open the input file with gzip, by default False.
+    """
     # use gzip if file is gzipped
     if is_gzip:
         _open = gzip.open
@@ -53,6 +66,15 @@ def subsample(infile: str, num_seqs: int, outF, is_gzip: bool=False) -> None:
                 return None
 
 def main(args):
+    """Subsample reads from one or more FASTQ files into a single output file.
+
+    Divides the target read count evenly across input files.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments with attributes: fastq_file, num_seqs, out_file.
+    """
     # divide num_seqs by number of files
     num_files = len(args.fastq_file)
     num_seqs = int(args.num_seqs / num_files)

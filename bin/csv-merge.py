@@ -30,6 +30,14 @@ parser.add_argument('--outfile', type=str, default='merged.csv',
 
 # functions
 def main(args):
+    """Merge multiple CSV files into a single table and write to disk.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments with attributes:
+        csv_files, sample, outfile.
+    """
     # read in files
     tables = [pd.read_csv(f) for f in args.csv_files]
     # merge

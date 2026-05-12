@@ -21,11 +21,20 @@ parser.add_argument("-X","--maxSpotId", help="Maximum spot id", default=None, ty
 parser.add_argument("-V","--version", help="shows version", action="store_true", default=False)
 
 def pfd(args: argparse.Namespace, srr_id: str, extra_args: list[str]) -> None:
-    """Parallel fastq-dump.
-    Args:
-        args: Parsed command-line arguments.
-        srr_id: Identifier for the SRA run.
-        extra_args: Additional arguments to pass to fastq-dump.
+    """Run fastq-dump in parallel by splitting the spot range across threads.
+
+    Each thread writes its chunk to a temporary directory; chunks are then
+    concatenated in order into the output directory.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments including threads, outdir, minSpotId,
+        maxSpotId, and tmpdir.
+    srr_id : str
+        SRA run accession to download.
+    extra_args : list of str
+        Additional flags forwarded verbatim to each fastq-dump invocation.
     """
     tmp_dir = tempfile.TemporaryDirectory(prefix="pfd_", dir=args.tmpdir)
     logging.info(f"tempdir: {tmp_dir.name}")
@@ -58,13 +67,23 @@ def pfd(args: argparse.Namespace, srr_id: str, extra_args: list[str]) -> None:
     for fd in wfd.values(): fd.close()
 
 def split_blocks(start: int, end: int, n_pieces: int) -> list[list[int]]:
-    """Split a range of spot IDs into smaller blocks.
-    Args:
-        start: The first spot ID.
-        end: The last spot ID.
-        n_pieces: Number of blocks to split into.
-    Returns:
-        A list of lists, where each sub-list is [block_start, block_end].
+    """Divide a spot-ID range into equal-sized blocks for parallel processing.
+
+    The final block absorbs any remainder from integer division.
+
+    Parameters
+    ----------
+    start : int
+        First spot ID (inclusive).
+    end : int
+        Last spot ID (inclusive).
+    n_pieces : int
+        Number of blocks to produce.
+
+    Returns
+    -------
+    list of list of int
+        Each inner list is ``[block_start, block_end]`` (both inclusive).
     """
     total = end - start + 1
     avg = total // n_pieces
@@ -77,11 +96,22 @@ def split_blocks(start: int, end: int, n_pieces: int) -> list[list[int]]:
     return out
 
 def get_spot_count(sra_id: str) -> int:
-    """Get spot count using sra-stat.
-    Args:
-        sra_id: Identifier for the SRA run.
-    Returns:
-        Total number of spots in the specified SRA.
+    """Return the total spot count for an SRA run using sra-stat.
+
+    Parameters
+    ----------
+    sra_id : str
+        SRA run accession to query.
+
+    Returns
+    -------
+    int
+        Total number of spots.
+
+    Raises
+    ------
+    IndexError
+        If the sra-stat output cannot be parsed.
     """
     cmd = ["sra-stat","--meta","--quick",sra_id]
     logging.info(f"CMD: {' '.join(cmd)}")
@@ -97,23 +127,37 @@ def get_spot_count(sra_id: str) -> int:
     return total
 
 def partition(f, l: list) -> tuple[list, list]:
-    """Partition a list into two groups based on a predicate.
-    Args:
-        f: A function that returns True or False for a given element.
-        l: The list to be partitioned.
-    Returns:
-        A tuple of two lists: (matching, not_matching).
+    """Partition a list into two groups based on a boolean predicate.
+
+    Parameters
+    ----------
+    f : callable
+        Function that returns True or False for each element.
+    l : list
+        List to partition.
+
+    Returns
+    -------
+    tuple
+        A 2-tuple ``(matching, not_matching)`` where each element is a list.
     """
     r = ([],[])
     for i in l: r[0 if f(i) else 1].append(i)
     return r
 
 def is_sra_file(path: str) -> bool:
-    """Check if a file path is potentially an SRA file.
-    Args:
-        path: File path.
-    Returns:
-        True if the file is recognized as SRA-related, otherwise False.
+    """Determine whether a path looks like an SRA file or accession.
+
+    Parameters
+    ----------
+    path : str
+        File path or accession string to inspect.
+
+    Returns
+    -------
+    bool
+        True if the path ends with ``.sra`` or contains a recognised accession
+        prefix (SRR, ERR, DRR).
     """
     f = os.path.basename(path)
     if f.lower().endswith(".sra"): return True
@@ -121,7 +165,7 @@ def is_sra_file(path: str) -> bool:
     return False
 
 def main() -> None:
-    """Main entry point to parse arguments and run parallel fastq-dump."""
+    """Parse arguments and dispatch parallel fastq-dump for each provided SRA ID."""
     args, extra = parser.parse_known_args()
     if args.version:
         print(f"parallel-fastq-dump : {__version__}")

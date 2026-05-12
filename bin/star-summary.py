@@ -38,6 +38,15 @@ parser.add_argument('--outfile', type=str, default="Summary.csv",
          
 # functions
 def main(args):
+    """Concatenate STAR summary CSV files into a single wide-format table and write to disk.
+
+    Normalises column names, coerces numeric types, and appends the sample name.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments with attributes: summary_csv, sample, outfile.
+    """
     # set pandas display optionqs
     pd.set_option('display.max_columns', 50)
     pd.set_option('display.max_rows', 100)

@@ -13,7 +13,7 @@ from shutil import which, rmtree
 from typing import Dict
 from subprocess import Popen, PIPE
 import pandas as pd
-from db_utils import db_upsert, add_to_log # db_connect, 
+from db_utils import db_upsert, add_to_log # db_connect,
 from prefetch import prefetch_workflow
 
 # logging
@@ -43,7 +43,7 @@ parser.add_argument('--bufsize', type=str, default='5MB',
                     help='Buffer size')
 parser.add_argument('--curcache', type=str, default='50MB',
                     help='Current cache size')
-parser.add_argument('--mem', type=str, default='5GB',    
+parser.add_argument('--mem', type=str, default='5GB',
                     help='Memory')
 parser.add_argument('--temp', type=str, default='TMP_FILES',
                     help='Temporary directory')
@@ -52,7 +52,7 @@ parser.add_argument('--maxSpotId', type=int, default=None,
 parser.add_argument('--outdir', type=str, default='prefetch_out',
                     help='Output directory')
 parser.add_argument('--min-read-length', type=int, default=28,
-                    help='Minimum read length')  
+                    help='Minimum read length')
 # prefetch
 parser.add_argument('--max-size-gb', type=int, default=300,
                     help='Max file size in Gb')
@@ -63,12 +63,17 @@ parser.add_argument('--gcp-download', action='store_true', default=False,
 
 # functions
 def run_cmd(cmd: str) -> tuple:
-    """
-    Run sub-command and return returncode, output, and error.
-    Args:
-        cmd: Command to run
-    Returns:
-        tuple: (returncode, output, error)
+    """Run a subprocess command and return its exit code, stdout, and stderr.
+
+    Parameters
+    ----------
+    cmd : list of str
+        Command and arguments to execute.
+
+    Returns
+    -------
+    tuple
+        A 3-tuple of (returncode, stdout bytes, stderr bytes).
     """
     cmd = [str(i) for i in cmd]
     logging.info(f'Running: {" ".join(cmd)}')
@@ -77,13 +82,19 @@ def run_cmd(cmd: str) -> tuple:
     return p.returncode, output, err
 
 def get_read_lengths(fastq_file: str, num_lines: int) -> float:
-    """
-    Read a fastq file and return the first num_lines.
-    Args:
-        fastq_file: Fastq file
-        num_lines: Number of lines to read
-    Returns:
-        average read length
+    """Compute the average read length from the first N reads of a FASTQ file.
+
+    Parameters
+    ----------
+    fastq_file : str
+        Path to a FASTQ file (plain text or gzip-compressed).
+    num_lines : int
+        Maximum number of FASTQ lines to read before stopping.
+
+    Returns
+    -------
+    float
+        Mean read length across sampled reads.
     """
     _open = gzip.open if fastq_file.endswith('.gz') else open
 
@@ -92,7 +103,7 @@ def get_read_lengths(fastq_file: str, num_lines: int) -> float:
     with _open(fastq_file) as f:
         for i, line in enumerate(f):
             if fastq_file.endswith('.gz'):
-                line = line.decode()   
+                line = line.decode()
             if i % 4 == 1:
                 read_lens.append(len(line.strip()))
             if i >= num_lines:
@@ -101,14 +112,33 @@ def get_read_lengths(fastq_file: str, num_lines: int) -> float:
     return sum(read_lens) / len(read_lens)
 
 def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, str]:
-    """
-    Rename reads in `read_lens_filt` to:
-    - 'read_1.fastq' if there's only one file.
-    - If two or more files exist:
-      * Compare the top 2 by read length.
-      * If lengths differ, rename the largest to 'read_2.fastq' and second largest to 'read_1.fastq'.
-      * If lengths are the same, rename them by alphabetical order to 'read_1.fastq' and 'read_2.fastq'.
-    Returns a dictionary { "R1": <path>, "R2": <path> } with the renamed files.
+    """Rename filtered read files to the canonical read_1 / read_2 naming convention.
+
+    Selection rules:
+
+    * Single file → renamed to ``read_1.fastq.gz``.
+    * Two or more files → the two longest reads are selected:
+
+      - If their lengths differ, the longest becomes ``read_2`` (barcode/UMI) and
+        the shorter becomes ``read_1`` (cDNA).
+      - If lengths are equal, files are renamed in alphabetical order.
+
+    Parameters
+    ----------
+    read_lens_filt : dict
+        Mapping of file path to average read length, after length filtering.
+    outdir : str
+        Directory where renamed files will be placed.
+
+    Returns
+    -------
+    dict
+        Mapping with keys ``'R1'`` and/or ``'R2'`` to the renamed file paths.
+
+    Raises
+    ------
+    ValueError
+        If the new file path is identical to the existing path.
     """
     read_files_filt = {}
     num_files = len(read_lens_filt)
@@ -166,13 +196,24 @@ def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, 
     return read_files_filt
 
 def check_output(sra_file: str, outdir: str, min_read_length: int, accession_id: str = None) -> None:
-    """
-    Check the output of fastq-dump.
-    Args:
-        sra_file: SRA file or URL
-        outdir: Output directory
-        min_read_length: Minimum read length
-        accession_id: Override accession ID (for URL downloads)
+    """Validate fastq-dump output, filter reads by length, and rename to canonical names.
+
+    Parameters
+    ----------
+    sra_file : str
+        SRA file path or URL used for the dump (used to derive the accession when
+        ``accession_id`` is not provided).
+    outdir : str
+        Directory containing the generated FASTQ files.
+    min_read_length : int
+        Minimum acceptable average read length; files below this threshold are deleted.
+    accession_id : str, optional
+        Explicit accession identifier; overrides the value derived from ``sra_file``.
+
+    Returns
+    -------
+    tuple
+        A 2-tuple of (status, message) where status is ``'Success'`` or ``'Failure'``.
     """
     # Use provided accession_id if available, otherwise extract from file
     if accession_id:
@@ -182,13 +223,13 @@ def check_output(sra_file: str, outdir: str, min_read_length: int, accession_id:
     else:
         # get accession from filename
         accession_full = os.path.splitext(os.path.basename(sra_file))[0]
-        
+
         # Handle URL-based SRA files: remove .lite suffix if present
         if accession_full.endswith('.lite'):
             accession = accession_full[:-5]  # Remove '.lite'
         else:
             accession = accession_full
-        
+
         logging.info(f"Checking output for {accession} (from file: {accession_full})")
 
     # list all files in outdir
@@ -203,7 +244,7 @@ def check_output(sra_file: str, outdir: str, min_read_length: int, accession_id:
         # If no files found, try the full accession name
         if not read_files:
             read_files += glob(os.path.join(outdir, f"{accession_full}*.{file_ext}"))
-    
+
     if not read_files:
         msg = f"No read files found; files present: {out_files_str}"
         logging.warning(msg)
@@ -218,7 +259,7 @@ def check_output(sra_file: str, outdir: str, min_read_length: int, accession_id:
     for read_file in read_files:
         read_lens[read_file] = get_read_lengths(read_file, 800)
         logging.info(f"Read length for {read_file}: {read_lens[read_file]}")
-    
+
     # filter read files by length
     read_lens_filt = {}
     for k,v in read_lens.items():
@@ -243,7 +284,7 @@ def check_output(sra_file: str, outdir: str, min_read_length: int, accession_id:
     for read_name, read_file in read_files_filt.items():
         file_size = os.path.getsize(read_file)
         logging.info(f"File size for {read_name}: {file_size / 1e9:.2f} GB")
-    
+
     # if no R1 or R2, return warning
     file_names = ",".join([os.path.basename(x) for x in read_files_filt.values()])
     if not read_files_filt.get("R1"):
@@ -258,21 +299,42 @@ def check_output(sra_file: str, outdir: str, min_read_length: int, accession_id:
     return "Success","Fastq dump successful"
 
 def write_log(logF, sample: str, accession: str, step: str, success: bool, msg: str) -> None:
-    """
-    Write skip reason to file.
-    Args:
-        logF: Log file handle
-        sample: Sample name
-        accession: SRA accession
-        step: Step name
-        success: Success status
-        msg: Message
+    """Write a single log entry to an open file handle.
+
+    Messages longer than 100 characters are truncated with an ellipsis.
+
+    Parameters
+    ----------
+    logF : file-like object
+        Open file handle to write to.
+    sample : str
+        Sample name.
+    accession : str
+        SRA accession identifier.
+    step : str
+        Name of the pipeline step being logged.
+    success : bool
+        Whether the step succeeded.
+    msg : str
+        Log message; truncated to 100 characters if longer.
     """
     if len(msg) > 100:
         msg = msg[:100] + '...'
     logF.write(','.join([sample, accession, step, str(success), msg]) + '\n')
 
 def main(args, log_df):
+    """Run fastq-dump or fasterq-dump for an SRA accession and validate the output.
+
+    Dispatches to parallel-fastq-dump, fastq-dump, or prefetch+fasterq-dump based
+    on the provided arguments, then validates and renames the output FASTQ files.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments.
+    log_df : pd.DataFrame
+        In-memory log DataFrame to which status entries are appended.
+    """
     # check for fastq-dump and fasterq-dump
     for exe in ['fastq-dump', 'fasterq-dump', 'prefetch', 'vdb-dump']:
         if not which(exe):
@@ -301,7 +363,7 @@ def main(args, log_df):
                 "fastq-dump",
                 "--split-files",
                 "--gzip",
-                "--outdir", args.outdir,  
+                "--outdir", args.outdir,
                 "--maxSpotId", args.maxSpotId,
                 args.sra_file
             ]
@@ -309,7 +371,7 @@ def main(args, log_df):
         # prefetch
         prefetch_outdir = prefetch_workflow(
             sample=args.sample,
-            accession=args.accession, 
+            accession=args.accession,
             log_df=log_df,
             max_size_gb=args.max_size_gb,
             gcp_download=args.gcp_download,
@@ -320,16 +382,16 @@ def main(args, log_df):
             return None
         # fasterq-dump
         cmd = [
-            "fasterq-dump",  
-            "--split-files", 
+            "fasterq-dump",
+            "--split-files",
             "--force",
             "--gzip",
             "--include-technical",
-            "--threads", args.threads, 
-            "--bufsize", args.bufsize, 
-            "--curcache", args.curcache, 
+            "--threads", args.threads,
+            "--bufsize", args.bufsize,
+            "--curcache", args.curcache,
             "--min-read-len", args.min_read_length,
-            "--mem", args.mem, 
+            "--mem", args.mem,
             "--temp", args.temp,
             "--outdir", args.outdir,
             prefetch_outdir
@@ -340,7 +402,7 @@ def main(args, log_df):
         msg = output.decode().split('\n')
     else:
         msg = err.decode().split('\n')
-    msg = "; ".join([x for x in msg if x])        
+    msg = "; ".join([x for x in msg if x])
     if msg == "":
         msg = "No command output"
     ## add to log
@@ -375,7 +437,7 @@ if __name__ == '__main__':
     #log_df.to_csv(sys.stdout, index=False)
     #log_df.to_csv(log_file, index=False)
     #logging.info(f'Log written to: {log_file}')
-    
+
     # upsert log to database
     # with db_connect() as conn:
     #     db_upsert(log_df, "screcounter_log", conn)

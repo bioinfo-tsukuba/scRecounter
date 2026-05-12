@@ -10,6 +10,12 @@ from dotenv import load_dotenv
 from process_tracker import ProcessTracker
 
 def main():
+    """Parse arguments and check whether a process has already completed successfully.
+
+    Exits with code 1 if a successful record exists (duplicate), or code 0 if the
+    accession has not yet been processed.  On unexpected errors, exits with 0 so that
+    execution continues rather than being silently blocked.
+    """
     parser = argparse.ArgumentParser(description='Check for duplicate process tracking')
     parser.add_argument('--experiment_id', required=True, help='Unique experiment identifier')
     parser.add_argument('--process_type', default='scRecounter', help='Process type (default: scRecounter)')

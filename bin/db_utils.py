@@ -22,9 +22,20 @@ logging.getLogger("psycopg2").setLevel(logging.CRITICAL)
 
 # functions
 def db_connect_local() -> connection:
-    """
-    Connect to the local PostgreSQL database.
-    Uses environment variables or default values for connection.
+    """Connect to the local PostgreSQL database using environment variables.
+
+    Reads connection parameters from the environment, falling back to defaults
+    when variables are absent.
+
+    Returns
+    -------
+    psycopg2.extensions.connection
+        An open database connection.
+
+    Raises
+    ------
+    Exception
+        If the connection cannot be established.
     """
     db_params = {
         'host': os.environ.get("LOCAL_DB_HOST", "localhost"),
@@ -70,37 +81,63 @@ def db_connect_local() -> connection:
 def add_to_log(
         df, sample: str, accession: str, process: str, step: str, status: str, msg: str
         ) -> pd.DataFrame:
-    """
-    Add log entry to dataframe.
-    Args:
-        log_df: Log dataframe
-        sample: Sample name
-        accession: SRA accession
-        process: Process name
-        step: Step name
-        status: Status
-        msg: Message
-    Returns:
-        pd.DataFrame: Updated log dataframe
+    """Append a log entry to an in-memory log DataFrame.
+
+    Truncates messages longer than 200 characters.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Existing log DataFrame to append to.
+    sample : str
+        Sample name.
+    accession : str
+        SRA accession identifier.
+    process : str
+        Name of the process being logged.
+    step : str
+        Name of the step within the process.
+    status : str
+        Status string (e.g. 'Success', 'Failure').
+    msg : str
+        Log message; truncated to 200 characters if longer.
+
+    Returns
+    -------
+    pd.DataFrame
+        The updated log DataFrame.
     """
     if len(msg) > 200:
         msg = str(msg[:(200-3)]) + '...'
     df.loc[len(df)] = [sample, accession, process, step, status, msg]
 
 def sanitize_int_columns(df, min_int=-2**30, max_int=2**30 - 1) -> pd.DataFrame:
-    """
-    Sanitize integer columns in a DataFrame by casting them to float and replacing out-of-range values with NaN.
-    Args:
-        df: pandas DataFrame
-        min_int: Minimum integer value
-        max_int: Maximum integer value
+    """Cast integer columns to float and replace out-of-range values with NaN.
+
+    PostgreSQL integer bounds differ from Python's; this prevents overflow
+    errors when inserting large integer values.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame.
+    min_int : int, optional
+        Minimum acceptable integer value, by default -(2**30).
+    max_int : int, optional
+        Maximum acceptable integer value, by default 2**30 - 1.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with integer columns cast to float and out-of-range values
+        replaced by NaN.
     """
     int_cols = df.select_dtypes(include=["int", "int32", "int64"]).columns
-    
+
     # Cast these columns to float so they can hold NaN values
     for col in int_cols:
         df[col] = df[col].astype(float)
-        
+
         # Replace out-of-range values with NaN
         df.loc[df[col] < min_int, col] = np.nan
         df.loc[df[col] > max_int, col] = np.nan
@@ -108,14 +145,26 @@ def sanitize_int_columns(df, min_int=-2**30, max_int=2**30 - 1) -> pd.DataFrame:
     return df
 
 def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
+    """Insert rows from a DataFrame into a PostgreSQL table, ignoring conflicts.
+
+    Only columns present in both the DataFrame and the target table are
+    inserted. Duplicate rows (based on the table's unique constraints) are
+    silently skipped via ON CONFLICT DO NOTHING.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Data to insert.
+    table_name : str
+        Name of the target PostgreSQL table.
+    conn : psycopg2.extensions.connection
+        Active database connection.
+
+    Raises
+    ------
+    Exception
+        If the INSERT statement fails for any reason other than a conflict.
     """
-    Upload a pandas DataFrame to PostgreSQL, performing an upsert operation.
-    If records exist (based on unique constraints), update them; otherwise insert new records.
-    Args:
-        df: pandas DataFrame to upload
-        table_name: name of the target table
-        conn: psycopg2 connection object
-    """   
     # if df is empty, return
     if df.empty:
         return
@@ -128,10 +177,7 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
 
     # filter to overlapping target columns
     table_columns = get_table_columns(table_name, conn)
-    # print(f"DEBUG: Table columns: {table_columns}")
-    # print(f"DEBUG: DataFrame columns: {df.columns.tolist()}")
     overlapping_columns = list(set(table_columns).intersection(df.columns))
-    # print(f"DEBUG: Overlapping columns: {overlapping_columns}")
     df = df[overlapping_columns]
 
     # Sanitize integer columns
@@ -139,11 +185,6 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
 
     # Get DataFrame columns
     columns = list(df.columns)
-    
-    # Keep 'id' column since it's manually generated in ProcessTracker
-    # if "id" in columns:
-    #     df = df.drop(columns=["id"])
-    #     columns.remove("id")
 
     # Remove duplicates within the DataFrame
     df = df.drop_duplicates(keep='first').copy()
@@ -166,12 +207,25 @@ def db_upsert(df: pd.DataFrame, table_name: str, conn: connection) -> None:
         raise Exception(f"Error uploading data to {table_name}: {str(e)}")
 
 def db_update(df: pd.DataFrame, table_name: str, conn: connection) -> None:
-    """
-    Update existing records in a PostgreSQL table based on unique constraints.
-    Args:
-        df: pandas DataFrame with updated records
-        table_name: name of the target table
-        conn: psycopg2 connection object
+    """Update existing rows in a PostgreSQL table using unique constraint columns as keys.
+
+    Columns participating in the table's unique constraint are used as the
+    WHERE condition; all other columns in the DataFrame are updated.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Data containing updated values. Must include the unique-constraint
+        columns so that the correct rows can be identified.
+    table_name : str
+        Name of the target PostgreSQL table.
+    conn : psycopg2.extensions.connection
+        Active database connection.
+
+    Raises
+    ------
+    Exception
+        If the UPDATE statement fails.
     """
     if df.empty:
         return
@@ -184,11 +238,7 @@ def db_update(df: pd.DataFrame, table_name: str, conn: connection) -> None:
     # Sanitize integers, drop duplicates, etc.
     df = sanitize_int_columns(df.copy())
     unique_columns = get_unique_columns(table_name, conn)
-    
-    # Remove "id" 
-    # if "id" in df.columns:
-    #     df = df.drop(columns=["id"])
-    
+
     # Get non-unique columns
     columns = list(df.columns)
     non_unique_cols = [c for c in columns if c not in unique_columns]
@@ -199,9 +249,8 @@ def db_update(df: pd.DataFrame, table_name: str, conn: connection) -> None:
 
     # Convert DataFrame rows to tuples
     values = [tuple(x) for x in df.to_numpy()]
-    
+
     # Build the WITH data(...) clause
-    # E.g. WITH data(col_a, col_b, col_c) AS (VALUES %s)
     with_data_cols = ", ".join(columns)
     with_clause = f"WITH data({with_data_cols}) AS (VALUES %s)"
 
@@ -226,62 +275,93 @@ def db_update(df: pd.DataFrame, table_name: str, conn: connection) -> None:
         raise Exception(f"Error updating data in {table_name}: {str(e)}")
 
 def get_table_columns(table: str, conn: connection) -> List[str]:
-    """
-    Get column names for a table from the database schema.
-    Args:
-        table: Name of the table
-        conn: Database connection 
-    Returns:
-        List of column names
+    """Return the column names for a table as defined in the database schema.
+
+    Parameters
+    ----------
+    table : str
+        Name of the table to inspect.
+    conn : psycopg2.extensions.connection
+        Active database connection.
+
+    Returns
+    -------
+    list of str
+        Column names in the order returned by information_schema.columns.
     """
     query = """
     SELECT column_name
     FROM information_schema.columns
     WHERE table_name = %s;
     """
-    
+
     with conn.cursor() as cur:
         cur.execute(query, (table,))
         columns = cur.fetchall()
     return [col[0] for col in columns]
 
 def get_unique_columns(table: str, conn: connection) -> List[str]:
-    """
-    Get all unique constraint columns for a table from the database schema.
-    Prioritizes composite unique constraints over primary keys.
-    Args:
-        table: Name of the table
-        conn: Database connection 
-    Returns:
-        List of column names that form the most appropriate unique constraint
+    """Return the columns forming the most appropriate unique constraint for a table.
+
+    Composite unique constraints are preferred over single-column primary keys.
+    Falls back to the primary key if no other constraint is found.
+
+    Parameters
+    ----------
+    table : str
+        Name of the table to inspect.
+    conn : psycopg2.extensions.connection
+        Active database connection.
+
+    Returns
+    -------
+    list of str
+        Column names that form the selected unique constraint.
+
+    Raises
+    ------
+    ValueError
+        If no unique or primary-key constraint exists on the table.
     """
     query = """
     SELECT c.contype, ARRAY_AGG(a.attname ORDER BY array_position(c.conkey, a.attnum)) as columns
     FROM pg_constraint c
     JOIN pg_class t ON c.conrelid = t.oid
     JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(c.conkey)
-    WHERE t.relname = %s 
+    WHERE t.relname = %s
     AND c.contype IN ('p', 'u')  -- primary key or unique constraint
     GROUP BY c.conname, c.contype
     ORDER BY c.contype DESC;  -- 'u'nique before 'p'rimary key
     """
-    
+
     with conn.cursor() as cur:
         cur.execute(query, (table,))
         constraints = cur.fetchall()
-        
+
     if not constraints:
         raise ValueError(f"No unique constraints found in table {table}")
-    
+
     # Prefer composite unique constraints over single-column primary keys
     for constraint_type, columns in constraints:
         if len(columns) > 1 or constraint_type == 'u':
             return columns
-    
+
     # Fall back to primary key if no other suitable constraint found
     return constraints[0][1]
 
 def get_srx_metadata_limit5(conn):
+    """Fetch the first five rows of the srx_metadata table.
+
+    Parameters
+    ----------
+    conn : psycopg2.extensions.connection
+        Active database connection.
+
+    Returns
+    -------
+    pd.DataFrame
+        Up to five rows from srx_metadata.
+    """
     query = """
     SELECT * FROM srx_metadata LIMIT 5;
     """

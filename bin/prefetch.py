@@ -40,24 +40,32 @@ parser.add_argument('--gcp-download', action='store_true', default=False,
                     help='Obtain sequence data from SRA GCP mirror')
 
 # functions
-def run_cmd(cmd: str) -> Tuple[int,bytes,bytes]:
-    """
-    Run sub-command and return returncode, output, and error.
-    Args:
-        cmd: Command to run
-    Returns:
-        (returncode, output, error)
+def run_cmd(cmd: str) -> Tuple[int, bytes, bytes]:
+    """Run a shell command and return its exit code, stdout, and stderr.
+
+    Parameters
+    ----------
+    cmd : str
+        Shell command string to execute.
+
+    Returns
+    -------
+    tuple
+        A 3-tuple of (returncode, stdout bytes, stderr bytes).
     """
     logging.info(f'Running: {cmd}')
     p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
     output, err = p.communicate()
     return p.returncode, output, err
 
-def run_vdb_config() -> Tuple[str,str]:
-    """
-    Run vdb-config with error handling.
-    Returns:
-        Status and message
+def run_vdb_config() -> Tuple[str, str]:
+    """Configure cloud identity reporting via vdb-config.
+
+    Returns
+    -------
+    tuple
+        A 2-tuple of (status, message) where status is ``'Success'`` or
+        ``'Failure'``.
     """
     cmd = f"vdb-config --report-cloud-identity yes"
     rc,output,err = run_cmd(cmd)
@@ -67,16 +75,27 @@ def run_vdb_config() -> Tuple[str,str]:
         return "Failure",f'vdb-config failed: {err}'
     return "Success","vdb-config successful"
 
-def prefetch(accession: str, tries: int, max_size_gb: int, outdir: str) -> Tuple[str,str]:
-    """
-    Run prefetch with error handling.
-    Args:
-        accession: SRA accession
-        tries: Number of tries
-        max_size_gb: Max file size in Gb
-        outdir: Output directory
-    Returns:
-        Status and message
+def prefetch(accession: str, tries: int, max_size_gb: int, outdir: str) -> Tuple[str, str]:
+    """Download an SRA accession using prefetch and validate the result with vdb-validate.
+
+    Retries up to ``tries`` times with an increasing sleep interval between attempts.
+
+    Parameters
+    ----------
+    accession : str
+        SRA accession to download.
+    tries : int
+        Maximum number of download attempts.
+    max_size_gb : int
+        Maximum allowed file size in gigabytes.
+    outdir : str
+        Directory where the downloaded file will be stored.
+
+    Returns
+    -------
+    tuple
+        A 2-tuple of (status, message) where status is ``'Success'`` or
+        ``'Failure'``.
     """
     logging.info(f"Downloading {accession}")
     cmd = f"prefetch --max-size {max_size_gb}G --output-directory {outdir} {accession}"
@@ -105,15 +124,25 @@ def prefetch(accession: str, tries: int, max_size_gb: int, outdir: str) -> Tuple
     # assume failure
     err = err.decode().replace('\n', ' ')
     return "Failure",f"Failed to download and validate: {err}"
-    
-def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str,str]:
-    """
-    Run vdb-dump with error handling.
-    Args:
-        sra_file: SRA file
-        outdir: Output directory
-    Returns:
-        Status and message
+
+def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str, str]:
+    """Inspect an SRA accession with vdb-dump and validate key metadata fields.
+
+    Checks that the accession matches, the file size meets the minimum threshold,
+    and the platform is Illumina.
+
+    Parameters
+    ----------
+    accession : str
+        SRA accession to inspect.
+    min_size : int, optional
+        Minimum acceptable file size in bytes, by default 1e6.
+
+    Returns
+    -------
+    tuple
+        A 2-tuple of (status, message) where status is ``'Success'`` or
+        ``'Failure'``.
     """
     cmd = f"vdb-dump --info {accession}"
     rc,output,err = run_cmd(cmd)
@@ -143,10 +172,6 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str,str]:
     size = int(data['size'].replace(',', ''))
     if size < min_size:
         return "Failure",f'File size too small: {size} < {min_size}'
-    ## format
-    #fmt = data['FMT'].lower()
-    #if 'fastq' not in fmt and fmt not in ['sharq', 'sralite', 'sra']:
-    #    return "Failure",f'Invalid format: {data["FMT"]}'
     ## platform
     if 'illumina' not in data['platf'].lower():
         return "Failure",f'Invalid platform: {data["platf"]}'
@@ -154,31 +179,52 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str,str]:
     return "Success","Validation successful"
 
 def write_log(logF, sample: str, accession: str, step: str, msg: str) -> None:
-    """
-    Write log to file.
-    Args:
-        logF: Log file handle
-        sample: Sample name
-        accession: SRA accession
-        step: Step name
-        msg: Message
+    """Write a single log entry to an open file handle.
+
+    Messages longer than 100 characters are truncated with an ellipsis.
+
+    Parameters
+    ----------
+    logF : file-like object
+        Open file handle to write to.
+    sample : str
+        Sample name.
+    accession : str
+        SRA accession identifier.
+    step : str
+        Name of the pipeline step being logged.
+    msg : str
+        Log message; truncated to 100 characters if longer.
     """
     if len(msg) > 100:
         msg = msg[:100] + '...'
     logF.write(','.join([sample, accession, step, msg]) + '\n')
 
-def prefetch_workflow(sample: str, accession: str, log_df: pd.DataFrame, outdir:str, 
+def prefetch_workflow(sample: str, accession: str, log_df: pd.DataFrame, outdir: str,
                       gcp_download: bool=False, tries: int=3, max_size_gb: float=1000) -> Optional[str]:
-    """
-    Run prefetch workflow.
-    Args:
-        sample: Sample name
-        accession: SRA accession
-        log_df: Log dataframe
-        outdir: Output directory
-        gcp_download: Use GCP mirror
-        tries: Number of tries
-        max_size_gb: Max file size in Gb
+    """Orchestrate the full prefetch pipeline: vdb-config, vdb-dump, and prefetch.
+
+    Parameters
+    ----------
+    sample : str
+        Sample name used for logging.
+    accession : str
+        SRA accession to download.
+    log_df : pd.DataFrame
+        In-memory log DataFrame to which status entries are appended.
+    outdir : str
+        Directory where the downloaded file will be stored.
+    gcp_download : bool, optional
+        Whether to enable cloud identity for GCP mirror access, by default False.
+    tries : int, optional
+        Maximum number of download attempts, by default 3.
+    max_size_gb : float, optional
+        Maximum allowed file size in gigabytes, by default 1000.
+
+    Returns
+    -------
+    str or None
+        Path to the downloaded SRA file, or None if any step failed.
     """
     # check for prefetch in path
     for exe in ['prefetch', 'vdb-dump']:
@@ -229,10 +275,10 @@ if __name__ == '__main__':
 
     # run workflow
     prefetch_workflow(
-        args.sample, args.accession, log_df, 
-        outdir=args.outdir, 
-        gcp_download=args.gcp_download, 
-        tries=args.tries, 
+        args.sample, args.accession, log_df,
+        outdir=args.outdir,
+        gcp_download=args.gcp_download,
+        tries=args.tries,
         max_size_db=args.max_size_gb
     )
 
@@ -240,8 +286,7 @@ if __name__ == '__main__':
     log_file = os.path.join(args.outdir, "prefetch_log.csv")
     log_df.to_csv(log_file, index=False)
     logging.info(f'Log written to: {log_file}')
-    
+
     # upsert log to database
     # with db_connect() as conn:
     #     db_upsert(log_df, "screcounter_log", conn)
-    

@@ -41,6 +41,14 @@ parser.add_argument('--outfile', type=str, default="star_params.csv",
 
 # functions
 def main(args):
+    """Build a STAR parameters DataFrame from CLI arguments and write it to a CSV file.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments with attributes: sample, barcodes, star_index,
+        cell_barcode_length, umi_length, strand, outfile.
+    """
     # set pandas display optionqs
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 300)

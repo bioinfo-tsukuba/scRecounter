@@ -10,6 +10,18 @@ from dotenv import load_dotenv
 from process_tracker import ProcessTracker
 
 def main():
+    """Parse arguments and start process tracking for a single accession.
+
+    Writes a new record with status=2 (running) to the database, or resets an
+    existing non-success record so the accession can be re-executed.
+    Prints 'PROCEED' to stdout when the process should run, or 'SKIP' when a
+    successful record already exists for this ID.
+
+    Returns
+    -------
+    int
+        0 on success, 1 if an unexpected error occurs.
+    """
     parser = argparse.ArgumentParser(description='Start process tracking for scRecounter')
     parser.add_argument('--experiment_id', required=True, help='Unique experiment identifier')
     parser.add_argument('--process_type', default='scRecounter', help='Process type (default: scRecounter)')

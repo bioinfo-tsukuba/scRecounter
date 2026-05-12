@@ -14,7 +14,13 @@ from dotenv import load_dotenv
 load_dotenv('.env.local')
 
 def test_legacy_functionality():
-    """Test existing functionality remains intact"""
+    """Verify that the pre-existing ProcessTracker API continues to work correctly.
+
+    Returns
+    -------
+    bool
+        True if all assertions pass, False if any exception is raised.
+    """
     print("🔍 Testing legacy functionality...")
     
     try:
@@ -46,7 +52,13 @@ def test_legacy_functionality():
         return False
 
 def test_new_functionality():
-    """Test new sample_id based functionality"""
+    """Verify SRX-based process tracking and sample ID retrieval.
+
+    Returns
+    -------
+    bool
+        True if all assertions pass, False if any exception is raised.
+    """
     print("\n🔍 Testing new functionality...")
     
     try:
@@ -80,7 +92,13 @@ def test_new_functionality():
         return False
 
 def test_database_schema():
-    """Test that new database columns exist"""
+    """Verify that the expected database columns are accessible.
+
+    Returns
+    -------
+    bool
+        True if the schema query succeeds, False if an exception is raised.
+    """
     print("\n🔍 Testing database schema...")
     
     try:
@@ -104,7 +122,13 @@ def test_database_schema():
         return False
 
 def main():
-    """Run all tests"""
+    """Run all ProcessTracker test functions and report results.
+
+    Returns
+    -------
+    int
+        0 if all tests pass, 1 if any test fails.
+    """
     print("🚀 Starting ProcessTracker tests...\n")
     
     logging.basicConfig(level=logging.WARNING)  # Suppress info logs for cleaner output

@@ -43,14 +43,22 @@ parser.add_argument('--reads_with_barcodes_cutoff', type=float, default=0.3,
 
 # functions
 def read_seqkit_stats(stats_file: str, sample: str, accession: str) -> pd.DataFrame:
-    """
-    Read seqkit stats table and return as pandas dataframe.
-    Args:
-        stats_file: Path to seqkit stats file
-        sample: Sample name
-        accession: SRA accession
-    Returns:
-        pandas dataframe of seqkit stats
+    """Read a seqkit stats TSV and pivot it to a wide-format per-accession DataFrame.
+
+    Parameters
+    ----------
+    stats_file : str
+        Path to the seqkit stats TSV file.
+    sample : str
+        Sample name to add as a column.
+    accession : str
+        SRA accession to add as a column.
+
+    Returns
+    -------
+    pd.DataFrame or None
+        Wide-format DataFrame with columns accession, read1_length, read2_length,
+        sample, or None if ``stats_file`` is None.
     """
     # check if stats_file is None
     if stats_file is None:
@@ -72,17 +80,25 @@ def read_seqkit_stats(stats_file: str, sample: str, accession: str) -> pd.DataFr
 def load_info(
     sra_stats_csv: str, star_params_csv: str, read_stats_tsv: str, sample: str, accession: str
     ) -> pd.DataFrame:
-    """
-    Load the information from the sra_stats_csv, star_params_csv, and read_stats_tsv
-    and return the best parameters.
-    Args:
-        sra_stats_csv: Path to the sra_stats_csv file
-        star_params_csv: Path to the star_params_csv file
-        read_stats_tsv: Path to the read_stats_tsv file
-        sample: Sample name
-        accession: SRA accession
-    Returns:
-        pandas dataframe of parameter combinations
+    """Load and merge SRA stats, STAR parameter results, and read stats into one DataFrame.
+
+    Parameters
+    ----------
+    sra_stats_csv : str
+        Path to the sra-stat output CSV.
+    star_params_csv : str or list of str
+        Path(s) to per-parameter STAR summary CSV files.
+    read_stats_tsv : str
+        Path to the seqkit stats TSV file.
+    sample : str
+        Sample name.
+    accession : str
+        SRA accession.
+
+    Returns
+    -------
+    pd.DataFrame
+        Merged DataFrame of all parameter combinations with read and SRA metrics.
     """
     # read in sra stats file
     sra_stats = pd.read_csv(sra_stats_csv)
@@ -99,12 +115,22 @@ def load_info(
 
 
 def get_strand_label(group: pd.DataFrame) -> str:
-    """
-    Get the strand label based on the number of reads mapped to the gene.
-    Args:
-        group: pandas dataframe group
-    Returns:
-        strand label
+    """Determine the dominant strand orientation for a parameter group.
+
+    Compares Forward vs Reverse mapped reads and returns the dominant direction,
+    or 'Ambiguous' when neither exceeds twice the other.
+
+    Parameters
+    ----------
+    group : pd.DataFrame
+        Sub-DataFrame for a single parameter combination, expected to contain
+        columns ``strand`` and
+        ``Reads Mapped to GeneFull: Unique+Multiple GeneFull``.
+
+    Returns
+    -------
+    str
+        One of ``'Forward'``, ``'Reverse'``, or ``'Ambiguous'``.
     """
     target_col = "Reads Mapped to GeneFull: Unique+Multiple GeneFull"
     # get the target column values for the strand
@@ -125,16 +151,29 @@ def get_strand_label(group: pd.DataFrame) -> str:
         return "Ambiguous"
 
 def get_best_params(
-    data: pd.DataFrame, 
+    data: pd.DataFrame,
     reads_with_barcodes_cutoff: float=0.3
     ) -> pd.DataFrame:
-    """
-    Filter the data based on various criteria to select the best parameters.
-    Args:
-        data: pandas dataframe of all parameters
-        reads_with_barcodes_cutoff: Minimum fraction of reads with valid barcodes
-    Returns:
-        pandas dataframe of best parameters
+    """Filter parameter combinations to select the single best set for a sample.
+
+    Applies the following filters in order:
+
+    1. Restricts to the proper strand direction per parameter group.
+    2. Removes combinations where fewer than ``reads_with_barcodes_cutoff``
+       fraction of reads carry valid barcodes.
+    3. Retains only rows with the maximum ``Fraction of Unique Reads in Cells``.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        All parameter combinations from load_info().
+    reads_with_barcodes_cutoff : float, optional
+        Minimum fraction of reads with valid barcodes, by default 0.3.
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered DataFrame containing only the best parameter row(s).
     """
     # group by
     group_by = ["sample", "accession", "barcodes_name", "star_index", "cell_barcode_length", "umi_length", "organism"]
@@ -164,11 +203,14 @@ def get_best_params(
     return data
 
 def write_all_data(data_all: pd.DataFrame, outfile_merged: str) -> None:
-    """
-    Write the merged data as CSV.
-    Args:
-        data_all: pandas dataframe of all parameters
-        outfile_merged: Path to the merged parameters CSV
+    """Compute cell count estimates and write the full parameter table to CSV.
+
+    Parameters
+    ----------
+    data_all : pd.DataFrame
+        All parameter combinations including alignment statistics.
+    outfile_merged : str
+        Output path for the merged CSV file.
     """
     #-- table of all parameters --#
     # Estimate the number of cells
@@ -183,13 +225,22 @@ def write_all_data(data_all: pd.DataFrame, outfile_merged: str) -> None:
     logging.info(f"Output written to: {outfile_merged}")
 
 def write_data(data: pd.DataFrame, data_all: pd.DataFrame, outfile_selected: str, outfile_merged: str) -> None:
-    """
-    Write the data as JSON and the merged data as CSV.
-    Args:
-        data: pandas dataframe of best parameters
-        data_all: pandas dataframe of all parameters
-        outfile_selected: Path to the selected parameters JSON file
-        outfile_merged: Path to the merged parameters CSV
+    """Write the selected best parameters as JSON and the full table as CSV.
+
+    If ``data`` is None, an empty JSON object is written to ``outfile_selected``.
+    Otherwise the best-parameter row is serialised to JSON and a
+    ``Best parameters`` boolean column is added to the merged CSV.
+
+    Parameters
+    ----------
+    data : pd.DataFrame or None
+        Best parameter row, or None if no valid parameters were found.
+    data_all : pd.DataFrame
+        All parameter combinations.
+    outfile_selected : str
+        Output path for the selected parameters JSON file.
+    outfile_merged : str
+        Output path for the merged parameters CSV file.
     """
     # write data as JSON
     if data is None:
@@ -212,6 +263,16 @@ def write_data(data: pd.DataFrame, data_all: pd.DataFrame, outfile_selected: str
     write_all_data(data_all, outfile_merged)
 
 def main(args, log_df):
+    """Select the best STAR parameters for a sample and write the results to disk.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments with attributes: read_stats_tsv, sra_stats_csv,
+        star_params_csv, outdir, sample, accession, reads_with_barcodes_cutoff.
+    log_df : pd.DataFrame
+        In-memory log DataFrame to which status entries are appended.
+    """
     # set pandas display optionqs
     pd.set_option('display.max_columns', 40)
     pd.set_option('display.width', 300)

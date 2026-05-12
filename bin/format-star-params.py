@@ -50,6 +50,18 @@ parser.add_argument('--outfile', type=str, default="star_params.csv",
 
 # functions
 def main(args):
+    """Build and write a STAR parameters CSV by merging CLI arguments with a summary file.
+
+    Reads the STAR summary CSV, pivots it, merges with the provided parameter values,
+    and writes the result to the output file.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments with attributes:
+        star_summary_csv, sample, accession, strand, barcodes_name, barcodes_file,
+        cell_barcode_length, umi_length, organism, star_index, outfile.
+    """
     # set pandas display optionqs
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 300)

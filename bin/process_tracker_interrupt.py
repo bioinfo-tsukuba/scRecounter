@@ -14,6 +14,19 @@ from dotenv import load_dotenv
 
 
 def main():
+    """Parse arguments and mark running processes from a completed workflow run as interrupted.
+
+    Queries the database for records with status=2 (running) that were started at
+    or after the provided ``--since`` timestamp and updates them to status=1 (failed)
+    with a standard interruption message.  Intended to be called unconditionally from
+    Nextflow's ``workflow.onComplete`` hook so that accessions dropped from the channel
+    (e.g. via ``errorStrategy 'ignore'``) are never left in the running state.
+
+    Returns
+    -------
+    int
+        0 on success, 1 if an unexpected error occurs.
+    """
     parser = argparse.ArgumentParser(
         description='Mark running (status=2) processes from this workflow run as interrupted (status=1)'
     )

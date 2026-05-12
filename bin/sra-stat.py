@@ -35,12 +35,17 @@ parser.add_argument('--outfile', type=str, default='sra-stat.csv',
 
 # functions
 def run_cmd(cmd: str) -> tuple:
-    """
-    Run sub-command and return returncode, output, and error.
-    Args:
-        cmd: Command to run
-    Returns:
-        tuple: (returncode, output, error)
+    """Run a shell command and return its exit code, stdout, and stderr.
+
+    Parameters
+    ----------
+    cmd : str
+        Shell command string to execute.
+
+    Returns
+    -------
+    tuple
+        A 3-tuple of (returncode, stdout bytes, stderr bytes).
     """
     logging.info(f'Running: {cmd}')
     p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
@@ -48,13 +53,19 @@ def run_cmd(cmd: str) -> tuple:
     return p.returncode, output, err
 
 def run_sra_stat(accession: str, tries: int=5) -> pd.DataFrame:
-    """
-    Run prefetch with error handling.
-    Args:
-        accession: SRA accession
-        tries: Number of tries
-    Returns:
-        
+    """Run sra-stat on an accession with retry logic.
+
+    Parameters
+    ----------
+    accession : str
+        SRA accession to query.
+    tries : int, optional
+        Maximum number of attempts, by default 5.
+
+    Returns
+    -------
+    bytes or None
+        Raw XML output from sra-stat, or None if all attempts fail.
     """
     cmd = f'sra-stat --xml --quick {accession}'
     for i in range(tries):
@@ -72,13 +83,18 @@ def run_sra_stat(accession: str, tries: int=5) -> pd.DataFrame:
     return None
     
 def parse_sra_stats(xml_string: str) -> Dict:
-    """Parse SRA statistics XML and return key metrics.
-    
-    Args:
-        xml_string: XML string containing SRA run statistics
-        
-    Returns:
-        Dictionary containing parsed statistics
+    """Parse the XML output of sra-stat and return a one-row DataFrame of metrics.
+
+    Parameters
+    ----------
+    xml_string : str
+        XML string produced by ``sra-stat --xml --quick``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Single-row DataFrame with columns: accession, spot_count, base_count,
+        file_size_gb.
     """
     # Parse XML string
     root = ET.fromstring(xml_string)
@@ -111,6 +127,13 @@ def parse_sra_stats(xml_string: str) -> Dict:
     return pd.DataFrame(stats, index=[0])
 
 def main(args):
+    """Run sra-stat for an accession and write the parsed metrics to a CSV file.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments with attributes: accession, tries, outfile.
+    """
     # check for prefetch in path
     for exe in ['sra-stat']:
         if not which(exe):

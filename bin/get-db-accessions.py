@@ -47,20 +47,36 @@ parser.add_argument('--outfile', type=str, default="accessions.csv",
 
 # functions
 def db_get_unprocessed_records(
-    conn: connection, 
+    conn: connection,
     process: str,
-    database: List[str], 
+    database: List[str],
     max_srx: int=3,
     organisms: List[str] = ["human", "mouse"]
     ) -> pd.DataFrame:
-    """
-    Get all suitable unprocessed SRX records, limiting by unique srx_accession values.
-    Args:
-        conn: Connection to the database.
-        database: Name of the database to query.
-        max_srx: Maximum number of SRX records to return.
-    Returns:
-        dataframe of unprocessed SRX records.
+    """Fetch unprocessed SRX records that meet the scRecounter inclusion criteria.
+
+    Excludes accessions already recorded as successfully processed in the
+    screcounter_log table, then applies filters for platform, library type,
+    organism, and collection membership.
+
+    Parameters
+    ----------
+    conn : psycopg2.extensions.connection
+        Active database connection.
+    process : str
+        Process name used to identify completed records in the log table.
+    database : list of str
+        Database source identifiers to include (e.g. ``['sra', 'gds']``).
+    max_srx : int, optional
+        Maximum number of distinct SRX accessions to return, by default 3.
+    organisms : list of str, optional
+        Organism names to include, by default ``['human', 'mouse']``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Unprocessed SRX/SRR pairs with columns: sample, accession, organism,
+        tech_10x.
     """
     # init tables
     srx_metadata = Table("srx_metadata")
@@ -139,6 +155,14 @@ def db_get_unprocessed_records(
     return pd.read_sql(str(stmt), conn)
 
 def main(args):
+    """Fetch unprocessed accessions from the database and write them to a CSV file.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments with attributes:
+        max_srx, database, organisms, outfile.
+    """
     # parse organisms
     args.organisms = args.organisms.split(",")
 
