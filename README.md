@@ -49,12 +49,7 @@ You can use `conda` instead of `mamba` if you prefer.
 It is easiest to install Nextflow using `mamba` (or `conda`).
 
 ```bash
-mamba create -n nextflow_env -c bioconda nextflow
-```
-
-Make sure to activate the environment before running the pipeline:
-
-```bash
+mamba create -n nextflow_env -c bioconda nextflow=25.04.6 -c psql
 mamba activate nextflow_env
 ```
 
