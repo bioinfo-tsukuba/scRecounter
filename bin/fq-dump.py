@@ -116,7 +116,7 @@ def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, 
 
     Selection rules:
 
-    * Single file → renamed to ``read_1.fastq.gz``.
+    * Single file → renamed to ``read_1.fastq``.
     * Two or more files → the two longest reads are selected:
 
       - If their lengths differ, the longest becomes ``read_2`` (barcode/UMI) and
@@ -145,9 +145,9 @@ def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, 
 
     # Handle only 1 file
     if num_files == 1:
-        logging.info("Only one read file found; renaming to read_1.fastq.gz")
+        logging.info("Only one read file found; renaming to read_1.fastq")
         old_name = list(read_lens_filt.keys())[0]
-        new_name = os.path.join(outdir, "read_1.fastq.gz")
+        new_name = os.path.join(outdir, "read_1.fastq")
 
         if old_name == new_name:
             raise ValueError(f"New fastq name is the same as old name: {new_name}")
@@ -170,10 +170,10 @@ def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, 
         top_two.sort(key=lambda x: x[0])
 
         # Rename in ascending order:
-        #  - first becomes read_1.fastq.gz
-        #  - second becomes read_2.fastq.gz
+        #  - first becomes read_1.fastq
+        #  - second becomes read_2.fastq
         for i, (old_name, _) in enumerate(top_two, start=1):
-            new_name = os.path.join(outdir, f"read_{i}.fastq.gz")
+            new_name = os.path.join(outdir, f"read_{i}.fastq")
             if old_name == new_name:
                 raise ValueError(f"New fastq name is the same as old name: {new_name}")
             os.rename(old_name, new_name)
@@ -184,7 +184,7 @@ def rename_read_files(read_lens_filt: Dict[str, int], outdir: str) -> Dict[str, 
         # Assign read_2 to the largest read, read_1 to the second largest
         for i, (old_name, _) in enumerate(top_two, start=1):
             read_num = 2 if i == 1 else 1
-            new_name = os.path.join(outdir, f"read_{read_num}.fastq.gz")
+            new_name = os.path.join(outdir, f"read_{read_num}.fastq")
 
             if old_name == new_name:
                 raise ValueError(f"New fastq name is the same as old name: {new_name}")
@@ -352,7 +352,6 @@ def main(args, log_df):
             cmd = [
                 "parallel-fastq-dump.py",
                 "--split-files",
-                "--gzip",
                 "--outdir", args.outdir,
                 "--threads", args.threads,
                 "--maxSpotId", args.maxSpotId,
@@ -362,7 +361,6 @@ def main(args, log_df):
             cmd = [
                 "fastq-dump",
                 "--split-files",
-                "--gzip",
                 "--outdir", args.outdir,
                 "--maxSpotId", args.maxSpotId,
                 args.sra_file
@@ -385,7 +383,6 @@ def main(args, log_df):
             "fasterq-dump",
             "--split-files",
             "--force",
-            "--gzip",
             "--include-technical",
             "--threads", args.threads,
             "--bufsize", args.bufsize,

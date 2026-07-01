@@ -87,7 +87,7 @@ process STAR_FULL {
     }
 
     input:
-    tuple val(sample), path("input*_R1.fastq.gz"), path("input*_R2.fastq.gz"), 
+    tuple val(sample), path("input*_R1.fastq"), path("input*_R2.fastq"),
           path(barcodes_file), path(star_index),
           val(cell_barcode_length), val(umi_length), val(strand)
 
@@ -111,13 +111,13 @@ process STAR_FULL {
     # Initialize EXIT_STATUS
     EXIT_STATUS=0
 
-    R1=\$(printf "%s," input*_R1.fastq.gz)
-    R1=\${R1%,} 
-    R2=\$(printf "%s," input*_R2.fastq.gz)
+    R1=\$(printf "%s," input*_R1.fastq)
+    R1=\${R1%,}
+    R2=\$(printf "%s," input*_R2.fastq)
     R2=\${R2%,}
     STAR \\
       --readFilesIn \$R2 \$R1 \\
-      --readFilesCommand zcat \\
+      --readFilesCommand cat \\
       --runThreadN ${task.cpus} \\
       --genomeDir ${star_index} \\
       --soloCBwhitelist ${barcodes_file} \\
@@ -188,8 +188,8 @@ process FASTQ_DUMP {
     tuple val(sample), val(accession), val(download_url), val(metadata), val(sra_file_size_gb)
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq.gz"), emit: "R1"
-    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq.gz"), emit: "R2", optional: true
+    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
+    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
     path "${task.process}.log",                                                   emit: "log"
 
     script:
@@ -217,7 +217,7 @@ process FASTQ_DUMP {
     stub:
     """
     mkdir -p reads
-    touch reads/read_1.fastq.gz reads/read_2.fastq.gz ${task.process}.log
+    touch reads/read_1.fastq reads/read_2.fastq ${task.process}.log
     """
 }
 
@@ -251,8 +251,8 @@ process FASTERQ_DUMP {
     tuple val(sample), val(accession), val(download_url), val(metadata), val(sra_file_size_gb)
 
     output:
-    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq.gz"), emit: "R1", optional: true
-    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq.gz"), emit: "R2", optional: true
+    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1", optional: true
+    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
     path "${task.process}.log",                                                   emit: "log"
 
     script:
@@ -284,6 +284,6 @@ process FASTERQ_DUMP {
     stub:
     """
     mkdir -p reads
-    touch reads/read_1.fastq.gz reads/read_2.fastq.gz ${task.process}.log
+    touch reads/read_1.fastq reads/read_2.fastq ${task.process}.log
     """
 }
