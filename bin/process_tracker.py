@@ -129,8 +129,7 @@ class ProcessTracker:
                 ON CONFLICT (id) DO UPDATE SET
                     start_datetime  = EXCLUDED.start_datetime,
                     status          = EXCLUDED.status,
-                    finish_datetime = NULL,
-                    error_message   = NULL
+                    finish_datetime = NULL
                 WHERE experiment_process.status != 0
             """, [id, experiment_id, srx_accession, organism,
                   now.date(), process_type, process_id,
@@ -179,8 +178,7 @@ class ProcessTracker:
             'process_type': process_type,
             'status': status,
             'finish_datetime': finish_time,
-            'path': path,
-            'error_message': error_message
+            'path': path
         }])
 
         db_update(update_data, 'experiment_process', self.conn)
@@ -397,7 +395,6 @@ class ProcessTracker:
         SELECT
             experiment_id,
             process_type,
-            error_message,
             start_datetime,
             finish_datetime,
             execution_time_seconds
@@ -471,8 +468,7 @@ class ProcessTracker:
             cur.execute("""
                 UPDATE experiment_process
                 SET status          = 1,
-                    finish_datetime = NOW(),
-                    error_message   = 'Process interrupted (workflow terminated without finish)'
+                    finish_datetime = NOW()
                 WHERE status        = 2
                   AND process_type  = %s
                   AND process_id    = %s
