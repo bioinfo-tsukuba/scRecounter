@@ -297,7 +297,7 @@ process FASTQ_DUMP {
     label "download_env"
     maxRetries 1
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' } 
-    cpus 4
+    cpus 8
     memory { 4.GB * task.attempt }
     disk 10.GB
 
