@@ -27,7 +27,9 @@ class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
 desc = 'Run sra-tools prefetch'
 epi = """DESCRIPTION:
 Run fastq-dump or fasterq-dump on an SRA file or accession.
-If the --maxSpotId option is >0, then (parallel-)fastq-dump is used; otherwise, prefetch + fasterq-dump is used.
+If the --maxSpotId option is >0, then (parallel-)fastq-dump is used directly (subsample mode).
+Otherwise the run is prefetched once, then fasterq-dump is tried; if it fails to
+yield valid paired reads, fastq-dump is run on the same prefetched run (no spot cap).
 If --threads >1, parallel-fastq-dump is used instead of fastq-dump.
 """
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
@@ -322,11 +324,120 @@ def write_log(logF, sample: str, accession: str, step: str, success: bool, msg: 
         msg = msg[:100] + '...'
     logF.write(','.join([sample, accession, step, str(success), msg]) + '\n')
 
-def main(args, log_df):
-    """Run fastq-dump or fasterq-dump for an SRA accession and validate the output.
+def build_fasterq_cmd(sra_path: str, args) -> list:
+    """Build the fasterq-dump command for a prefetched SRA run.
 
-    Dispatches to parallel-fastq-dump, fastq-dump, or prefetch+fasterq-dump based
-    on the provided arguments, then validates and renames the output FASTQ files.
+    Parameters
+    ----------
+    sra_path : str
+        Path to the prefetched SRA run (accession directory or .sra file).
+    args : argparse.Namespace
+        Parsed command-line arguments.
+
+    Returns
+    -------
+    list of str
+        The fasterq-dump command and arguments.
+    """
+    return [
+        "fasterq-dump",
+        "--split-files",
+        "--force",
+        "--include-technical",
+        "--threads", args.threads,
+        "--bufsize", args.bufsize,
+        "--curcache", args.curcache,
+        "--min-read-len", args.min_read_length,
+        "--mem", args.mem,
+        "--temp", args.temp,
+        "--outdir", args.outdir,
+        sra_path
+    ]
+
+def build_fastq_cmd(sra_path: str, args) -> list:
+    """Build the (parallel-)fastq-dump command for a prefetched SRA run.
+
+    No spot/read cap (``--maxSpotId``) is applied: all reads are extracted.
+
+    Parameters
+    ----------
+    sra_path : str
+        Path to the prefetched SRA run (accession directory or .sra file).
+    args : argparse.Namespace
+        Parsed command-line arguments.
+
+    Returns
+    -------
+    list of str
+        The (parallel-)fastq-dump command and arguments.
+    """
+    if args.threads > 1:
+        return [
+            "parallel-fastq-dump.py",
+            "--split-files",
+            "--outdir", args.outdir,
+            "--threads", args.threads,
+            "--sra-id", sra_path
+        ]
+    return [
+        "fastq-dump",
+        "--split-files",
+        "--outdir", args.outdir,
+        sra_path
+    ]
+
+def clear_read_files(outdir: str) -> None:
+    """Remove any FASTQ files left in ``outdir`` (e.g. from a failed attempt).
+
+    Parameters
+    ----------
+    outdir : str
+        Directory to clear of FASTQ files.
+    """
+    for file_ext in ('fastq', 'fastq.gz', 'fq', 'fq.gz'):
+        for f in glob(os.path.join(outdir, f'*.{file_ext}')):
+            os.remove(f)
+
+def run_and_check(cmd: list, args, log_df) -> tuple:
+    """Run a dump command, log it, then validate and rename the output.
+
+    Parameters
+    ----------
+    cmd : list of str
+        Dump command to execute.
+    args : argparse.Namespace
+        Parsed command-line arguments.
+    log_df : pd.DataFrame
+        In-memory log DataFrame to which status entries are appended.
+
+    Returns
+    -------
+    tuple
+        A 2-tuple of (status, message) where status is ``'Success'`` or ``'Failure'``.
+    """
+    returncode, output, err = run_cmd(cmd)
+    msg = (output if returncode == 0 else err).decode().split('\n')
+    msg = "; ".join([x for x in msg if x]) or "No command output"
+    status = "Success" if returncode == 0 else "Failure"
+    add_to_log(log_df, args.sample, args.accession, "fq-dump", cmd[0], status, msg)
+    if returncode != 0:
+        logging.warning(err)
+        return "Failure", msg
+    # validate and rename the output
+    status, msg = check_output(args.sra_file, args.outdir, args.min_read_length, args.accession)
+    add_to_log(log_df, args.sample, args.accession, "fq-dump", f"check_{cmd[0]}_output", status, msg)
+    return status, msg
+
+def main(args, log_df):
+    """Extract FASTQ reads for an SRA accession and validate the output.
+
+    Two modes:
+
+    * ``--maxSpotId`` > 0 (STAR parameter-search subsampling): stream the first N
+      spots directly with (parallel-)fastq-dump, without prefetch.
+    * otherwise (full download): prefetch the run once, then try fasterq-dump; if
+      that fails to yield valid paired reads, fall back to fastq-dump on the same
+      prefetched run, with no spot/read cap.
 
     Parameters
     ----------
@@ -335,19 +446,14 @@ def main(args, log_df):
     log_df : pd.DataFrame
         In-memory log DataFrame to which status entries are appended.
     """
-    # check for fastq-dump and fasterq-dump
+    # check for required executables
     for exe in ['fastq-dump', 'fasterq-dump', 'prefetch', 'vdb-dump']:
         if not which(exe):
             logging.error(f'{exe} not found in PATH')
             sys.exit(1)
 
-    # get accession
-    accession = os.path.splitext(os.path.basename(args.sra_file))[0]
-
-    # run fast(er)q-dump
-    cmd = []
+    # -- Subsample mode: direct (parallel-)fastq-dump with a spot cap, no prefetch --
     if args.maxSpotId and args.maxSpotId > 0:
-        # (parallel-)fastq-dump with maxSpotId
         if args.threads > 1:
             cmd = [
                 "parallel-fastq-dump.py",
@@ -365,53 +471,34 @@ def main(args, log_df):
                 "--maxSpotId", args.maxSpotId,
                 args.sra_file
             ]
-    else:
-        # prefetch
-        prefetch_outdir = prefetch_workflow(
-            sample=args.sample,
-            accession=args.accession,
-            log_df=log_df,
-            max_size_gb=args.max_size_gb,
-            gcp_download=args.gcp_download,
-            tries=args.tries,
-            outdir=os.path.join(args.temp, "prefetch")
-        )
-        if prefetch_outdir is None:
-            return None
-        # fasterq-dump
-        cmd = [
-            "fasterq-dump",
-            "--split-files",
-            "--force",
-            "--include-technical",
-            "--threads", args.threads,
-            "--bufsize", args.bufsize,
-            "--curcache", args.curcache,
-            "--min-read-len", args.min_read_length,
-            "--mem", args.mem,
-            "--temp", args.temp,
-            "--outdir", args.outdir,
-            prefetch_outdir
-        ]
-    ## run command
-    returncode, output, err = run_cmd(cmd)
-    if returncode == 0:
-        msg = output.decode().split('\n')
-    else:
-        msg = err.decode().split('\n')
-    msg = "; ".join([x for x in msg if x])
-    if msg == "":
-        msg = "No command output"
-    ## add to log
-    status = "Success" if returncode == 0 else "Failure"
-    add_to_log(log_df, args.sample, args.accession, "fq-dump", cmd[0], status, msg)
-    if returncode != 0:
-        logging.warning(err)
+        run_and_check(cmd, args, log_df)
+        rmtree(args.temp, ignore_errors=True)
         return None
 
-    # Check the fq-dump output
-    status,msg = check_output(args.sra_file, args.outdir, args.min_read_length, args.accession)
-    add_to_log(log_df, args.sample, args.accession, "fq-dump", f"check_{cmd[0]}_output", status, msg)
+    # -- Full mode: prefetch once, then fasterq-dump -> fastq-dump fallback --
+    # 1) prefetch the run locally (independent step; shared by both dump tools)
+    prefetch_out = prefetch_workflow(
+        sample=args.sample,
+        accession=args.accession,
+        log_df=log_df,
+        max_size_gb=args.max_size_gb,
+        gcp_download=args.gcp_download,
+        tries=args.tries,
+        outdir=os.path.join(args.temp, "prefetch")
+    )
+    if prefetch_out is None:
+        return None
+
+    # 2) try fasterq-dump on the prefetched run
+    status, msg = run_and_check(build_fasterq_cmd(prefetch_out, args), args, log_df)
+
+    # 3) on failure, fall back to fastq-dump on the SAME prefetched run (no cap)
+    if status != "Success":
+        logging.warning(
+            f"fasterq-dump did not yield valid reads ({msg}); falling back to fastq-dump"
+        )
+        clear_read_files(args.outdir)
+        status, msg = run_and_check(build_fastq_cmd(prefetch_out, args), args, log_df)
 
     # unlink temp files
     rmtree(args.temp, ignore_errors=True)

@@ -128,8 +128,8 @@ def prefetch(accession: str, tries: int, max_size_gb: int, outdir: str) -> Tuple
 def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str, str]:
     """Inspect an SRA accession with vdb-dump and validate key metadata fields.
 
-    Checks that the accession matches, the file size meets the minimum threshold,
-    and the platform is Illumina.
+    Checks that the accession matches and the file size meets the minimum
+    threshold. Platform is intentionally not validated (see note below).
 
     Parameters
     ----------
@@ -162,7 +162,7 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str, str]:
 
     # checks
     ## keys
-    for x in ['acc', 'size', 'FMT', 'platf']:
+    for x in ['acc', 'size', 'FMT']:
         if x not in data:
             return "Failure","Missing key in vdb-dump output: {x}"
     ## accession
@@ -173,8 +173,10 @@ def run_vdb_dump(accession: str, min_size: int=1e6) -> Tuple[str, str]:
     if size < min_size:
         return "Failure",f'File size too small: {size} < {min_size}'
     ## platform
-    if 'illumina' not in data['platf'].lower():
-        return "Failure",f'Invalid platform: {data["platf"]}'
+    # NOTE: platform validation is intentionally omitted. Some otherwise-valid
+    # Illumina runs report SRA_PLATFORM_UNDEFINED; rejecting them here previously
+    # forced a fallback to fastq-dump and lost reads. Non-Illumina data is
+    # filtered upstream (srx_metadata.is_illumina) and by downstream read checks.
     # all checks passed
     return "Success","Validation successful"
 

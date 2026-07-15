@@ -13,28 +13,11 @@ workflow STAR_FULL_WF{
         ch_star_params.map{ it[0] }.unique(), by: 0
     )
 
-    // fasterq-dump to download all reads
-    ch_fastq = FASTERQ_DUMP(ch_accessions_filt)
+    // Download all reads: prefetch once, then fasterq-dump with an internal
+    // fastq-dump fallback (no spot cap). See bin/fq-dump.py.
+    ch_fastq = DOWNLOAD(ch_accessions_filt)
     ch_fastq = joinReads(ch_fastq.R1, ch_fastq.R2)
-
-    // For accessions lacking paired reads from fasterq-dump, fallback to fastq-dump
-    ch_accessions_fallback = ch_accessions_filt
-        .join(
-            ch_fastq.map{ it -> [it[0], it[1], true] }, 
-            by: [0,1],
-            remainder: true
-        )
-        .filter{ it -> it[5] != true }
-        .map{ it -> it[0..4] }
-
-    // run fastq-dump on the fallback accessions
-    ch_fastq_fallback = FASTQ_DUMP(ch_accessions_fallback)
-    ch_fastq_fallback = joinReads(ch_fastq_fallback.R1, ch_fastq_fallback.R2)
-    ch_fastq_fallback.count().view{ count -> "No. of fastq-dump fallback accessions: $count" }
-
-    // combine the fasterq-dump and fastq-dump results
-    ch_fastq = ch_fastq.mix(ch_fastq_fallback)
-    ch_fastq.count().view{ count -> "No. of fast(er)q-dump accessions: $count" }
+    ch_fastq.count().view{ count -> "No. of downloaded accessions: $count" }
 
     // 個別accessionデータを保持（groupTuple前）
     ch_individual_accessions = ch_fastq
@@ -169,59 +152,7 @@ def saveAsSTAR(sample, filename) {
     return null
 }
 
-process FASTQ_DUMP {
-    tag "${sample}_${accession}"
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
-    label "download_env"
-    maxRetries 1
-    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
-    cpus 4
-    memory { 4.GB * task.attempt }
-    time { (6.h + (sra_file_size_gb * 0.8).h) * task.attempt }
-    disk {[request: 375.GB, type: 'local-ssd']}
-    machineType { 
-        def options = ['n2-*', 'c2-*', 'n2d-*', 'c2d-*']
-        return options[new Random().nextInt(options.size())]
-    }
-    
-    input:
-    tuple val(sample), val(accession), val(download_url), val(metadata), val(sra_file_size_gb)
-
-    output:
-    tuple val(sample), val(accession), val(metadata), path("reads/read_1.fastq"), emit: "R1"
-    tuple val(sample), val(accession), val(metadata), path("reads/read_2.fastq"), emit: "R2", optional: true
-    path "${task.process}.log",                                                   emit: "log"
-
-    script:
-    def sra_input = download_url ?: accession
-    """
-    export GCP_SQL_DB_HOST="${params.db_host}"
-    export GCP_SQL_DB_NAME="${params.db_name}"
-    export GCP_SQL_DB_USERNAME="${params.db_username}"
-
-    echo "Downloading ${accession} for ${sample}" > ${task.process}.log
-    echo "sra-stat file size: ${sra_file_size_gb} GB" >> ${task.process}.log
-
-    echo "Running fastq-dump as backup for fasterq-dump" >> ${task.process}.log
-    fq-dump.py \\
-      --sample ${sample} \\
-      --accession ${accession} \\
-      --threads ${task.cpus} \\
-      --min-read-length ${params.min_read_len} \\
-      --outdir reads \\
-      --maxSpotId ${params.fallback_max_spots} \\
-      ${sra_input} \\
-      2>&1 | tee -a ${task.process}.log
-    """
-
-    stub:
-    """
-    mkdir -p reads
-    touch reads/read_1.fastq reads/read_2.fastq ${task.process}.log
-    """
-}
-
-process FASTERQ_DUMP {
+process DOWNLOAD {
     tag "${sample}_${accession}"
     publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
@@ -265,7 +196,7 @@ process FASTERQ_DUMP {
     echo "Downloading ${accession} for ${sample}" > ${task.process}.log
     echo "sra-stat file size: ${sra_file_size_gb} GB" >> ${task.process}.log
 
-    # run prefetch and fasterq-dump
+    # prefetch once, then fasterq-dump with internal fastq-dump fallback (no cap)
     fq-dump.py \\
       --sample ${sample} \\
       --accession ${accession} \\
