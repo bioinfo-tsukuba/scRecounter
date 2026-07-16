@@ -244,12 +244,20 @@ environment that runs Nextflow:
 conda install -n <nextflow_env> 'openjdk=17'
 ```
 
-or keep that environment as-is and point Nextflow at a separate JDK 17 via
-`NXF_JAVA_HOME` (this overrides the JVM only for Nextflow):
+or use the provided launcher environment (Nextflow pinned to JDK 17):
 
 ```bash
-conda create -n nf_jdk17 'openjdk=17' -y
-export NXF_JAVA_HOME="$HOME/miniforge3/envs/nf_jdk17"
+conda env create -f envs/nextflow_jdk17.yml
+conda activate nextflow_jdk17
+nextflow run main.nf ...   # your usual command
+```
+
+or keep your current environment as-is and point Nextflow at a separate JDK 17
+via `NXF_JAVA_HOME` (this overrides the JVM only for Nextflow):
+
+```bash
+conda env create -f envs/nextflow_jdk17.yml
+export NXF_JAVA_HOME="$HOME/miniforge3/envs/nextflow_jdk17"
 nextflow run main.nf ...   # your usual command
 ```
 
