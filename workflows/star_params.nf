@@ -93,8 +93,8 @@ def saveAsFinalParams(sample, filename) {
 }
 
 process STAR_SAVE_FINAL_PARAMS {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsFinalParams(sample, filename) }
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsFinalParams(sample, filename) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 10.GB
@@ -138,8 +138,8 @@ def saveAsParams(sample, accession, filename) {
 }
 
 process STAR_SELECT_PARAMS {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsParams(sample, accession, filename) }
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsParams(sample, accession, filename) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 10.GB
@@ -172,7 +172,7 @@ process STAR_SELECT_PARAMS {
 }
 
 process STAR_FORMAT_PARAMS {
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     disk 10.GB
@@ -213,7 +213,7 @@ def saveAsValid(sample, filename) {
 // Run STAR alignment on subsampled reads with various parameters to determine which parameters produce the most valid barcodes
 process STAR_PARAM_SEARCH {
     // tag "${sample}_${accession}_${barcode_name}"
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "star_env"
     label "process_medium"
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
@@ -293,7 +293,7 @@ process SEQKIT_STATS {
 
 process FASTQ_DUMP {
     tag "${sample}_${accession}"
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
     maxRetries 1
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' } 

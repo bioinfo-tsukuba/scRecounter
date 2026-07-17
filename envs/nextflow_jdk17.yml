@@ -1,9 +1,12 @@
-# Conda environment for LAUNCHING the pipeline (the Nextflow head process),
-# not a per-process task env. Pins Nextflow to JDK 17 to avoid the Lustre
-# publishDir failure ("java.io.IOException: No data available"): JDK 21+ copies
-# files with the copy_file_range() syscall, which Lustre does not support.
-# JDK 17 falls back to a plain read/write copy. See README "Running on a Lustre
-# filesystem (e.g. HOKUSAI)".
+# Optional conda environment for LAUNCHING the pipeline (the Nextflow head
+# process), not a per-process task env. Pins Nextflow + JDK 17 for a reproducible
+# launcher.
+#
+# NOTE: JDK 17 avoids only the copy_file_range() variant of the Lustre publish
+# failure; Java file copy still fails on Lustre with ENODATA at the attribute
+# copy. The actual Lustre fix is publishing by hardlink (`-profile lustre`, i.e.
+# publish_mode = "link"), which does not depend on the JDK. See README
+# "Running on a Lustre filesystem (e.g. HOKUSAI)".
 #
 # Usage:
 #   conda env create -f envs/nextflow_jdk17.yml

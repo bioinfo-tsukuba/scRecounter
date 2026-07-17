@@ -21,7 +21,7 @@ workflow DOWNLOAD_WF {
 }
 
 process FQDUMP_LOG_MERGE {
-    publishDir file(params.output_dir) / "logs", mode: "copy", overwrite: true
+    publishDir file(params.output_dir) / "logs", mode: params.publish_mode, overwrite: true
     label "download_env"
 
     input:

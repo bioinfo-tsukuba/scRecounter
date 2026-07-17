@@ -216,60 +216,44 @@ nextflow run main.nf \
   --output_dir   OUTPUTDIR
 ```
 
-### Running on a Lustre filesystem (e.g. HOKUSAI): use JDK 17
+### Running on a Lustre filesystem (e.g. HOKUSAI): publish via hardlink
 
-On Lustre-backed storage, the final `publishDir` copy step can fail with:
+On Lustre-backed storage, the final `publishDir` step fails with `ENODATA`:
 
 ```
 Failed to publish file: .../resultsSolo.out/GeneFull/Summary.csv; to: .../STAR/.../Summary.csv [copy]
-java.io.IOException: No data available
-    at sun.nio.fs.LinuxNativeDispatcher.directCopy0(Native Method)
+No data available
 ```
 
-**Cause:** JDK 21+ (bundled with recent Nextflow) implements `Files.copy` with the
-Linux `copy_file_range()` syscall (`directCopy0`). Lustre does not support this
-syscall and returns `ENODATA` ("No data available"), which aborts the run at the
-publish step. JDK 17 does not use `copy_file_range` (it falls back to a plain
-read/write copy), so running Nextflow on **JDK 17** avoids the problem.
+**Cause:** Java's `Files.copy` does not work on Lustre and returns `ENODATA`
+("No data available"), which aborts the run at the publish step. The failure
+occurs regardless of JDK version — JDK 21+ fails in the `copy_file_range()`
+syscall (`LinuxNativeDispatcher.directCopy0`), and JDK 17 fails later in
+`UnixCopyFile.copyFile` (extended-attribute copy). Switching the JDK alone is
+therefore **not** sufficient.
 
-Only the Nextflow head JVM performs `publishDir` copies, so only the JDK used to
-launch Nextflow needs to change — task tools (STAR, fasterq-dump, …) are
-unaffected.
-
-**Fix — run Nextflow on JDK 17.** Either downgrade the JDK in the conda
-environment that runs Nextflow:
+**Fix — publish by hardlink instead of copy.** Add the `lustre` profile, which
+sets `publish_mode = "link"`. Hardlinks (`link()`) copy neither data nor
+attributes, so they avoid the failing syscalls entirely, and the results persist
+after the work directory is cleaned:
 
 ```bash
-# in the environment that provides `nextflow`
-conda install -n <nextflow_env> 'openjdk=17'
+nextflow run main.nf \
+  -profile conda,trace,report,vm_resilient,lustre \
+  ...
 ```
 
-or use the provided launcher environment (Nextflow pinned to JDK 17):
+Equivalently, pass `--publish_mode link` directly.
+
+**Requirement:** hardlinks only work within a single filesystem, so `-work-dir`
+and `--output_dir` must be on the **same Lustre mount**. Verify with:
 
 ```bash
-conda env create -f envs/nextflow_jdk17.yml
-conda activate nextflow_jdk17
-nextflow run main.nf ...   # your usual command
+stat -f -c %i <work_dir> <output_dir>   # same value => same filesystem => link OK
 ```
 
-or keep your current environment as-is and point Nextflow at a separate JDK 17
-via `NXF_JAVA_HOME` (this overrides the JVM only for Nextflow):
-
-```bash
-conda env create -f envs/nextflow_jdk17.yml
-export NXF_JAVA_HOME="$HOME/miniforge3/envs/nextflow_jdk17"
-nextflow run main.nf ...   # your usual command
-```
-
-**Verify** a candidate JDK is Lustre-safe (should print nothing):
-
-```bash
-"$JDK17_HOME/bin/javap" -p sun.nio.fs.LinuxNativeDispatcher | grep directCopy
-# no output  -> safe (no copy_file_range); prints "directCopy0" -> JDK 21/23, avoid
-```
-
-After launching, confirm the Java version in `.nextflow.log` (or `nextflow info`)
-is 17.x.
+If they are on different mounts, keep `publish_mode = "copy"` and instead place
+the work directory and output directory on the same Lustre filesystem.
 
 # Output Structure
 

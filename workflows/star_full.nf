@@ -58,8 +58,8 @@ workflow STAR_FULL_WF{
 
 process STAR_FULL {
     tag "${sample}_${accession}"
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsSTAR(sample, filename) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsLog(filename, sample) }
     label "star_env"
     label "process_high"
     errorStrategy 'ignore'  // エラーでもワークフローを継続
@@ -154,7 +154,7 @@ def saveAsSTAR(sample, filename) {
 
 process DOWNLOAD {
     tag "${sample}_${accession}"
-    publishDir file(params.output_dir), mode: "copy", overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
+    publishDir file(params.output_dir), mode: params.publish_mode, overwrite: true, saveAs: { filename -> saveAsLog(filename, sample, accession) }
     label "download_env"
     maxRetries 1
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
