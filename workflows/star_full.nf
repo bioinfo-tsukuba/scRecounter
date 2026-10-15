@@ -159,7 +159,7 @@ process DOWNLOAD {
     maxRetries 1
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     cpus 8
-    memory { 16.GB * task.attempt }
+    memory { 4.GB * task.attempt }
     time { (10.h + (sra_file_size_gb * 0.8).h) * task.attempt }
     disk { 
         def disk_size = 
